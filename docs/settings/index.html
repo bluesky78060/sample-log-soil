@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>설정 - 시료 접수 대장</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #FAF8F5 0%, #F5F3EF 50%, #FAF8F5 100%);
+            min-height: 100%;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .settings-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .settings-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(60, 53, 48, 0.06);
+            border: 1.5px solid #E8E4DF;
+        }
+
+        .settings-card h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            font-family: 'Fraunces', 'Noto Sans KR', serif;
+            color: #3C3530;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .settings-card h2 span {
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #6B6460;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1.5px solid #E8E4DF;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            background: #FAFAF9;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #7C9082;
+            box-shadow: 0 0 0 3px rgba(124, 144, 130, 0.12);
+        }
+
+        .form-group input::placeholder {
+            color: #94a3b8;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            position: relative;
+            z-index: 1;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .btn-primary {
+            background: #7C9082;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            background: #6B7D72;
+            box-shadow: 0 4px 12px rgba(124, 144, 130, 0.4);
+        }
+
+        .btn-success {
+            background: #7C9082;
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-1px);
+            background: #6B7D72;
+            box-shadow: 0 4px 12px rgba(124, 144, 130, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-badge.connected {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .status-badge.disconnected {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .status-badge.error {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .migration-list {
+            display: grid;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .migration-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .migration-item-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .migration-item-icon {
+            font-size: 1.5rem;
+        }
+
+        .migration-item-name {
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .migration-item-count {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #78716C;
+            text-decoration: none;
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+            transition: color 0.2s ease;
+        }
+
+        .back-link:hover {
+            color: #7C9082;
+        }
+
+        .help-text {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 0.5rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+
+        .alert-success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        /* 다크 모드 */
+        [data-theme="dark"] body {
+            background: linear-gradient(135deg, #1C1917 0%, #292524 50%, #1C1917 100%);
+        }
+
+        [data-theme="dark"] .settings-card {
+            background: rgba(41, 37, 36, 0.95);
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .settings-card h2 {
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .form-group label {
+            color: #A8A29E;
+        }
+
+        [data-theme="dark"] .form-group input {
+            background: #1C1917;
+            border-color: #57534E;
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .form-group input:focus {
+            border-color: #7C9082;
+        }
+
+        [data-theme="dark"] .migration-item {
+            background: #292524;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .migration-item-name {
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .back-link {
+            color: #A8A29E;
+        }
+
+        /* 다크 모드 - 확장 */
+        [data-theme="dark"] h1 {
+            color: #E7E5E4 !important;
+        }
+
+        [data-theme="dark"] .settings-card h3 {
+            color: #D6D3D1 !important;
+        }
+
+        /* 알림 박스 */
+        [data-theme="dark"] .alert-info {
+            background: #0c2d4d !important;
+            color: #7dd3fc !important;
+            border-color: #0369a1 !important;
+        }
+
+        [data-theme="dark"] .alert-warning {
+            background: #451a03 !important;
+            color: #fde68a !important;
+            border-color: #92400e !important;
+        }
+
+        [data-theme="dark"] .alert-success {
+            background: #052e16 !important;
+            color: #86efac !important;
+            border-color: #166534 !important;
+        }
+
+        [data-theme="dark"] .alert a {
+            color: #60a5fa !important;
+        }
+
+        [data-theme="dark"] .alert code {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+            padding: 0.1em 0.3em;
+            border-radius: 3px;
+        }
+
+        /* 도움말 텍스트 */
+        [data-theme="dark"] .help-text {
+            color: #64748b !important;
+        }
+
+        [data-theme="dark"] .help-text a {
+            color: #60a5fa !important;
+        }
+
+        /* 인증 파일 업로드 영역 */
+        [data-theme="dark"] #authFileUploadArea > div {
+            border-color: #475569 !important;
+            background: #1e293b !important;
+        }
+
+        [data-theme="dark"] #authFileUploadArea p {
+            color: #94a3b8 !important;
+        }
+
+        /* 인증 파일 정보 (등록됨) */
+        [data-theme="dark"] #authFileInfo {
+            background: #052e16 !important;
+            border-color: #166534 !important;
+        }
+
+        /* 상태 정보 패널 (인라인 스타일 오버라이드) */
+        [data-theme="dark"] #cacheStatusInfo,
+        [data-theme="dark"] #networkAccessSection div[style*="background: #f8fafc"] {
+            background: #292524 !important;
+            border-color: #57534E !important;
+        }
+
+        /* 정보 패널 내부 텍스트 */
+        [data-theme="dark"] #cacheStatusInfo div[style*="color: #64748b"],
+        [data-theme="dark"] #networkAccessSection div[style*="color: #64748b"] {
+            color: #A8A29E !important;
+        }
+
+        /* 구분선 */
+        [data-theme="dark"] div[style*="border-top: 1px solid #e2e8f0"] {
+            border-color: #57534E !important;
+        }
+
+        /* 상태 배지 */
+        [data-theme="dark"] .status-badge.disconnected {
+            background: #3D2B1F !important;
+            color: #D4A96A !important;
+        }
+
+        [data-theme="dark"] .status-badge.connected {
+            background: #1E2B22 !important;
+            color: #A8B5A2 !important;
+        }
+
+        [data-theme="dark"] .status-badge.error {
+            background: #2D1515 !important;
+            color: #F4A4A4 !important;
+        }
+
+        /* 마이그레이션 항목 카운트 */
+        [data-theme="dark"] .migration-item-count {
+            color: #A8A29E !important;
+        }
+
+        /* 삭제 버튼 */
+        [data-theme="dark"] #deleteAuthFileBtn {
+            background: #2D1515 !important;
+            color: #F4A4A4 !important;
+        }
+    </style>
+  <script type="module" crossorigin src="../assets/settings-y7mTstVU.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/theme-BmPSn4YP.js">
+  <link rel="modulepreload" crossorigin href="../assets/purify.es-A66Cw1IH.js">
+  <link rel="modulepreload" crossorigin href="../assets/storage-manager-D9yC3kZ2.js">
+  <link rel="modulepreload" crossorigin href="../assets/toast-CYVUzQgW.js">
+  <link rel="modulepreload" crossorigin href="../assets/cache-manager-BxLSevb9.js">
+  <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
+</head>
+
+<body>
+    <div class="settings-container">
+        <a href="../index.html" class="back-link">
+            ← 메인으로 돌아가기
+        </a>
+
+        <h1 style="font-size: 2rem; font-weight: 600; font-family: 'Fraunces', 'Noto Sans KR', serif; color: #3C3530; margin-bottom: 2rem;">
+            ⚙️ 설정
+        </h1>
+
+        <!-- Firebase 인증 파일 설정 (Electron 앱용) -->
+        <div class="settings-card" id="authFileSection">
+            <h2>
+                <span>🔐</span>
+                Firebase 인증 파일
+                <span id="authFileStatus" class="status-badge disconnected">● 미등록</span>
+            </h2>
+
+            <div class="alert alert-info">
+                <strong>인증 파일이란?</strong><br>
+                Firebase 접근을 위한 인증 파일(firebase-auth.json)을 등록해야 클라우드 동기화가 활성화됩니다.
+                인증 파일은 관리자에게 받으세요.
+            </div>
+
+            <div id="authFileUploadArea" style="margin-bottom: 1rem;">
+                <div style="border: 2px dashed #cbd5e1; border-radius: 8px; padding: 2rem; text-align: center; background: #f8fafc;">
+                    <input type="file" id="authFileInput" style="display: none;">
+                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">📁</div>
+                    <p style="color: #64748b; margin-bottom: 1rem;">인증 파일을 선택하거나 드래그해서 놓으세요</p>
+                    <button type="button" id="selectAuthFileBtn" class="btn btn-primary">파일 선택</button>
+                </div>
+            </div>
+
+            <div id="authFileInfo" style="display: none; padding: 1rem; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">✅</span>
+                        <div>
+                            <div style="font-weight: 500; color: #166534;">인증 파일이 등록되어 있습니다</div>
+                            <div id="authFileProjectId" style="font-size: 0.75rem; color: #15803d;"></div>
+                        </div>
+                    </div>
+                    <button type="button" id="deleteAuthFileBtn" class="btn" style="background: #fee2e2; color: #dc2626;">삭제</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button type="button" id="testConnectionBtn" class="btn btn-secondary">연결 테스트</button>
+            </div>
+
+            <p class="help-text" style="margin-top: 1rem;">
+                인증 파일이 없다면 관리자에게 문의하거나, 아래 수동 설정을 펼쳐서 직접 입력하세요.
+            </p>
+
+            <!-- Firebase 수동 설정 (인증 파일 카드 내 하단) -->
+            <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem;">
+                <h3 id="manual-settings-toggle" style="cursor: pointer; font-size: 0.95rem; font-weight: 500; color: #475569; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>☁️</span>
+                    수동 설정
+                    <span id="connectionStatus" class="status-badge disconnected">● 미연결</span>
+                    <span id="manualSettingsToggle" style="margin-left: auto; font-size: 0.8rem; color: #94a3b8;">▼ 펼치기</span>
+                </h3>
+
+                <div id="manualSettingsContent" style="display: none; margin-top: 1rem;">
+                    <div class="alert alert-warning">
+                        <strong>참고:</strong> Electron 앱에서는 인증 파일 사용을 권장합니다.
+                        웹 환경이거나 직접 설정이 필요한 경우에만 사용하세요.
+                    </div>
+
+                    <form id="firebaseForm">
+                        <div class="form-group">
+                            <label for="apiKey">API Key</label>
+                            <input type="text" id="apiKey" placeholder="AIzaSy...">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="projectId">Project ID</label>
+                            <input type="text" id="projectId" placeholder="your-project-id">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="authDomain">Auth Domain</label>
+                            <input type="text" id="authDomain" placeholder="your-project-id.firebaseapp.com">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="storageBucket">Storage Bucket</label>
+                            <input type="text" id="storageBucket" placeholder="your-project-id.appspot.com">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="messagingSenderId">Messaging Sender ID</label>
+                            <input type="text" id="messagingSenderId" placeholder="123456789">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="appId">App ID</label>
+                            <input type="text" id="appId" placeholder="1:123456789:web:abcdef">
+                        </div>
+
+                        <p class="help-text">
+                            Firebase Console에서 프로젝트를 생성하고 웹 앱 설정값을 복사해서 입력하세요.
+                            <a href="https://console.firebase.google.com/" target="_blank" style="color: #3b82f6;">Firebase Console 열기</a>
+                        </p>
+
+                        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                            <button type="submit" class="btn btn-primary">설정 저장</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 기관명 설정 -->
+        <div class="settings-card">
+            <h2>
+                <span>🏢</span>
+                기관명 설정
+            </h2>
+
+            <div class="form-group">
+                <label for="orgName">기관명 (메인 페이지 하단에 표시)</label>
+                <input type="text" id="orgName" placeholder="봉화군농업기술센터 안전성분석센터">
+            </div>
+
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <button type="button" id="saveOrgNameBtn" class="btn btn-primary">저장</button>
+                <button type="button" id="resetOrgNameBtn" class="btn btn-secondary">기본값 복원</button>
+                <span id="orgNameSaveStatus" style="font-size: 0.8rem; color: #16a34a; display: none;">저장됨</span>
+            </div>
+
+            <p class="help-text">
+                메인 페이지 하단과 각 시료 페이지에 표시되는 기관명을 변경할 수 있습니다.
+            </p>
+        </div>
+
+        <!-- 네트워크 접근 제어 (웹 환경용) -->
+        <div class="settings-card" id="networkAccessSection">
+            <h2>
+                <span>🌐</span>
+                네트워크 접근 제어
+                <span id="networkAccessStatus" class="status-badge disconnected">● 확인 중</span>
+            </h2>
+
+            <div class="alert alert-info">
+                <strong>네트워크 접근 제어란?</strong><br>
+                Electron 앱에서는 항상 접근이 허용되며, 웹 환경에서는 설정된 게이트웨이 서브넷에서만 Firebase 데이터에 접근할 수 있습니다.
+            </div>
+
+            <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="font-size: 0.85rem; color: #64748b;">
+                    <div style="margin-bottom: 0.5rem;">환경: <strong id="currentEnvironment">확인 중...</strong></div>
+                    <div style="margin-bottom: 0.5rem;">허용된 게이트웨이: <strong id="allowedGateway" style="font-family: monospace;">확인 중...</strong></div>
+                    <div style="margin-bottom: 0.5rem;">현재 공인 IP: <strong id="currentPublicIP" style="font-family: monospace;">확인 중...</strong></div>
+                    <div>접근 상태: <strong id="currentAccessStatus">확인 중...</strong></div>
+                </div>
+            </div>
+
+            <div style="margin-top: 1rem;">
+                <button type="button" id="checkNetworkBtn" class="btn btn-secondary">네트워크 상태 확인</button>
+            </div>
+
+            <div class="alert alert-warning" style="margin-top: 1rem;">
+                <strong>게이트웨이 변경 방법:</strong><br>
+                <code>src/shared/network-config.js</code> 파일에서 <code>ALLOWED_GATEWAY</code> 값을 수정하세요.
+            </div>
+        </div>
+
+        <!-- 데이터 마이그레이션 -->
+        <div class="settings-card">
+            <h2>
+                <span>📤</span>
+                데이터 마이그레이션
+            </h2>
+
+            <div class="alert alert-warning">
+                <strong>주의:</strong> 마이그레이션은 현재 컴퓨터의 localStorage 데이터를 Firebase로 업로드합니다.
+                기존 클라우드 데이터가 있으면 덮어쓰기됩니다.
+            </div>
+
+            <div class="migration-list" id="migrationList">
+                <!-- 동적으로 생성 -->
+            </div>
+
+            <div style="margin-top: 1.5rem;">
+                <button id="migrateAllBtn" class="btn btn-warning" disabled>
+                    🔄 전체 마이그레이션
+                </button>
+            </div>
+        </div>
+
+        <!-- 로컬 데이터 관리 -->
+        <div class="settings-card">
+            <h2>
+                <span>💾</span>
+                로컬 데이터 관리
+            </h2>
+
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <button id="exportAllBtn" class="btn btn-success">
+                    📥 전체 데이터 내보내기
+                </button>
+            </div>
+        </div>
+
+        <!-- 캐시 관리 -->
+        <div class="settings-card">
+            <h2>
+                <span>🗑️</span>
+                캐시 관리
+            </h2>
+
+            <div class="alert alert-info">
+                <strong>자동 캐시 정리:</strong> 매주 금요일에 자동으로 시료 데이터 캐시가 삭제됩니다.<br>
+                <small style="color: #64748b;">삭제 후 앱 시작 시 Firebase에서 데이터를 다시 불러옵니다. 설정 및 Firebase 연결 정보는 유지됩니다.</small>
+            </div>
+
+            <div id="cacheStatusInfo" style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="font-size: 0.85rem; color: #64748b;">
+                    <div style="margin-bottom: 0.5rem;">캐시된 데이터: <strong id="cacheDataCount">확인 중...</strong></div>
+                    <div style="margin-bottom: 0.5rem;">캐시 크기: <strong id="cacheDataSize">확인 중...</strong></div>
+                    <div>마지막 정리: <strong id="lastCacheClear">없음</strong></div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+                <button id="clearCacheBtn" class="btn btn-warning">
+                    🗑️ 지금 캐시 삭제
+                </button>
+                <button id="refreshCacheStatusBtn" class="btn btn-secondary">
+                    🔄 상태 새로고침
+                </button>
+            </div>
+
+            <p class="help-text" style="margin-top: 0.75rem;">
+                캐시를 삭제하면 다음 앱 실행 시 Firebase에서 데이터를 다시 불러옵니다.
+            </p>
+        </div>
+
+        <!-- 식품안전나라 MRL API 설정 -->
+        <div class="settings-card">
+            <h2>
+                <span>🧪</span>
+                식품안전나라 MRL API
+            </h2>
+
+            <div class="alert alert-info">
+                <strong>잔류농약 분석결과 입력 시 작물별 잔류허용기준(MRL)을 자동 조회</strong>하기 위한 API 설정입니다.<br>
+                <small style="color: #64748b;">
+                    키 발급: <a href="https://openapi.foodsafetykorea.go.kr/" target="_blank" style="color: #3b82f6;">openapi.foodsafetykorea.go.kr</a>
+                    → 회원가입 → OpenAPI 이용신청 → <strong>식품별 농약잔류허용기준 (I1050)</strong> 서비스 신청
+                </small>
+            </div>
+
+            <!-- API 키 입력 -->
+            <div style="margin-top: 1rem;">
+                <label for="mrlApiKey" style="display: block; font-size: 0.85rem; color: #475569; font-weight: 600; margin-bottom: 0.4rem;">
+                    API 인증키
+                </label>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="password" id="mrlApiKey" placeholder="식품안전나라 OpenAPI 인증키 입력"
+                           style="flex: 1; padding: 0.55rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 0.85rem;">
+                    <button type="button" id="mrlApiKeyToggle" class="btn btn-secondary" style="padding: 0.5rem 0.75rem;" title="표시/숨김">👁</button>
+                    <button type="button" id="mrlApiKeySave" class="btn btn-primary">저장</button>
+                </div>
+                <p class="help-text" style="margin-top: 0.4rem;">
+                    저장된 키는 로컬(localStorage)에만 보관되며 외부로 전송되지 않습니다.
+                </p>
+            </div>
+
+            <!-- 캐시 상태 -->
+            <div id="mrlCacheStatus" style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="font-size: 0.85rem; color: #64748b;">
+                    <div style="margin-bottom: 0.5rem;">연결 상태: <strong id="mrlConnStatus">확인 중...</strong></div>
+                    <div style="margin-bottom: 0.5rem;">캐시된 MRL 레코드: <strong id="mrlCacheCount">-</strong></div>
+                    <div style="margin-bottom: 0.5rem;">마지막 동기화: <strong id="mrlLastSync">-</strong></div>
+                    <div>캐시 상태: <strong id="mrlCacheExpiry">-</strong></div>
+                </div>
+            </div>
+
+            <!-- 액션 버튼 -->
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem;">
+                <button type="button" id="mrlSyncBtn" class="btn btn-primary">
+                    🔄 지금 동기화
+                </button>
+                <button type="button" id="mrlTestBtn" class="btn btn-secondary">
+                    🔌 연결 테스트
+                </button>
+                <button type="button" id="mrlClearCacheBtn" class="btn btn-warning">
+                    🗑️ MRL 캐시 삭제
+                </button>
+            </div>
+
+            <!-- 진행률 표시 -->
+            <div id="mrlProgressBar" class="hidden" style="margin-top: 1rem;">
+                <div style="background: #e2e8f0; border-radius: 4px; overflow: hidden; height: 8px;">
+                    <div id="mrlProgressFill" style="background: linear-gradient(90deg, #10b981, #059669); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                </div>
+                <div id="mrlProgressText" style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; text-align: center;">0 / 0</div>
+            </div>
+
+            <p class="help-text" style="margin-top: 0.75rem;">
+                캐시는 7일간 유효하며, 약 18,000건의 MRL 기준 데이터를 포함합니다 (~2MB). 오프라인에서도 조회 가능합니다.
+            </p>
+        </div>
+    </div>
+
+</body>
+
+</html>

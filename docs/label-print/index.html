@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>라벨지 인쇄</title>
+
+    <!-- Google Fonts: Fraunces + Inter + Noto Sans KR -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #7C9082;
+            --primary-hover: #6B7D72;
+            --surface: #FFFFFF;
+            --background: #F5F3EF;
+            --border: #E8E4DF;
+            --text-strong: #3C3530;
+            --text-body: #57534E;
+            --text-muted: #78716C;
+            --text-quiet: #A8A29E;
+            --input-bg: #FAFAF9;
+            --radius-lg: 20px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            --transition: all 0.2s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background: #F5F3EF;
+            min-height: 100vh;
+            color: var(--text-body);
+            padding: 0 0 80px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 32px;
+        }
+
+        .header {
+            padding: 64px 0 24px;
+            text-align: center;
+            color: var(--text-strong);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+        }
+
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: white;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .back-link:hover {
+            background: #EDE8E3;
+            color: var(--text-body);
+        }
+
+        .header-top {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        .hero-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            color: var(--text-strong);
+        }
+
+        .header p {
+            max-width: 760px;
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        .section-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            border: 1.5px solid var(--border);
+            overflow: hidden;
+            margin-top: 24px;
+        }
+
+        .section-header {
+            padding: 28px 32px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 18px;
+            align-items: center;
+            background: transparent;
+        }
+
+        .section-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-md);
+            background: var(--input-bg);
+            border: 1.5px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+        }
+
+        .section-icon.small {
+            width: 40px;
+            height: 40px;
+            font-size: 1.3rem;
+        }
+
+        .section-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-strong);
+        }
+
+        .section-header p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .section-body {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            background: white;
+        }
+
+        .form-group label,
+        .field-section-title {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--text-strong);
+            font-size: 14px;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            transition: var(--transition);
+            background: var(--input-bg);
+            color: var(--text-body);
+        }
+
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            background: white;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: none;
+            border-radius: 1.5rem;
+            padding: 12px 28px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: var(--transition);
+            background: var(--primary);
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-pink {
+            background: var(--primary);
+        }
+
+        .btn-outline {
+            background: white;
+            color: var(--text-muted);
+            border: 1.5px solid var(--border);
+        }
+
+        .btn-outline:hover {
+            background: #EDE8E3;
+        }
+
+        .file-upload {
+            border: 1.5px dashed var(--border);
+            border-radius: var(--radius-md);
+            padding: 36px 24px;
+            text-align: center;
+            background: #FAFBFC;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-upload:hover,
+        .file-upload.dragover {
+            border-color: var(--primary);
+            background: #EEF1EE;
+        }
+
+        .upload-icon {
+            font-size: 2.4rem;
+            color: var(--primary);
+            margin-bottom: 16px;
+        }
+
+        .upload-title {
+            font-weight: 600;
+            font-size: 1.05rem;
+            margin-bottom: 6px;
+            color: var(--text-strong);
+        }
+
+        .upload-sub {
+            font-size: 0.92rem;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+        }
+
+        .upload-cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: var(--primary);
+            color: white;
+            border-radius: var(--radius-sm);
+            padding: 8px 16px;
+            font-weight: 600;
+        }
+
+        .progress-card {
+            background: white;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .progress-label {
+            font-weight: 600;
+            color: var(--text-strong);
+            font-size: 0.95rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: #E4E4E7;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--primary);
+            transition: width 0.4s ease;
+            border-radius: inherit;
+        }
+
+        .progress-text {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        .progress-steps {
+            margin-top: 12px;
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .progress-steps li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.92rem;
+            color: var(--text-muted);
+        }
+
+        .progress-steps .step-box {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 1.5px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .progress-steps li.in-progress {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .progress-steps li.in-progress .step-box {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .progress-steps li.done {
+            color: var(--text-strong);
+            font-weight: 600;
+        }
+
+        .progress-steps li.done .step-box {
+            background: var(--primary);
+            color: #fff;
+            border-color: transparent;
+        }
+
+        .progress-note {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #d97706;
+        }
+
+        .data-preview {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1.5px solid var(--border);
+            padding: 24px;
+        }
+
+        .preview-heading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-strong);
+        }
+
+        .data-table {
+            max-height: 240px;
+            overflow: auto;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        #labelFieldMapping {
+            display: grid;
+            grid-template-columns: 160px 1fr;
+            column-gap: 20px;
+            row-gap: 18px;
+            margin-top: 12px;
+        }
+
+        #labelFieldMapping .field-mapping {
+            display: contents;
+        }
+
+        #labelFieldMapping .field-mapping label {
+            font-weight: 600;
+            color: var(--text-strong);
+            align-self: center;
+        }
+
+        #labelFieldMapping .field-mapping select {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
+            border: 1.5px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text-body);
+            transition: var(--transition);
+        }
+
+        #labelFieldMapping .field-mapping select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            background: white;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .start-position-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .start-position-wrapper select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            transition: var(--transition);
+            background: var(--input-bg);
+            color: var(--text-body);
+        }
+
+        .start-position-wrapper select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            background: white;
+        }
+
+        .hint-text {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin: 0;
+            padding-left: 4px;
+        }
+
+        /* 라벨 위치 선택 그리드 */
+        .label-position-container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .label-grid-preview {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 4px;
+            padding: 12px;
+            background: white;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            width: fit-content;
+        }
+
+        .label-cell {
+            width: 36px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            background: white;
+            border: 1.5px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .label-cell:hover {
+            border-color: var(--primary);
+            background: #EEF1EE;
+        }
+
+        .label-cell.used {
+            background: #F4F4F5;
+            color: var(--text-quiet);
+            border-color: var(--border);
+        }
+
+        .label-cell.start {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            font-weight: 700;
+        }
+
+        .label-cell.available {
+            background: rgba(124, 144, 130, 0.15);
+            color: var(--primary);
+            border-color: rgba(124, 144, 130, 0.4);
+        }
+
+        .label-position-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-top: 4px;
+        }
+
+        .position-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-body);
+        }
+
+        .legend-box {
+            width: 16px;
+            height: 12px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+        }
+
+        .legend-box.used {
+            background: #F4F4F5;
+            border-color: var(--border);
+        }
+
+        .legend-box.start {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .legend-box.available {
+            background: rgba(124, 144, 130, 0.15);
+            border-color: rgba(124, 144, 130, 0.4);
+        }
+
+        .preview-card {
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1.5px solid var(--border);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .preview-card h3 {
+            color: var(--text-strong);
+            font-size: 1.2rem;
+        }
+
+        .preview-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .center-row {
+            display: flex;
+            justify-content: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.55);
+            padding: 24px;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            width: min(1100px, 95vw);
+            max-height: 90vh;
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 22px 28px;
+            border-bottom: 1px solid var(--border);
+            background: transparent;
+        }
+
+        .modal-header h3 {
+            font-size: 1.25rem;
+            color: var(--text-strong);
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow: auto;
+            background: white;
+        }
+
+        #labelModalSheet {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            align-items: flex-start;
+        }
+
+        @media (max-width: 840px) {
+            .container {
+                padding: 0 16px;
+            }
+
+            .header {
+                padding: 48px 0 20px;
+                gap: 12px;
+            }
+
+            .hero-icon {
+                width: 44px;
+                height: 44px;
+                font-size: 24px;
+                border-radius: 12px;
+            }
+
+            .header h1 {
+                font-size: clamp(1.4rem, 6vw, 1.8rem);
+                line-height: 1.2;
+            }
+
+            .header p {
+                font-size: 0.9rem;
+                line-height: 1.5;
+                padding: 0 8px;
+            }
+
+            .back-link {
+                top: 12px;
+                left: 12px;
+                padding: 8px 14px;
+                font-size: 0.85rem;
+            }
+
+            .section-card {
+                border-radius: var(--radius-lg);
+            }
+
+            .section-body {
+                padding: 20px;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+                padding: 18px 20px;
+            }
+
+            .section-icon {
+                width: 42px;
+                height: 42px;
+                font-size: 1.4rem;
+            }
+
+            .section-header h3 {
+                font-size: 1.1rem;
+            }
+
+            .section-header p {
+                font-size: 0.85rem;
+                line-height: 1.5;
+            }
+
+            button, .btn {
+                min-height: 48px !important;
+                padding: 14px 20px !important;
+                font-size: 0.95rem !important;
+            }
+
+            select {
+                min-height: 48px !important;
+                padding: 12px 16px !important;
+                font-size: 1rem !important;
+            }
+
+            #labelFieldMapping {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .button-row,
+            .preview-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .button-row .btn,
+            .preview-actions .btn {
+                width: 100%;
+            }
+        }
+
+        /* ========================================
+           다크 모드 스타일
+           ======================================== */
+        [data-theme="dark"] {
+            color-scheme: dark;
+        }
+
+        [data-theme="dark"] body {
+            background: #1C1917;
+        }
+
+        [data-theme="dark"] .section-card {
+            background: #292524;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .section-header {
+            background: transparent;
+            border-bottom-color: #57534E;
+        }
+
+        [data-theme="dark"] .section-icon {
+            background: #1C1917;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .section-header h3 {
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .section-header p {
+            color: #A8A29E;
+        }
+
+        [data-theme="dark"] .section-body {
+            background: #292524;
+        }
+
+        [data-theme="dark"] .form-group label,
+        [data-theme="dark"] .field-section-title {
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .form-group select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-color: #292524 !important;
+            color: #D6D3D1 !important;
+            border-color: #57534E !important;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A8A29E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 12px center !important;
+            background-size: 16px !important;
+        }
+
+        [data-theme="dark"] .form-group select:focus {
+            border-color: #7C9082 !important;
+            box-shadow: 0 0 0 3px rgba(124, 144, 130, 0.2);
+            background-color: #292524 !important;
+        }
+
+        [data-theme="dark"] .form-group select option {
+            background-color: #292524 !important;
+            color: #D6D3D1 !important;
+        }
+
+        [data-theme="dark"] .file-upload {
+            background: #1C1917;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .file-upload:hover,
+        [data-theme="dark"] .file-upload.dragover {
+            background: rgba(124, 144, 130, 0.08);
+            border-color: #7C9082;
+        }
+
+        [data-theme="dark"] .upload-icon {
+            color: #7C9082;
+        }
+
+        [data-theme="dark"] .upload-title {
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .upload-sub {
+            color: #A8A29E;
+        }
+
+        [data-theme="dark"] .upload-cta {
+            background: #7C9082;
+            color: white;
+        }
+
+        [data-theme="dark"] .btn {
+            background: #7C9082;
+        }
+
+        [data-theme="dark"] .btn:hover {
+            background: #6B7D72;
+        }
+
+        [data-theme="dark"] .btn-pink {
+            background: #7C9082;
+        }
+
+        [data-theme="dark"] .btn-outline {
+            background: #292524;
+            color: #A8A29E;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .btn-outline:hover {
+            background: rgba(87, 83, 78, 0.5);
+        }
+
+        [data-theme="dark"] .data-preview,
+        [data-theme="dark"] .preview-card {
+            background: #292524;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .preview-heading h3,
+        [data-theme="dark"] .preview-card h3 {
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .data-table {
+            background: #1C1917;
+        }
+
+        [data-theme="dark"] .data-table th {
+            background: #1C1917;
+            color: #A8A29E;
+        }
+
+        [data-theme="dark"] .data-table td {
+            color: #E7E5E4;
+            border-color: rgba(87, 83, 78, 0.5);
+        }
+
+        [data-theme="dark"] .data-table tr:hover td {
+            background: rgba(87, 83, 78, 0.3);
+        }
+
+        [data-theme="dark"] .progress-card {
+            background: #292524;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .progress-bar {
+            background: rgba(87, 83, 78, 0.8);
+        }
+
+        [data-theme="dark"] .progress-fill {
+            background: #7C9082;
+        }
+
+        [data-theme="dark"] .progress-label,
+        [data-theme="dark"] .progress-text {
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .modal-content {
+            background: #292524;
+        }
+
+        [data-theme="dark"] .modal-header {
+            background: transparent;
+            border-bottom-color: #57534E;
+        }
+
+        [data-theme="dark"] .modal-body {
+            background: #292524;
+        }
+
+        [data-theme="dark"] .modal-header h2,
+        [data-theme="dark"] .modal-header h3 {
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .legend-item {
+            color: #A8A29E;
+        }
+
+        [data-theme="dark"] #labelFieldMapping select {
+            background-color: #292524 !important;
+            color: #D6D3D1 !important;
+            border-color: #57534E !important;
+        }
+
+        [data-theme="dark"] .start-position-wrapper select {
+            background-color: #292524 !important;
+            color: #D6D3D1 !important;
+            border-color: #57534E !important;
+        }
+
+        [data-theme="dark"] .label-grid-preview {
+            background: #1C1917;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .label-grid-preview .label-cell {
+            background: #292524;
+            color: #A8A29E;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .label-grid-preview .label-cell.used {
+            background: rgba(87, 83, 78, 0.5);
+            color: #78716C;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .label-grid-preview .label-cell.start {
+            background: #7C9082;
+            border-color: #7C9082;
+            color: white;
+        }
+
+        [data-theme="dark"] .label-grid-preview .label-cell.available {
+            background: rgba(124, 144, 130, 0.18);
+            color: #A8B5A2;
+            border-color: rgba(124, 144, 130, 0.4);
+        }
+
+        [data-theme="dark"] .legend-box.used {
+            background: rgba(87, 83, 78, 0.5);
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .legend-box.start {
+            background: #7C9082;
+            border-color: #7C9082;
+        }
+
+        [data-theme="dark"] .legend-box.available {
+            background: rgba(124, 144, 130, 0.18);
+            border-color: rgba(124, 144, 130, 0.4);
+        }
+
+        [data-theme="dark"] .back-link {
+            background: #292524;
+            border-color: #57534E;
+            color: #A8A29E;
+        }
+
+        [data-theme="dark"] .back-link:hover {
+            background: rgba(87, 83, 78, 0.5);
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .header h1,
+        [data-theme="dark"] .header p {
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .header p {
+            color: #A8A29E;
+        }
+
+        [data-theme="dark"] .hint-text {
+            color: #A8A29E;
+        }
+
+        [data-theme="dark"] .progress-steps li {
+            color: #A8A29E;
+        }
+
+        [data-theme="dark"] .progress-steps .step-box {
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .progress-steps li.in-progress {
+            color: #7C9082;
+        }
+
+        [data-theme="dark"] .progress-steps li.in-progress .step-box {
+            border-color: #7C9082;
+            color: #7C9082;
+        }
+
+        [data-theme="dark"] .progress-steps li.done {
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .progress-steps li.done .step-box {
+            background: #7C9082;
+            border-color: transparent;
+        }
+    </style>
+  <script type="module" crossorigin src="../assets/labelPrint-C3SA_dJH.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/theme-BmPSn4YP.js">
+  <link rel="modulepreload" crossorigin href="../assets/xlsx-CY41JvjH.js">
+  <link rel="modulepreload" crossorigin href="../assets/purify.es-A66Cw1IH.js">
+  <link rel="stylesheet" crossorigin href="../assets/labelPrint-CKEvO0MA.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="#" class="back-link" id="btnBack">← 뒤로가기</a>
+            <div class="header-top">
+                <div class="hero-icon">🏷️</div>
+                <h1>라벨지 인쇄</h1>
+            </div>
+            <p>엑셀 파일을 업로드하여 A4 라벨지에 맞는 인쇄용 시트를 생성하세요.</p>
+        </div>
+
+        <div class="section-card">
+            <div class="section-header">
+                <div class="section-icon">🏷️</div>
+                <div>
+                    <h3>라벨 출력 설정</h3>
+                    <p>라벨 템플릿과 필드를 설정하여 인쇄용 시트를 생성하세요</p>
+                </div>
+            </div>
+            <div class="section-body">
+                <div class="file-upload" id="labelFileDropArea">
+                    <div class="upload-icon">📊</div>
+                    <p class="upload-title">주소가 포함된 엑셀 파일을 선택하거나 드래그하세요</p>
+                    <p class="upload-sub">A4 라벨지 (2열 9행, 18개) 기준 · 최대 500행 지원</p>
+                    <span class="upload-cta">파일 선택</span>
+                    <input type="file" id="labelFile" accept=".xls,.xlsx" hidden name="labelFile" aria-label="라벨용 엑셀 파일 선택">
+                </div>
+                <div class="center-row">
+                    <button class="btn btn-outline" id="btnLoadSampleData" aria-label="샘플 데이터로 라벨 출력 테스트하기">📊 샘플 데이터로 테스트</button>
+                </div>
+
+                <div id="labelUploadProgress" class="hidden progress-card">
+                    <div class="progress-label">파일 처리 중...</div>
+                    <div class="progress-bar">
+                        <div id="labelProgressFill" class="progress-fill"></div>
+                    </div>
+                    <p id="labelProgressText" class="progress-text">처리 중...</p>
+                    <ul id="labelProgressSteps" class="progress-steps"></ul>
+                </div>
+
+                <div id="labelDataPreview" class="hidden data-preview">
+                    <div class="preview-heading">
+                        <div class="section-icon small">📋</div>
+                        <h3>데이터 미리보기</h3>
+                    </div>
+                    <p id="labelPreviewNote" class="progress-note hidden"></p>
+                    <div id="labelDataTable" class="data-table"></div>
+
+                    <div class="form-group">
+                        <label for="labelTemplate">라벨 템플릿 선택</label>
+                        <select id="labelTemplate" name="labelTemplate" autocomplete="off" aria-label="라벨 템플릿 선택">
+                            <option value="2x9">A4 - 2열 9행 (18개, 100×30mm)</option>
+                            <option disabled>(추후 추가 예정)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="labelStartPosition">시작 위치 (라벨지 절약)</label>
+                        <div class="start-position-wrapper">
+                            <div class="label-position-container">
+                                <!-- 라벨 위치 미니 프리뷰 -->
+                                <div class="label-grid-preview" id="labelGridPreview">
+                                    <div class="label-cell" data-pos="1">1</div>
+                                    <div class="label-cell" data-pos="2">2</div>
+                                    <div class="label-cell" data-pos="3">3</div>
+                                    <div class="label-cell" data-pos="4">4</div>
+                                    <div class="label-cell" data-pos="5">5</div>
+                                    <div class="label-cell" data-pos="6">6</div>
+                                    <div class="label-cell" data-pos="7">7</div>
+                                    <div class="label-cell" data-pos="8">8</div>
+                                    <div class="label-cell" data-pos="9">9</div>
+                                    <div class="label-cell" data-pos="10">10</div>
+                                    <div class="label-cell" data-pos="11">11</div>
+                                    <div class="label-cell" data-pos="12">12</div>
+                                    <div class="label-cell" data-pos="13">13</div>
+                                    <div class="label-cell" data-pos="14">14</div>
+                                    <div class="label-cell" data-pos="15">15</div>
+                                    <div class="label-cell" data-pos="16">16</div>
+                                    <div class="label-cell" data-pos="17">17</div>
+                                    <div class="label-cell" data-pos="18">18</div>
+                                </div>
+                                <div class="label-position-info">
+                                    <div class="position-legend">
+                                        <span class="legend-item"><span class="legend-box used"></span> 사용됨 (건너뜀)</span>
+                                        <span class="legend-item"><span class="legend-box start"></span> 시작 위치</span>
+                                        <span class="legend-item"><span class="legend-box available"></span> 인쇄 영역</span>
+                                    </div>
+                                    <p class="hint-text">💡 클릭하여 시작 위치를 선택하세요</p>
+                                </div>
+                            </div>
+                            <input type="hidden" id="labelStartPosition" name="labelStartPosition" value="1">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="field-section-title">라벨 필드 설정</div>
+                        <div id="labelFieldMapping"></div>
+                        <input type="hidden" id="nameSuffix" value="님 귀하">
+                    </div>
+
+                    <div class="button-row">
+                        <button class="btn btn-pink" id="btnGenerateLabels" aria-label="설정한 템플릿으로 라벨 생성하기">🏷️ 라벨 생성</button>
+                        <button class="btn btn-outline" id="btnLabelReset" aria-label="라벨 설정 초기화하기">↩️ 초기화</button>
+                    </div>
+                </div>
+
+                <div id="labelPreview" class="hidden preview-card">
+                    <h3>🖨️ 라벨 미리보기</h3>
+                    <div class="preview-actions">
+                        <button class="btn btn-pink" id="btnPrintLabels" aria-label="생성된 라벨 인쇄하기">🖨️ 인쇄하기</button>
+                    </div>
+                    <div id="labelSheet" class="label-sheet" style="display:none"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 라벨 미리보기/인쇄 모달 -->
+    <div id="labelModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal-content" id="labelModalContent">
+            <div class="modal-header">
+                <h3>🖨️ 라벨 미리보기</h3>
+                <div class="preview-actions">
+                    <button class="btn btn-pink" id="btnModalPrint">🖨️ 인쇄</button>
+                    <button class="btn btn-outline" id="btnModalReset">↩️ 초기화</button>
+                    <button class="btn btn-outline" id="btnModalClose">닫기</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="labelModalSheet"></div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

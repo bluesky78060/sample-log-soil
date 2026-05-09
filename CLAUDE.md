@@ -1,12 +1,23 @@
 # CLAUDE.md
 
-Claude Code 가이드 문서.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-토양 시료 접수 대장 (Soil Sample Log) - 봉화군 농업기술센터 **토양 분석 전용** 시료 접수 시스템. **Electron 데스크톱 앱 + 웹 앱** 듀얼 환경.
+토양 시료 접수 대장 (Soil Sample Log) — 봉화군 농업기술센터 **토양 분석 전용** 시료 접수/관리 시스템. **Electron 데스크톱 + GitHub Pages 웹** 듀얼 환경.
 
-> 본 프로젝트는 `sample-log-electron`(5종 시료 통합본)에서 토양 부분만 분리한 단독 프로젝트입니다. v1.0.0(2026-05-08) 기준 신규 출발.
+> 본 저장소는 [`sample-log-electron`](https://github.com/bluesky78060/sample-log-electron)(5종 시료 통합본)에서 토양 부분만 분리한 독립 프로젝트입니다. v1.0.0 = 2026-05-08 신규 출발.
+
+## AI PM 작업 관리 (필수)
+
+모든 코드 변경은 **AI PM System MCP** 티켓 발행 후 진행. 전역 워크플로우는 `~/.claude/rules/ai-pm-ticket.md` 참조.
+
+- **프로젝트 ID**: `ca36c527-a379-47e9-bdda-938d57fa916c`
+- **프로젝트 코드**: `SAMPL` (메인 프로젝트와 공유)
+- **General 에픽 ID**: `b0b0e282-9c1d-41ad-986d-3d347077e6a5`
+- **API URL**: `https://ai-pm-system.onrender.com`
+
+`create_task` 시 `epic_id` 누락 금지. `approve_review` notes는 CRITICAL/MAJOR/MINOR/SUGGESTION 카운트 + 판정 형식.
 
 ## Commands
 
@@ -15,55 +26,58 @@ npm start              # Electron 실행
 npm run start:dev      # DevTools 포함
 npm run dev            # Vite 웹 서버 (localhost:3000)
 npm run dev:electron   # Electron + Vite 동시
-npm run build          # Tailwind + sync-version + Vite → docs/
+npm run build          # build:css → sync-version → vite build → docs/
 npm run package        # 현재 OS용 패키지
 npm run make           # 설치 파일 (Win: exe, Mac: zip)
 npm test               # Playwright E2E (docs/ 대상)
+npm run test:unit      # vitest 유닛 테스트
+npm run sync-version   # package.json → constants.js / index.html / manual 동기화
 ```
 
 ## Architecture
 
 ### Dual Environment (Electron + Web)
 
-- **Electron**: `window.electronAPI` (IPC, 파일 시스템)
-- **Web**: File System Access API 또는 다운로드 폴백
-
 ```javascript
 const isElectron = window.electronAPI?.isElectron === true;
 ```
 
+- **Electron**: `window.electronAPI` (IPC, 파일 I/O, 자동저장)
+- **Web**: File System Access API 또는 다운로드 폴백
+- 두 환경의 차이는 `src/shared/file-api.js`가 추상화
+
 ### Process Architecture
 
-- **Main** (`src/index.js`): IPC 핸들러, 자동 업데이터, 경로 보안, CSP
+- **Main** (`src/index.js`): IPC 핸들러, electron-updater, 경로 보안, **CSP**
 - **Preload** (`src/preload.js`): `contextBridge`로 `window.electronAPI` 노출
-
-IPC 채널 전체 목록은 `src/preload.js` 참조.
 
 ### Folder Structure
 
 ```text
 src/
 ├── index.js, preload.js, index.html, main-entry.js
-├── shared/               # 공통 모듈 (~26개, window.* 전역 노출)
-├── styles/               # Tailwind input, 테마
-├── soil/                 # 토양 시료 페이지
-├── heuktoram/            # 흙토람 검정결과 가져오기
+├── main-stats.js          # 메인 페이지 통계 패널 (ES 모듈, CSP 정책 준수)
+├── shared/                # 공통 모듈 (~26개, window.* 전역 노출)
+├── styles/                # Tailwind input
+├── soil/                  # 토양 시료 페이지 (단일 시료 타입)
+├── heuktoram/             # 흙토람 검정결과 가져오기 (토양 페이지에서 진입)
 └── {settings,label-print,manual,release}/
 
-docs/                     # GitHub Pages 배포용 (Vite 빌드 결과)
-tests/e2e/                # Playwright (docs/ 대상)
+docs/                      # GitHub Pages 배포용 (Vite 빌드 결과)
+tests/{e2e,unit}/          # Playwright + vitest
+.github/workflows/build.yml  # 태그 push 시 Windows installer 자동 빌드
 ```
 
-### Sample Type (Soil only)
+### Sample Type (Soil only) Pattern
 
 ```text
 src/soil/
 ├── index.html
-├── soil-script.js    # 비즈니스 로직
+├── soil-script.js    # 비즈니스 로직 (BaseSampleManager 상속)
 └── soil-style.css
 ```
 
-필수 상수:
+스크립트 필수 상수:
 ```javascript
 const SAMPLE_TYPE = '토양';
 const STORAGE_KEY = 'soilSampleLogs';
@@ -71,6 +85,16 @@ const AUTO_SAVE_FILE = 'soil-autosave.json';
 ```
 
 초기화: `DOMContentLoaded` → FileAPI → Firebase/자동저장 병렬 init → UI.
+
+### 본필지 / 하위필지 데이터 모델
+
+토양 시료의 핵심 데이터 모델로, **메인 페이지 통계 패널과 토양 페이지의 완료 토글 그룹핑**이 모두 이 규칙을 따릅니다.
+
+- **본필지**: `receptionNumber`가 `'503'` / `'F503'`(성토)
+- **하위필지**: `'503-1'`, `'F503-2'` (하이픈 + 인덱스)
+- 그룹 판별: `receptionNumber.replace(/^F/, '').split('-')[0]` → `baseNumber`
+- 같은 `baseNumber` + 같은 `F` 접두사 = 동일 그룹 (완료 토글이 함께 동작)
+- **F 접두사는 성토 시료**를 의미하며 일반 시료와 별개 그룹
 
 ### Shared Modules (src/shared/)
 
@@ -81,62 +105,107 @@ const AUTO_SAVE_FILE = 'soil-autosave.json';
 | `storage-manager.js`       | 듀얼 스토리지: localStorage + Firestore 싱크   |
 | `excel-import-manager.js`  | 엑셀 가져오기 공통 모듈                        |
 | `file-api.js`              | Electron/Web 파일 시스템 추상화                |
-| `constants.js`             | 전역 상수 (`APP_VERSION` 포함)                 |
+| `constants.js`             | 전역 상수 (`APP_VERSION` 포함, sync-version 대상) |
 | `sanitize.js`              | XSS 방지, HTML/JSON 새니타이징                 |
 | `path-security.js`         | 경로 검증, traversal 공격 방지                 |
 
-### Data Storage Strategy
+### Data Storage
 
 ```text
-localStorage (Primary)
-├── soilSampleLogs_{year}  → 연도별 토양 시료 데이터
+localStorage (Primary, 오프라인 우선)
+├── soilSampleLogs_{year}  → 연도별 토양 시료 데이터 (JSON 배열)
 ├── soilItemsPerPage       → 페이지 설정
 └── firebase_config        → Firebase 설정
 
 Firestore (Optional Sync)
 └── soilSamples_{year}     → 연도별 컬렉션
 
-JSON File (Auto-save)
+JSON File (Auto-save, Electron only)
 └── auto-save-soil-{year}.json
 ```
 
-- 오프라인 우선: localStorage는 항상 동작, Firestore는 온라인 시 싱크
-- Firestore IndexedDB 캐시로 오프라인 쓰기 지원
+## Critical Constraints
+
+### CSP — 인라인 스크립트 금지
+
+`src/index.js`의 CSP는 `'unsafe-inline'`을 **허용하지 않습니다**. 메인 프로젝트가 모든 인라인 스크립트를 ES 모듈로 전환한 정책 그대로 상속.
+
+- ✅ `<script type="module" src="./foo.js"></script>` 외부 모듈
+- ❌ `<script>...</script>` 인라인 블록 (Electron에서 차단됨)
+
+새 페이지에 동적 로직을 넣을 때는 반드시 별도 `.js` 파일로 분리. (예: `src/main-stats.js`가 메인 페이지 통계 패널을 처리)
+
+### vite copyManualAssets 플러그인
+
+`vite.config.js`의 인라인 플러그인이 `closeBundle` 훅에서 `src/manual/{images,screenshots}/`를 `docs/manual/`로 재귀 복사합니다. vite의 일반 entry로는 정적 자산이 누락되므로 이 플러그인 없이는 설명서 이미지가 빌드 산출물에 포함되지 않습니다.
+
+새 정적 자산 폴더를 추가하려면 `copyDirRecursive` 호출을 plugin에 추가해야 합니다.
 
 ### Firebase 설정
 
-> ⚠️ `firebase-auth.json`은 빈 값으로 초기화되어 있습니다. 설정 페이지에서 직접 Firebase 프로젝트 정보를 입력하거나, 파일을 수동 편집하세요. 메인 프로젝트(`sample-log-electron`)와는 **다른 Firebase 프로젝트**를 사용해야 데이터가 분리됩니다.
+> ⚠️ `firebase-auth.json`은 빈 값 placeholder. 설정 페이지에서 직접 정보 입력하거나 파일 수동 편집. 메인 프로젝트와 **반드시 다른 Firebase 프로젝트** 사용 (데이터 격리).
 
-## Development Notes
+## 버전 & 릴리스
 
-### Build & 버전
+### 버전 동기화 3곳
 
-- 빌드 파이프라인: `build:css` (Tailwind) → `sync-version` → `vite build` → `docs/`
-- 버전 관리 3곳: `package.json` (소스) / `src/shared/constants.js` (자동 동기화) / `src/index.html` (수동, 폴백용)
-- `npm run sync-version`으로 constants.js 자동 반영
+`npm run sync-version` 실행 시 `package.json`의 version을 다음 3곳에 자동 반영:
+- `src/shared/constants.js` (APP_VERSION)
+- `src/index.html` (#appVersion 텍스트)
+- `src/manual/index.html` (version-badge + footer)
 
-### 릴리스 (GitHub Actions)
+### 릴리스 워크플로우
 
 ```bash
-git tag v1.0.1 && git push origin v1.0.1
+# package.json version 수정 → release/index.html에 새 버전 항목 추가
+git tag -a v1.0.X -m "..."
+git push origin main
+git push origin v1.0.X
+# GitHub Actions가 자동으로 Windows installer + Release 생성
 ```
 
-Windows(windows-latest) + Node 22에서 `npm run make` → GitHub Release 자동 생성. 태그 시 **`src/release/index.html`에 새 버전 항목 추가 필수**.
+`src/release/index.html`에 새 버전 항목을 **반드시** 먼저 추가해야 사용자에게 변경 내역이 노출됩니다.
 
-GitHub Actions Secrets 설정 필요:
-- `ALLOWED_GATEWAY` — 게이트웨이 IP
+### GitHub Actions 설정
+
+`.github/workflows/build.yml`:
+- **Permissions**: `contents: write` 필수 (Release 생성 권한)
+- **Env**: `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` (Node 20 deprecation 대응)
+- **Runner**: windows-latest, Node 22
+
+**Secrets 필요**:
+- `ALLOWED_GATEWAY` — 게이트웨이 IP (빈 값이면 웹 접근 제한 없음)
 - `VWORLD_API_KEY` — VWORLD 지번 지오코딩 API 키
 
-### Build Configuration
+### GitHub Pages
 
-- **Electron Forge** + Squirrel(Win) / Zip(Mac) / Deb·RPM(Linux)
-- **Vite** (`src` → `docs/`), **Tailwind v3** (`src/styles/input.css` → `src/shared/tailwind-output.css`)
-- **Firebase SDK**: Compat 모드 (`firebase: ^12.7.0`)
-- **Security Fuses**: ASAR 무결성, nodeOptions/inspection 비활성화
-- **CI 주의**: 빌드 전 `network-config.example.js` → `network-config.js` 복사 필요 (또는 Secrets로 자동 생성)
+- Source: `main` 브랜치 / `/docs` 폴더
+- URL: https://bluesky78060.github.io/sample-log-soil/
+- 활성화 명령: `gh api -X POST repos/bluesky78060/sample-log-soil/pages -f "source[branch]=main" -f "source[path]=/docs"`
+
+## 알려진 함정
+
+### 큰 push 시 HTTP 400
+
+`docs/` 빌드 산출물 + 이미지 등으로 첫 push가 ~10MB 이상이면 HTTP 400 발생.
+
+```bash
+git -c http.postBuffer=524288000 push origin main
+```
+
+### CI 빌드 전 network-config
+
+빌드 전 `network-config.example.js` → `network-config.js` 복사 필요.
+GitHub Actions에서는 워크플로우의 "Create network-config with secrets" 스텝이 자동 생성.
 
 ### 메인 프로젝트와의 관계
 
-- 본 프로젝트는 `sample-log-electron`에서 **토양 부분만 분리**된 독립 저장소입니다.
-- `src/shared/`는 메인 프로젝트와 동일한 코드 기반에서 시작했으나, 이후 독립 진화합니다.
-- 메인 프로젝트의 변경사항을 자동 동기화하지 않습니다. 필요 시 수동으로 cherry-pick.
+- `src/shared/`는 메인 프로젝트와 동일 코드 기반에서 시작했으나 이후 독립 진화
+- 메인 프로젝트의 변경사항을 자동 동기화하지 않음 — 필요 시 수동 cherry-pick
+- 암호화 시스템(`encryption-manager.js`, `crypto-utils.js`)은 메인에 없으며 본 프로젝트에도 없음. `sample-log-electron-test`에만 존재
+
+### 자동 진행 원칙
+
+사용자 요청 시 **중간 확인 없이 전 단계 자동 완료**:
+1. 티켓 발행 → start_work → 구현 → 빌드 → submit_test → 코드리뷰 → approve_review 연속 실행
+2. CHANGES_REQUESTED 시만 수정 후 재진행

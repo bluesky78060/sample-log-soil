@@ -570,9 +570,37 @@
         <div class="timeline">
 
 
-            <!-- v1.0.0 -->
+            <!-- v1.0.1 -->
             <div class="version-entry">
                 <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.0.1</span>
+                                <span class="version-date">2026-05-09</span>
+                            </div>
+                            <div class="version-title">메인 페이지 통계 패널 + 빌드 안정화</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                            <span class="badge badge-feature">신규</span>
+                            <span class="badge badge-fix">수정</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>메인 페이지 토양 통계 패널 추가</strong> — 올해 접수, 이번 달 접수, 완료율 프로그레스 바, 미완료 건수를 한눈에. localStorage 기반 즉시 표시, 다크모드/모바일 대응.</li>
+                        <li><strong>미완료 카운트에서 하위필지 제외</strong> — 503-1, F503-2 등은 카운트하지 않고 본필지(503, F503)만 집계. 토양 페이지 그룹핑 로직과 일관.</li>
+                        <li><strong>흙토람을 토양 하위 기능으로 통합</strong> — 메인 페이지에서 흙토람 카드 제거, 토양 페이지 툴바의 흙토람 버튼으로 진입 일원화.</li>
+                        <li><strong>Firebase 설정 가이드 페이지 빌드 누락 수정</strong> — manual/firebase-setup.html, images/, screenshots/가 docs/에 정상 포함되도록 vite 플러그인 추가.</li>
+                        <li><strong>GitHub Actions 안정화</strong> — Release 생성 권한(contents: write) + Node 24 강제(FORCE_JAVASCRIPT_ACTIONS_TO_NODE24) 추가.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v1.0.0 -->
+            <div class="version-entry">
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -583,7 +611,6 @@
                             <div class="version-title">토양 시료 접수 대장 최초 릴리즈</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                             <span class="badge badge-feature">신규</span>
                         </div>
                     </div>

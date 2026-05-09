@@ -343,6 +343,146 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
         }
 
+        /* 통계 패널 */
+        .stats-panel {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 1.75rem 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            border: 1.5px solid #E8E4DF;
+            max-width: 360px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeInUp 0.6s ease-out 0.25s forwards;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stats-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, #7C9082, #A8B5A2);
+        }
+
+        .stats-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            border-bottom: 1px solid #EDE9E3;
+            padding-bottom: 0.75rem;
+        }
+
+        .stats-panel-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            font-family: 'Fraunces', 'Noto Sans KR', serif;
+            color: #3C3530;
+        }
+
+        .stats-panel-year {
+            font-size: 0.85rem;
+            color: #7C9082;
+            font-weight: 500;
+        }
+
+        .stats-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stats-row-label {
+            font-size: 0.875rem;
+            color: #78716C;
+        }
+
+        .stats-row-value {
+            font-size: 1.35rem;
+            font-weight: 700;
+            font-family: 'Fraunces', 'Noto Sans KR', serif;
+            color: #3C3530;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stats-row-value .unit {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: #A8A29E;
+            margin-left: 0.2rem;
+        }
+
+        .stats-row-value.accent-green { color: #16A34A; }
+        .stats-row-value.accent-amber { color: #D97706; }
+
+        .stats-progress {
+            margin-top: 0.25rem;
+            height: 6px;
+            background: #F1EDE6;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .stats-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #7C9082, #16A34A);
+            border-radius: 3px;
+            transition: width 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .stats-empty {
+            font-size: 0.85rem;
+            color: #A8A29E;
+            text-align: center;
+            padding: 0.5rem 0;
+            line-height: 1.6;
+        }
+
+        /* 다크 모드 */
+        [data-theme="dark"] .stats-panel {
+            background: rgba(40, 40, 45, 0.85);
+            border-color: #4a4a52;
+        }
+
+        [data-theme="dark"] .stats-panel-title,
+        [data-theme="dark"] .stats-row-value {
+            color: #f5f5f4;
+        }
+
+        [data-theme="dark"] .stats-panel-header {
+            border-bottom-color: #3f3f46;
+        }
+
+        [data-theme="dark"] .stats-row-label,
+        [data-theme="dark"] .stats-empty {
+            color: #a1a1aa;
+        }
+
+        [data-theme="dark"] .stats-progress {
+            background: #3f3f46;
+        }
+
+        @media (max-width: 720px) {
+            .sample-types {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
         .footer {
             text-align: center;
             color: #A8A29E;
@@ -931,11 +1071,45 @@
                 <span class="card-status active">● 사용 가능</span>
             </a>
 
+            <!-- 통계 패널 -->
+            <aside class="stats-panel" id="soilStatsPanel" aria-label="토양 시료 통계">
+                <div class="stats-panel-header">
+                    <span class="stats-panel-title">토양 통계</span>
+                    <span class="stats-panel-year" id="statsYear">—</span>
+                </div>
+                <div class="stats-rows" id="statsRows">
+                    <div class="stats-row">
+                        <span class="stats-row-label">올해 접수</span>
+                        <span class="stats-row-value" id="statsTotal">—<span class="unit">건</span></span>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-row-label">이번 달 접수</span>
+                        <span class="stats-row-value accent-green" id="statsMonth">—<span class="unit">건</span></span>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-row-label">완료율</span>
+                        <span class="stats-row-value" id="statsCompleteRate">—<span class="unit">%</span></span>
+                    </div>
+                    <div class="stats-progress">
+                        <div class="stats-progress-bar" id="statsProgressBar" style="width: 0%"></div>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-row-label">미완료</span>
+                        <span class="stats-row-value accent-amber" id="statsIncomplete">—<span class="unit">건</span></span>
+                    </div>
+                </div>
+                <div class="stats-empty" id="statsEmpty" style="display: none;">
+                    아직 등록된 토양 시료가 없습니다.<br>
+                    <strong>토양</strong> 카드를 눌러 시료를 등록하면<br>
+                    여기에 통계가 표시됩니다.
+                </div>
+            </aside>
+
         </div>
 
         <div class="footer">
             <p id="orgNameDisplay">봉화군농업기술센터 안전성분석센터</p>
-            <p class="version-info" id="appVersion">v1.0.0</p>
+            <p class="version-info" id="appVersion">v1.0.1</p>
             <!-- 클라우드 동기화 상태 -->
             <p class="sync-status" id="syncStatus" style="display: none;">
                 <span class="sync-icon">☁️</span>
@@ -944,6 +1118,67 @@
         </div>
     </div>
 
+    <script>
+        // 토양 시료 통계 패널 (메인 페이지) - localStorage 우선
+        (function renderSoilStats() {
+            const year = new Date().getFullYear();
+            const month = new Date().getMonth(); // 0-11
+            const STORAGE_KEY = `soilSampleLogs_${year}`;
+
+            const $year = document.getElementById('statsYear');
+            const $rows = document.getElementById('statsRows');
+            const $empty = document.getElementById('statsEmpty');
+            const $total = document.getElementById('statsTotal');
+            const $month = document.getElementById('statsMonth');
+            const $rate = document.getElementById('statsCompleteRate');
+            const $bar = document.getElementById('statsProgressBar');
+            const $incomplete = document.getElementById('statsIncomplete');
+
+            $year.textContent = `${year}년`;
+
+            let logs = [];
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                logs = raw ? JSON.parse(raw) : [];
+                if (!Array.isArray(logs)) logs = [];
+            } catch (_) {
+                logs = [];
+            }
+
+            if (logs.length === 0) {
+                $rows.style.display = 'none';
+                $empty.style.display = 'block';
+                return;
+            }
+
+            // 본필지 판별: receptionNumber에서 F 접두사 제거 후 '-'가 없으면 본필지
+            // 예: '503' / 'F503' → 본필지, '503-1' / 'F503-2' → 하위필지
+            const isMainParcel = log => {
+                const rec = (log && log.receptionNumber) ? String(log.receptionNumber) : '';
+                return !rec.replace(/^F/, '').includes('-');
+            };
+
+            const total = logs.length;
+            const monthCount = logs.filter(log => {
+                if (!log || !log.date) return false;
+                const d = new Date(log.date);
+                return !isNaN(d) && d.getFullYear() === year && d.getMonth() === month;
+            }).length;
+            const completeCount = logs.filter(log => log && log.isComplete === true).length;
+            const rate = total === 0 ? 0 : Math.round((completeCount / total) * 100);
+            // 미완료는 본필지만 카운트 (하위필지 제외)
+            const incompleteCount = logs.filter(log => log && log.isComplete !== true && isMainParcel(log)).length;
+
+            const fmt = n => n.toLocaleString('ko-KR');
+            $total.innerHTML = `${fmt(total)}<span class="unit">건</span>`;
+            $month.innerHTML = `${fmt(monthCount)}<span class="unit">건</span>`;
+            $rate.innerHTML = `${rate}<span class="unit">%</span>`;
+            $incomplete.innerHTML = `${fmt(incompleteCount)}<span class="unit">건</span>`;
+            requestAnimationFrame(() => {
+                $bar.style.width = `${rate}%`;
+            });
+        })();
+    </script>
     <script type="module" src="main-entry.js"></script>
 </body>
 

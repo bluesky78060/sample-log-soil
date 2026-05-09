@@ -570,9 +570,33 @@
         <div class="timeline">
 
 
-            <!-- v1.0.1 -->
+            <!-- v1.0.2 -->
             <div class="version-entry">
                 <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.0.2</span>
+                                <span class="version-date">2026-05-09</span>
+                            </div>
+                            <div class="version-title">메인 통계 패널 CSP 차단 핫픽스</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                            <span class="badge badge-fix">수정</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>Electron 앱에서 통계 패널 동작 안 되던 문제 수정</strong> — Electron 메인 프로세스 CSP가 인라인 &lt;script&gt;를 차단하여 통계 값이 표시되지 않던 문제. 인라인 스크립트를 별도 ES 모듈(<code>main-stats.js</code>)로 분리하여 CSP 정책 준수.</li>
+                        <li><strong>0건 placeholder 정상 표시</strong> — 토양 시료가 등록되지 않은 신규 환경에서 "아직 등록된 토양 시료가 없습니다" 안내 메시지 정상 노출.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v1.0.1 -->
+            <div class="version-entry">
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -583,7 +607,6 @@
                             <div class="version-title">메인 페이지 통계 패널 + 빌드 안정화</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                             <span class="badge badge-feature">신규</span>
                             <span class="badge badge-fix">수정</span>
                         </div>

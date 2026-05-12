@@ -570,9 +570,32 @@
         <div class="timeline">
 
 
-            <!-- v1.0.4 -->
+            <!-- v1.0.5 -->
             <div class="version-entry">
                 <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.0.5</span>
+                                <span class="version-date">2026-05-12</span>
+                            </div>
+                            <div class="version-title">접수일자 연도 초기화 핫픽스</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                            <span class="badge badge-fix">수정</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>2026년 시료 등록/수정 후 등록 창 연도가 2025로 변경되는 문제 수정</strong> — <code>&lt;select id="yearSelect"&gt;</code>가 <code>&lt;form&gt;</code> 내부에 있어 <code>form.reset()</code> 호출 시 첫 옵션(2025)으로 되돌아가던 문제. <code>resetForm()</code>에서 <code>form.reset()</code> 직후 <code>selectedYear</code> 값으로 복원하도록 수정.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v1.0.4 -->
+            <div class="version-entry">
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -583,7 +606,6 @@
                             <div class="version-title">설명서 섹션 순서 조정 (접수 목록 → 흙토람)</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                             <span class="badge badge-fix">수정</span>
                         </div>
                     </div>

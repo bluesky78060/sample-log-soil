@@ -3443,11 +3443,11 @@ class SoilSampleManager extends window.BaseSampleManager {
         const btnAddParcelEmpty = document.querySelector('.btn-add-parcel-empty');
         if (btnAddParcelEmpty) btnAddParcelEmpty.addEventListener('click', () => this.addParcel());
 
-        // 구분 변경 시 접수번호 업데이트
+        // 구분 변경 시 접수번호 업데이트 (수정 모드에서는 원본 접수번호 유지)
         if (this.subCategorySelect) {
             this.subCategorySelect.addEventListener('change', (e) => {
                 const isFill = e.target.value === '성토';
-                if (this.receptionNumberInput) {
+                if (this.receptionNumberInput && !this.editingLogId && !this.editingGroupId) {
                     this.receptionNumberInput.value = isFill
                         ? this.generateNextFillReceptionNumber()
                         : this.generateNextReceptionNumber();

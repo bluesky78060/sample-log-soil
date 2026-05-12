@@ -570,9 +570,32 @@
         <div class="timeline">
 
 
-            <!-- v1.0.5 -->
+            <!-- v1.0.6 -->
             <div class="version-entry">
                 <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.0.6</span>
+                                <span class="version-date">2026-05-12</span>
+                            </div>
+                            <div class="version-title">토양 수정 시 접수번호 보존 핫픽스</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                            <span class="badge badge-fix">수정</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>접수 목록에서 수정 시 접수번호가 최신번호로 변경되던 문제 수정</strong> — 수정 모드에서 <strong>구분(논/밭/과수/시설/성토)</strong>을 변경하면 change 이벤트가 <code>generateNextReceptionNumber()</code>를 호출해 폼의 접수번호를 최신번호로 덮어쓰던 버그. <code>editingLogId</code>/<code>editingGroupId</code> 가드 추가로 수정 모드에서는 원본 접수번호 유지.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v1.0.5 -->
+            <div class="version-entry">
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -583,7 +606,6 @@
                             <div class="version-title">접수일자 연도 초기화 핫픽스</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                             <span class="badge badge-fix">수정</span>
                         </div>
                     </div>

@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > 본 저장소는 [`sample-log-electron`](https://github.com/bluesky78060/sample-log-electron)(5종 시료 통합본)에서 토양 부분만 분리한 독립 프로젝트입니다. v1.0.0 = 2026-05-08 신규 출발.
 
-## AI PM 작업 관리 (필수)
+## AI PM 작업 관리 (필수, Hook 강제)
 
 모든 코드 변경은 **AI PM System MCP** 티켓 발행 후 진행. 전역 워크플로우는 `~/.claude/rules/ai-pm-ticket.md` 참조.
 
@@ -18,6 +18,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **API URL**: `https://ai-pm-system.onrender.com`
 
 `create_task` 시 `epic_id` 누락 금지. `approve_review` notes는 CRITICAL/MAJOR/MINOR/SUGGESTION 카운트 + 판정 형식.
+
+### Hook 강제 시스템 (`.claude/hooks/`)
+
+`.claude/settings.json`에 등록된 PreToolUse hook이 다음을 자동 차단합니다.
+
+| Hook | 트리거 | 차단 조건 |
+| --- | --- | --- |
+| `ticket-guard.sh` | Edit/Write/MultiEdit | `src/` 또는 `tests/` 하위의 `.js .ts .tsx .html .css .scss` 등 소스 파일 수정 시 활성 티켓이 없으면 차단 |
+| `epic-id-guard.sh` | `mcp__ai-pm__create_task` | `epic_id`가 누락/null이면 차단 |
+
+**제외 대상** (자유 수정 가능): 루트 설정 파일(`vite.config.js`, `package.json` 등), 모든 `.md` 문서, 이미지/JSON 자산, `docs/` 빌드 산출물, `.claude/` 내부.
+
+**활성 티켓 헬퍼**:
+```bash
+bash .claude/hooks/set-ticket.sh SAMPL-X-Y   # 활성화
+bash .claude/hooks/set-ticket.sh             # 조회
+bash .claude/hooks/set-ticket.sh clear       # 해제
+```
+
+표준 워크플로우:
+1. `mcp__ai-pm__create_task(epic_id="b0b0e282-...", title="...")` → ticket_code 받음
+2. `bash .claude/hooks/set-ticket.sh SAMPL-X-Y` (티켓 활성화)
+3. `mcp__ai-pm__smart_workflow(task_id, 'start_work')`
+4. 코드 수정 (Edit/Write 통과)
+5. 빌드/테스트 → `submit_test`
+6. 코드리뷰 → `approve_review`
+7. `bash .claude/hooks/set-ticket.sh clear` (자동 done 후)
 
 ## Commands
 

@@ -13,6 +13,7 @@ import '../shared/toast.js';
 import '../shared/pagination.js';
 import '../shared/address.js';
 import '../shared/address-parser.js';
+import '../shared/juso-service.js';
 import '../shared/autocomplete-manager.js';
 import '../shared/search-filter.js';
 import '../shared/form-validator.js';
@@ -30,7 +31,7 @@ import '../shared/excel-import-manager.js';
 
 // Data
 import '../cropData.js';
-import '../bonghwaData.js';
+// 정적 시·군 데이터(bonghwaData.js) 제거 - 자동완성은 juso API만 사용
 
 // Main script
 import './soil-script.js';

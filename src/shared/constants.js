@@ -26,7 +26,7 @@ const DEBUG = (() => {
 /**
  * 앱 버전
  */
-const APP_VERSION = '1.0.4';
+const APP_VERSION = '1.1.0';
 
 /**
  * 페이지네이션 관련 상수
@@ -59,14 +59,7 @@ const AUTOCOMPLETE = {
     MIN_INPUT_LENGTH: 1
 };
 
-/**
- * 관할 지역명 (자동완성에서 공통 사용)
- */
-const LOCAL_REGIONS = {
-    bonghwa: '봉화군',
-    yeongju: '영주시',
-    uljin: '울진군'
-};
+// LOCAL_REGIONS 제거됨 - 자동완성은 juso API(전국 데이터) 기반으로 동작
 
 /**
  * 저장소 관련 상수
@@ -165,7 +158,6 @@ window.APP_CONSTANTS = {
     PAGINATION,
     TIMER,
     AUTOCOMPLETE,
-    LOCAL_REGIONS,
     STORAGE,
     FILE,
     VALIDATION,
@@ -183,7 +175,6 @@ window.APP_VERSION = APP_VERSION;
 window.PAGINATION = PAGINATION;
 window.TIMER = TIMER;
 window.AUTOCOMPLETE = AUTOCOMPLETE;
-window.LOCAL_REGIONS = LOCAL_REGIONS;
 window.STORAGE = STORAGE;
 window.FILE = FILE;
 window.VALIDATION = VALIDATION;

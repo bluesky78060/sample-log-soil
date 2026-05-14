@@ -90,8 +90,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // 흙토람 팝업 윈도우 열기
     openHeuktoram: () => ipcRenderer.invoke('open-heuktoram'),
 
-    // VWORLD 지번 지오코딩 (main process 경유, Origin 제한 없음)
-    vworldGeocode: (address, apiKey) => ipcRenderer.invoke('vworld-geocode', { address, apiKey }),
+    // VWORLD 지번 지오코딩 (main에서 process.env.VWORLD_API_KEY 사용; 렌더러 키 노출 없음)
+    vworldGeocode: (address) => ipcRenderer.invoke('vworld-geocode', { address }),
+
+    // JUSO(도로명주소) API 검색 (main process 경유, 키 노출 없음)
+    // payload: { keyword: string, page?: number, size?: number }
+    // 반환: { ok: boolean, items?: Array, total?: number, error?: string }
+    jusoSearch: (payload) => ipcRenderer.invoke('juso:search', payload),
 
     // Electron 환경 여부
     isElectron: true

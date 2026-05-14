@@ -102,4 +102,10 @@ firebase-auth.json
 
 # Claude/OMC session state
 .omc/
-.claude/
+.claude/*
+# AI PM 가드 시스템은 공유 (모든 환경에서 강제 동작)
+!.claude/hooks/
+!.claude/settings.json
+# 활성 티켓과 로컬 권한은 개인별
+.claude/active-ticket
+.claude/settings.local.json

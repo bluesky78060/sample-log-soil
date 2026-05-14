@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/ticket-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__ai-pm__create_task|mcp__ai-pm-system__create_task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/epic-id-guard.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

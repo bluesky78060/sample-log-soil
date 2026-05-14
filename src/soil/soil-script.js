@@ -819,8 +819,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                         <label for="lot-address-${parcel.id}">
                             필지 주소 (주 지번) <span class="label-hint">* 리+지번 입력 후 Enter</span>
                         </label>
-                        <div class="lot-address-row">
-                            <div class="lot-address-autocomplete-wrapper">
+                        <div class="lot-address-row" style="display:flex; gap:0.5rem; align-items:flex-start;">
+                            <div class="lot-address-autocomplete-wrapper" style="flex:1; min-width:0;">
                                 <input type="text" class="lot-address-input"
                                        id="lot-address-${parcel.id}"
                                        name="lot-address-${parcel.id}"
@@ -829,6 +829,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                                        value="${safeLotAddress}">
                                 <ul class="lot-address-autocomplete-list" id="lotAutocomplete-${parcel.id}"></ul>
                             </div>
+                            <button type="button" class="mountain-btn" data-id="${parcel.id}" data-active="${parcel.isMountain ? 'true' : 'false'}" aria-pressed="${parcel.isMountain ? 'true' : 'false'}" style="flex:0 0 auto; padding:0.5rem 1rem; border:1px solid ${parcel.isMountain ? '#f59e0b' : '#d1d5db'}; border-radius:0.5rem; background:${parcel.isMountain ? '#fef3c7' : '#f9fafb'}; color:${parcel.isMountain ? '#92400e' : '#374151'}; font-weight:${parcel.isMountain ? '600' : 'normal'}; font-size:0.875rem; cursor:pointer; user-select:none; white-space:nowrap; transition:all 0.15s;">산</button>
                         </div>
                     </div>
                     <div class="crop-area-row">
@@ -1042,11 +1043,40 @@ class SoilSampleManager extends window.BaseSampleManager {
         const lotInput = document.querySelector(`.lot-address-input[data-id="${parcelId}"]`);
         const autocompleteList = document.getElementById(`lotAutocomplete-${parcelId}`);
         window.AddressAutocomplete.bind(lotInput, autocompleteList, {
-            regionKeys: ['bonghwa', 'yeongju', 'uljin'],
+            regionKeys: null,
             onInput: () => this.updateParcelLotAddress(parcelId),
-            onSelect: () => this.updateParcelLotAddress(parcelId),
+            onSelect: (_value, ctx) => {
+                // 산 필지 선택 시 parcel.isMountain + 체크박스 자동 동기화
+                if (ctx && typeof ctx.isMountain === 'boolean') {
+                    this.syncMountainCheckbox(parcelId, ctx.isMountain);
+                }
+                this.updateParcelLotAddress(parcelId);
+            },
             onShowModal: (result) => this.showRegionSelectionModal(result, parcelId, lotInput),
         });
+    }
+
+    /**
+     * 산 필지 버튼 + parcel.isMountain 상태 동기화
+     */
+    syncMountainCheckbox(parcelId, isMountain) {
+        const parcel = this.parcels.find(p => p.id === parcelId);
+        if (parcel) parcel.isMountain = !!isMountain;
+        this.applyMountainToggleStyle(parcelId, !!isMountain);
+    }
+
+    /**
+     * '산' 버튼 외관 갱신 (data-active + 색 팔레트)
+     */
+    applyMountainToggleStyle(parcelId, isMountain) {
+        const btn = document.querySelector(`.mountain-btn[data-id="${parcelId}"]`);
+        if (!btn) return;
+        btn.dataset.active = isMountain ? 'true' : 'false';
+        btn.setAttribute('aria-pressed', isMountain ? 'true' : 'false');
+        btn.style.background = isMountain ? '#fef3c7' : '#f9fafb';
+        btn.style.borderColor = isMountain ? '#f59e0b' : '#d1d5db';
+        btn.style.color = isMountain ? '#92400e' : '#374151';
+        btn.style.fontWeight = isMountain ? '600' : 'normal';
     }
 
     // ========================================
@@ -1057,7 +1087,8 @@ class SoilSampleManager extends window.BaseSampleManager {
         const subLotInput = document.querySelector(`.sub-lot-input[data-id="${parcelId}"]`);
         const autocompleteList = document.getElementById(`subLotAutocomplete-${parcelId}`);
         window.AddressAutocomplete.bind(subLotInput, autocompleteList, {
-            regionKeys: ['bonghwa', 'yeongju', 'uljin'],
+            // null = 정적 데이터 전체 지역 검색 + JUSO API 폴백 활성
+            regionKeys: null,
             onShowModal: (result) => this.showRegionSelectionModal(result, parcelId, subLotInput),
         });
     }
@@ -3532,6 +3563,16 @@ class SoilSampleManager extends window.BaseSampleManager {
                         this.updateParcelsData();
                     }
                 }
+                // 산 필지 토글 버튼 (한 번 누르면 ON, 다시 누르면 OFF)
+                const mountainBtn = target.closest('.mountain-btn');
+                if (mountainBtn) {
+                    e.preventDefault();
+                    const parcelId = mountainBtn.dataset.id;
+                    const next = mountainBtn.dataset.active !== 'true';
+                    const parcel = this.parcels.find(p => p.id === parcelId);
+                    if (parcel) { parcel.isMountain = next; this.updateParcelsData(); }
+                    this.applyMountainToggleStyle(parcelId, next);
+                }
             });
 
             this.parcelsContainer.addEventListener('input', (e) => {
@@ -3563,12 +3604,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                 }
             }, true);
 
-            this.parcelsContainer.addEventListener('change', (e) => {
-                if (e.target.classList.contains('mountain-checkbox')) {
-                    const parcel = this.parcels.find(p => p.id === e.target.dataset.id);
-                    if (parcel) { parcel.isMountain = e.target.checked; this.updateParcelsData(); }
-                }
-            });
+            // (산 필지 토글 핸들러는 위쪽 click 위임에 통합됨)
 
             this.parcelsContainer.addEventListener('keypress', (e) => {
                 if (e.target.classList.contains('sub-lot-input') && e.key === 'Enter') {
@@ -4469,23 +4505,23 @@ class SoilSampleManager extends window.BaseSampleManager {
     async validateParcelAddress(lotAddress) {
         if (!lotAddress || lotAddress === '-') return null;
         if (!navigator.onLine) return null;
-        const apiKey = window.NETWORK_CONFIG?.VWORLD_API_KEY;
-        if (!apiKey) return null;
 
-        // 경상북도 prefix 보정: bonghwaData 주소는 "봉화군 ..." 형식으로 저장됨
+        // sido prefix 보정 (저장된 주소가 시·도 없이 시·군부터 시작할 수 있음)
         const SIDO_RE = /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|경기도|강원도|충청북도|충청남도|전라북도|전라남도|경상북도|경상남도)/;
         const fullAddress = SIDO_RE.test(lotAddress) ? lotAddress : `경상북도 ${lotAddress}`;
 
-        // Electron: main process IPC 경유 (Origin 헤더 없음 → 도메인 제한 우회)
+        // Electron: main process IPC (apiKey는 main의 process.env에서 직접 사용 → 렌더러 노출 없음)
         if (window.electronAPI?.vworldGeocode) {
             try {
-                return await window.electronAPI.vworldGeocode(fullAddress, apiKey);
+                return await window.electronAPI.vworldGeocode(fullAddress);
             } catch {
                 return null;
             }
         }
 
-        // 웹 환경: 직접 fetch (등록된 도메인에서만 작동)
+        // 웹 환경: 직접 fetch (등록된 도메인에서만 작동). 키는 network-config.js의 VWORLD_API_KEY 사용.
+        const apiKey = window.NETWORK_CONFIG?.VWORLD_API_KEY;
+        if (!apiKey) return null;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
         try {

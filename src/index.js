@@ -8,6 +8,44 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { autoUpdater } = require('electron-updater');
 
+/**
+ * 최소 .env 로더 (dotenv 의존성 없이 동작)
+ *
+ * 동작 규칙:
+ * - 프로젝트 루트의 ".env" 파일을 읽어 process.env에 주입
+ * - 이미 정의된 환경 변수는 덮어쓰지 않음
+ * - 파일이 없으면 조용히 무시
+ * - 키 형식: 영문자/숫자/밑줄/마침표 (대소문자 모두 허용)
+ *   ※ dotenv 표준과 호환되도록 소문자/혼합케이스 키도 인식
+ * - 값 후행 공백은 trim (따옴표 외부 공백은 의도가 아니라고 가정)
+ * - 따옴표 처리: 양끝 동일한 종류의 ' 또는 " 만 벗김
+ *   ※ 이스케이프 시퀀스(\n, \t 등)는 미지원 (필요 시 dotenv 의존성 추가)
+ */
+(function loadDotEnv() {
+    const envPath = path.join(__dirname, '..', '.env');
+    if (!fs.existsSync(envPath)) return;
+    try {
+        const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+        for (const line of lines) {
+            if (!line || line.trim().startsWith('#')) continue;
+            // 키: 첫 문자는 영문자/밑줄, 나머지는 영숫자/밑줄/마침표 허용
+            const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*(.*)\s*$/);
+            if (!m) continue;
+            const [, key, raw] = m;
+            let value = raw.trim();
+            if ((value.startsWith('"') && value.endsWith('"')) ||
+                (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.slice(1, -1);
+            }
+            if (!(key in process.env)) {
+                process.env[key] = value;
+            }
+        }
+    } catch (e) {
+        console.warn('[env] .env 로드 실패:', e.message);
+    }
+})();
+
 // 자동 업데이트 설정
 autoUpdater.logger = console;
 autoUpdater.autoDownload = true;
@@ -46,26 +84,29 @@ const DOCS_DIR = (() => {
 /**
  * M-4: IPC 호출 Rate Limiting (DoS 방지)
  * 채널별 호출 횟수를 추적하여 과도한 호출을 차단
+ *
+ * 두 번째 인자로 채널별 임계값(maxCalls)을 지정 가능.
+ * - 기본: 초당 30회 (파일 I/O 등 내부 작업)
+ * - 외부 API(JUSO, VWorld 등): 초당 5회 권장 (사용자 측 키 보호 + 서비스 약관 준수)
  */
 const ipcRateLimiter = (() => {
     const callCounts = new Map();
     const WINDOW_MS = 1000;  // 1초 윈도우
-    const MAX_CALLS = 30;    // 초당 최대 30회
+    const DEFAULT_MAX = 30;  // 기본 초당 호출 한도
 
     return {
-        check(channel) {
+        check(channel, maxCalls = DEFAULT_MAX) {
             const now = Date.now();
-            const key = channel;
-            const entry = callCounts.get(key);
+            const entry = callCounts.get(channel);
 
             if (!entry || now - entry.start > WINDOW_MS) {
-                callCounts.set(key, { start: now, count: 1 });
+                callCounts.set(channel, { start: now, count: 1 });
                 return true;
             }
 
             entry.count++;
-            if (entry.count > MAX_CALLS) {
-                console.warn(`[Rate Limit] ${channel}: ${entry.count}회/초 초과`);
+            if (entry.count > maxCalls) {
+                console.warn(`[Rate Limit] ${channel}: ${entry.count}회/초 초과 (한도 ${maxCalls})`);
                 return false;
             }
             return true;
@@ -379,7 +420,7 @@ app.whenReady().then(() => {
           "script-src 'self' file: https://t1.kakaocdn.net https://t1.daumcdn.net; " +
           "style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; " +
           "font-src 'self' file: https://fonts.gstatic.com; " +
-          "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://openapi.foodsafetykorea.go.kr; " +
+          "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://openapi.foodsafetykorea.go.kr https://business.juso.go.kr https://api.vworld.kr; " +
           "img-src 'self' file: data:; " +
           "frame-src 'self' https://t1.kakaocdn.net https://postcode.map.kakao.com https://*.kakaocdn.net https://t1.daumcdn.net https://postcode.map.daum.net https://*.daumcdn.net; " +  // Kakao 우편번호 API iframe (전환기간 중 기존 도메인 유지)
           "object-src 'none'; " +  // Flash, Java 등 플러그인 차단
@@ -1024,13 +1065,166 @@ ipcMain.handle('select-auth-file', async () => {
     }
 });
 
+// ========================================
+// JUSO(도로명주소) API 검색 (main process에서 직접 호출)
+// 차용: postal-code-finder (MIT) backend/src/services/providers/jusoPostalCodeService.js
+//       backend/src/routes/address.js (sanitizeKeyword)
+// ========================================
+
+const JUSO_SQL_RESERVED = [
+    'OR', 'SELECT', 'INSERT', 'DELETE', 'UPDATE',
+    'CREATE', 'DROP', 'EXEC', 'UNION', 'FETCH',
+    'DECLARE', 'TRUNCATE'
+];
+const JUSO_BAD_CHARS = /[<>=%]/;
+
+/**
+ * JUSO 검색어 sanitize (postal-code-finder routes/address.js 차용)
+ * @param {string} q
+ * @returns {{ok: boolean, value?: string, error?: string}}
+ */
+function sanitizeJusoKeyword(q) {
+    const s = String(q || '').trim();
+    if (!s) return { ok: false, error: '검색어를 입력해 주세요.' };
+    if (s.length > 80) return { ok: false, error: '검색어가 너무 깁니다 (최대 80자).' };
+    if (JUSO_BAD_CHARS.test(s)) {
+        return { ok: false, error: '<, >, =, % 문자는 사용할 수 없습니다.' };
+    }
+    for (const w of JUSO_SQL_RESERVED) {
+        const re = new RegExp(`\\b${w}\\b`, 'i');
+        if (re.test(s)) return { ok: false, error: `"${w}" 같은 예약어는 사용할 수 없습니다.` };
+    }
+    return { ok: true, value: s };
+}
+
+// 외부 API 호출 채널은 초당 5회로 더 엄격하게 제한
+// (사용자 키 보호 + 서비스 약관 준수)
+const EXT_API_MAX_CALLS_PER_SEC = 5;
+
+ipcMain.handle('juso:search', async (_event, payload) => {
+    if (!ipcRateLimiter.check('juso:search', EXT_API_MAX_CALLS_PER_SEC)) {
+        return { ok: false, error: '요청이 너무 빈번합니다. 잠시 후 다시 시도하세요.' };
+    }
+
+    // 입력 검증
+    if (!payload || typeof payload !== 'object') {
+        return { ok: false, error: '유효하지 않은 요청입니다.' };
+    }
+    const { keyword, page = 1, size = 10 } = payload;
+
+    const chk = sanitizeJusoKeyword(keyword);
+    if (!chk.ok) return { ok: false, error: chk.error };
+
+    const pageNum = Math.max(1, Math.min(100, Number(page) || 1));
+    const sizeNum = Math.max(1, Math.min(50, Number(size) || 10));
+
+    const apiKey = process.env.JUSO_API_KEY || process.env.JUSO_KEY;
+    if (!apiKey) {
+        return { ok: false, error: 'JUSO_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.' };
+    }
+
+    const https = require('node:https');
+    // firstSort=road는 같은 도로명의 다수 지번을 인접 배치하여 행정구역 다양성을 떨어뜨림.
+    // 자동완성 UX에서는 다양한 시·군이 빠르게 노출되는 게 중요하므로 미지정(기본 정렬) 사용.
+    const params = new URLSearchParams({
+        confmKey: apiKey,
+        currentPage: String(pageNum),
+        countPerPage: String(sizeNum),
+        keyword: chk.value,
+        resultType: 'json',
+        hstryYn: 'N'
+    });
+    const url = `https://business.juso.go.kr/addrlink/addrLinkApi.do?${params.toString()}`;
+    const MAX_RESPONSE_SIZE = 256 * 1024; // 256KB
+
+    return new Promise((resolve) => {
+        // Buffer 누적 방식: 청크 경계에서 UTF-8 다중바이트(한글 3B)가 잘려도 안전하게 디코드
+        const chunks = [];
+        let totalSize = 0;
+        let aborted = false;
+        let timeout = null;
+        const finish = (result) => {
+            if (aborted) return;
+            aborted = true;
+            if (timeout) clearTimeout(timeout);
+            resolve(result);
+        };
+        const req = https.get(url, (res) => {
+            // HTTP 상태 코드 검증 (200~299 범위만 허용)
+            // - 4xx/5xx: API 키 오류, 점검, 서버 오류 등 -> body가 JSON이 아닐 수 있음
+            // - 3xx: Node https.get은 자동 리다이렉트 미지원 -> body가 비어있거나 HTML
+            const status = res.statusCode || 0;
+            if (status < 200 || status >= 300) {
+                req.destroy();
+                return finish({
+                    ok: false,
+                    error: `JUSO HTTP ${status} 오류 (점검 중이거나 API 키를 확인하세요).`
+                });
+            }
+            // setEncoding 호출하지 않음: 자동 string 변환은 청크 경계에서 다중바이트 잘림 시
+            // replacement character(U+FFFD)를 삽입할 수 있어 한글이 깨질 가능성이 있음.
+            res.on('data', (chunk) => {
+                if (aborted) return;
+                chunks.push(chunk);
+                totalSize += chunk.length;
+                if (totalSize > MAX_RESPONSE_SIZE) {
+                    req.destroy();
+                    finish({ ok: false, error: 'JUSO 응답이 너무 큽니다.' });
+                }
+            });
+            res.on('end', () => {
+                if (aborted) return;
+                try {
+                    // Buffer.concat으로 모든 청크 합친 후 한 번에 UTF-8 디코드 → 청크 경계 무관
+                    const data = Buffer.concat(chunks).toString('utf8');
+                    const json = JSON.parse(data);
+                    const results = json?.results;
+                    if (!results) {
+                        return finish({ ok: false, error: 'JUSO 응답 형식 오류' });
+                    }
+                    const common = results.common || {};
+                    if (common.errorCode && common.errorCode !== '0') {
+                        return finish({
+                            ok: false,
+                            error: `JUSO ${common.errorCode}: ${common.errorMessage || ''}`.trim()
+                        });
+                    }
+                    const items = Array.isArray(results.juso) ? results.juso : [];
+                    finish({
+                        ok: true,
+                        total: Number(common.totalCount || items.length || 0),
+                        page: Number(common.currentPage || pageNum),
+                        size: Number(common.countPerPage || sizeNum),
+                        items
+                    });
+                } catch (e) {
+                    finish({ ok: false, error: 'JUSO 응답 파싱 오류' });
+                }
+            });
+        });
+        timeout = setTimeout(() => {
+            req.destroy();
+            finish({ ok: false, error: 'JUSO 호출 시간 초과 (8초).' });
+        }, 8000);
+        req.on('error', (err) => {
+            console.error('[juso:search] 네트워크 오류:', err?.message);
+            finish({ ok: false, error: 'JUSO 네트워크 오류' });
+        });
+    });
+});
+
 // VWORLD 지번 지오코딩 (main process → Origin 헤더 없음, 도메인 제한 우회)
-ipcMain.handle('vworld-geocode', async (event, { address, apiKey }) => {
-    // M-1: 입력 검증
+// 보안: apiKey는 main process의 process.env.VWORLD_API_KEY에서 직접 참조 (렌더러 노출 없음)
+ipcMain.handle('vworld-geocode', async (event, { address }) => {
+    if (!ipcRateLimiter.check('vworld-geocode', EXT_API_MAX_CALLS_PER_SEC)) {
+        return null;
+    }
     if (typeof address !== 'string' || address.length === 0 || address.length > 200) {
         return null;
     }
-    if (typeof apiKey !== 'string' || apiKey.length === 0 || apiKey.length > 100) {
+    const apiKey = process.env.VWORLD_API_KEY || process.env.VWORLD_KEY;
+    if (!apiKey) {
+        console.error('[vworld-geocode] VWORLD_API_KEY가 설정되지 않았습니다.');
         return null;
     }
 
@@ -1038,28 +1232,44 @@ ipcMain.handle('vworld-geocode', async (event, { address, apiKey }) => {
     const url = `https://api.vworld.kr/req/address?service=address&request=getCoord&version=2.0&crs=epsg:4326&address=${encodeURIComponent(address)}&refine=true&simple=false&format=json&type=parcel&key=${apiKey}`;
     const MAX_RESPONSE_SIZE = 100 * 1024; // 100KB
     return new Promise((resolve) => {
+        // Buffer 누적: 청크 경계 UTF-8 다중바이트 잘림 방어 (한글 응답 안전)
+        const chunks = [];
+        let totalSize = 0;
+        let aborted = false;
+        let timeout = null;
+        const finish = (value) => {
+            if (aborted) return;
+            aborted = true;
+            if (timeout) clearTimeout(timeout);
+            resolve(value);
+        };
         const req = https.get(url, (res) => {
-            let data = '';
+            // HTTP 상태 코드 검증 (200~299만 허용)
+            const status = res.statusCode || 0;
+            if (status < 200 || status >= 300) {
+                req.destroy();
+                return finish(null);
+            }
             res.on('data', chunk => {
-                data += chunk;
-                // M-1: 응답 크기 제한
-                if (data.length > MAX_RESPONSE_SIZE) {
+                if (aborted) return;
+                chunks.push(chunk);
+                totalSize += chunk.length;
+                if (totalSize > MAX_RESPONSE_SIZE) {
                     req.destroy();
-                    resolve(null);
+                    finish(null);
                 }
             });
             res.on('end', () => {
-                clearTimeout(timeout);
+                if (aborted) return;
                 try {
+                    const data = Buffer.concat(chunks).toString('utf8');
                     const json = JSON.parse(data);
                     const ok = json?.response?.status === 'OK';
-                    resolve(ok);
-                } catch {
-                    resolve(null);
-                }
+                    finish(ok);
+                } catch { finish(null); }
             });
         });
-        const timeout = setTimeout(() => { req.destroy(); resolve(null); }, 8000);
-        req.on('error', () => { clearTimeout(timeout); resolve(null); });
+        timeout = setTimeout(() => { req.destroy(); finish(null); }, 8000);
+        req.on('error', () => { finish(null); });
     });
 });

@@ -4,7 +4,7 @@ window.XLSX = XLSX;
 
 // Shared modules
 import '../shared/sanitize.js';
-import '../bonghwaData.js';
+// 정적 시·군 데이터(bonghwaData.js) 제거 - juso API만 사용
 import '../shared/constants.js';
 import '../shared/utils.js';
 import '../shared/toast.js';

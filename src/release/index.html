@@ -570,9 +570,60 @@
         <div class="timeline">
 
 
-            <!-- v1.0.6 -->
+            <!-- v1.2.0 -->
             <div class="version-entry">
                 <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.2.0</span>
+                                <span class="version-date">2026-05-14</span>
+                            </div>
+                            <div class="version-title">도로명 주소 검색 juso API 마이그레이션 + 보안 강화</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                            <span class="badge badge-security">🔒 보안</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>도로명 주소 검색 Kakao Postcode → 행정안전부 juso API 자체 모달로 전환</strong> — 외부 CDN(<code>t1.kakaocdn.net</code>) 의존성 완전 제거. 검색 입력 + 결과 리스트 + 페이지네이션 + 키보드(↑↓Enter) + 다크모드 자체 구현. 메인 sample-log-electron v1.10.0과 동일한 검증된 패턴 적용.</li>
+                        <li><strong>CSP 축소</strong> — <code>script-src</code>/<code>frame-src</code>에서 카카오·다음 도메인 6개 제거. 공격 표면 감소.</li>
+                        <li><strong>jQuery 1.12.4 unload deprecation 경고 + Quirks Mode 경고 해소</strong> (외부 의존성 제거 부수 효과).</li>
+                        <li><strong>SIDO_PATTERN 정규식 상수 사전 추가</strong> — 메인 SAMPL-1-48 유형 회귀(정적 데이터 제거 시 누락) 사전 차단.</li>
+                        <li><strong>defense-in-depth sanitize cross-ref 주석</strong> — main process와 renderer의 SQL 인젝션 방지 코드 양쪽 동기화 의도 명시.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v1.1.0 -->
+            <div class="version-entry">
+                <div class="version-dot"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.1.0</span>
+                                <span class="version-date">2026-05-13</span>
+                            </div>
+                            <div class="version-title">전국 주소 자동완성 + 산 필지 토글</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-feature">기능</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>전국 시·군 단위 주소 자동완성 (juso API 기반)</strong> — 기존 봉화/영주/울진 311리 정적 데이터 → 전국 데이터로 확장.</li>
+                        <li><strong>산 필지 토글 버튼 UI</strong> — 필지 입력에 ON/OFF "산" 표시 버튼 추가.</li>
+                        <li><strong>VWORLD 지오코딩 보안 강화</strong> — API 키 main process .env로 격리, IPC payload 노출 제거.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v1.0.6 -->
+            <div class="version-entry">
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -583,7 +634,6 @@
                             <div class="version-title">토양 수정 시 접수번호 보존 핫픽스</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                             <span class="badge badge-fix">수정</span>
                         </div>
                     </div>

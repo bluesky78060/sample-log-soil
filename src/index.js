@@ -414,15 +414,15 @@ app.whenReady().then(() => {
           // Phase 4 현대화 완료:
           // - script-src: CDN → npm 번들 전환 완료 (Tailwind, SheetJS, DOMPurify, Firebase)
           //   unsafe-inline 제거 완료 (인라인 스크립트 → ES Modules)
-          //   Kakao Postcode CDN만 유지 (npm 패키지 없음)
+          //   SLS-1-20: Kakao Postcode CDN 제거 (juso API 자체 모달로 전환)
           // - style-src: Tailwind CDN → 빌드 타임 CSS 전환 완료
           //   unsafe-inline 유지: JS에서 element.style.* 직접 조작 광범위하게 사용
-          "script-src 'self' file: https://t1.kakaocdn.net https://t1.daumcdn.net; " +
+          "script-src 'self' file:; " +
           "style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; " +
           "font-src 'self' file: https://fonts.gstatic.com; " +
           "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://openapi.foodsafetykorea.go.kr https://business.juso.go.kr https://api.vworld.kr; " +
           "img-src 'self' file: data:; " +
-          "frame-src 'self' https://t1.kakaocdn.net https://postcode.map.kakao.com https://*.kakaocdn.net https://t1.daumcdn.net https://postcode.map.daum.net https://*.daumcdn.net; " +  // Kakao 우편번호 API iframe (전환기간 중 기존 도메인 유지)
+          "frame-src 'self'; " +  // SLS-1-20: Kakao 우편번호 iframe 도메인 제거
           "object-src 'none'; " +  // Flash, Java 등 플러그인 차단
           "base-uri 'self'; " +     // <base> 태그 제한
           "form-action 'self'; " +   // 폼 제출 대상 제한
@@ -1083,6 +1083,12 @@ const JUSO_BAD_CHARS = /[<>=%]/;
  * @param {string} q
  * @returns {{ok: boolean, value?: string, error?: string}}
  */
+// SLS-1-20: defense-in-depth 의도적 중복.
+//   shared 카운터파트: src/shared/juso-service.js (sanitizeKeyword)
+//   양쪽 sync 필수 — SQL_RESERVED/BAD_CHARS 변경 시 두 파일 동시 수정
+//   main이 신뢰 경계 (renderer 우회 가능성 차단)
+// SLS-1-20 L-2: 정규식 사전 컴파일 (호출당 RegExp 12회 생성 방지)
+const JUSO_SQL_PATTERNS = JUSO_SQL_RESERVED.map(w => ({ word: w, re: new RegExp(`\\b${w}\\b`, 'i') }));
 function sanitizeJusoKeyword(q) {
     const s = String(q || '').trim();
     if (!s) return { ok: false, error: '검색어를 입력해 주세요.' };
@@ -1090,9 +1096,8 @@ function sanitizeJusoKeyword(q) {
     if (JUSO_BAD_CHARS.test(s)) {
         return { ok: false, error: '<, >, =, % 문자는 사용할 수 없습니다.' };
     }
-    for (const w of JUSO_SQL_RESERVED) {
-        const re = new RegExp(`\\b${w}\\b`, 'i');
-        if (re.test(s)) return { ok: false, error: `"${w}" 같은 예약어는 사용할 수 없습니다.` };
+    for (const { word, re } of JUSO_SQL_PATTERNS) {
+        if (re.test(s)) return { ok: false, error: `"${word}" 같은 예약어는 사용할 수 없습니다.` };
     }
     return { ok: true, value: s };
 }

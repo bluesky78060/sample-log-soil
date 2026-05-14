@@ -16,6 +16,10 @@
     'use strict';
 
     // SQL 인젝션 방지 (postal-code-finder routes/address.js 차용)
+    // SLS-1-20: defense-in-depth 의도적 중복.
+    //   main 카운터파트: src/index.js (sanitizeJusoKeyword + JUSO_SQL_RESERVED/JUSO_BAD_CHARS)
+    //   양쪽 sync 필수 — 목록 변경 시 두 파일 동시 수정
+    //   renderer 측은 UX(즉시 에러 표시)용, main이 보안 신뢰 경계
     const SQL_RESERVED = [
         'OR', 'SELECT', 'INSERT', 'DELETE', 'UPDATE',
         'CREATE', 'DROP', 'EXEC', 'UNION', 'FETCH',

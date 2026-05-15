@@ -42,6 +42,16 @@ jobs:
           "@ | Out-File -FilePath "src/shared/network-config.js" -Encoding utf8
         shell: pwsh
 
+      # SLS-1-21: main process가 사용하는 .env 파일을 secrets에서 생성
+      # forge.config.js의 extraResource로 패키지의 resources/에 동봉됨
+      - name: Create .env with secrets
+        run: |
+          @"
+          JUSO_API_KEY=${{ secrets.JUSO_API_KEY }}
+          VWORLD_API_KEY=${{ secrets.VWORLD_API_KEY }}
+          "@ | Out-File -FilePath ".env" -Encoding utf8 -NoNewline
+        shell: pwsh
+
       - name: Build Windows package
         run: npm run make
 

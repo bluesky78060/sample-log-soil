@@ -21,9 +21,20 @@ const { autoUpdater } = require('electron-updater');
  * - 따옴표 처리: 양끝 동일한 종류의 ' 또는 " 만 벗김
  *   ※ 이스케이프 시퀀스(\n, \t 등)는 미지원 (필요 시 dotenv 의존성 추가)
  */
+// SLS-1-21: packaged Electron 환경에서도 동작하도록 다중 경로 시도
+//   - 개발: <repo>/.env (__dirname/../.env)
+//   - packaged: process.resourcesPath/.env (forge.config.js extraResource로 동봉)
 (function loadDotEnv() {
-    const envPath = path.join(__dirname, '..', '.env');
-    if (!fs.existsSync(envPath)) return;
+    const candidates = [
+        path.join(__dirname, '..', '.env'),
+    ];
+    if (process.resourcesPath) {
+        candidates.push(path.join(process.resourcesPath, '.env'));
+    }
+    const envPath = candidates.find((p) => {
+        try { return fs.existsSync(p); } catch { return false; }
+    });
+    if (!envPath) return;
     try {
         const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
         for (const line of lines) {
@@ -41,6 +52,7 @@ const { autoUpdater } = require('electron-updater');
                 process.env[key] = value;
             }
         }
+        console.log(`[env] .env 로드 완료: ${envPath}`);
     } catch (e) {
         console.warn('[env] .env 로드 실패:', e.message);
     }

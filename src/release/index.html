@@ -570,9 +570,35 @@
         <div class="timeline">
 
 
-            <!-- v1.2.0 -->
+            <!-- v1.2.1 -->
             <div class="version-entry">
                 <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.2.1</span>
+                                <span class="version-date">2026-05-15</span>
+                            </div>
+                            <div class="version-title">배포 Electron의 JUSO_API_KEY 미인식 핫픽스</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                            <span class="badge badge-fix">수정</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>설치된 Electron 앱에서 주소 검색 "JUSO_API_KEY가 설정되지 않았습니다" 오류 수정</strong> — <code>.env</code> 파일이 GitHub 빌드 시 포함되지 않아 발생.</li>
+                        <li><strong>GitHub Actions secrets → .env 자동 생성</strong> — 빌드 시 <code>JUSO_API_KEY</code>, <code>VWORLD_API_KEY</code> secrets에서 <code>.env</code> 파일 생성.</li>
+                        <li><strong>forge.config.js extraResource에 .env 포함</strong> — packaged 앱의 <code>resources/</code> 디렉토리에 동봉.</li>
+                        <li><strong>loadDotEnv 다중 경로 탐색</strong> — 개발 환경(<code>__dirname/../.env</code>)과 packaged 환경(<code>process.resourcesPath/.env</code>) 모두 지원.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v1.2.0 -->
+            <div class="version-entry">
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -583,7 +609,6 @@
                             <div class="version-title">도로명 주소 검색 juso API 마이그레이션 + 보안 강화</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                             <span class="badge badge-security">🔒 보안</span>
                         </div>
                     </div>

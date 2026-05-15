@@ -8,7 +8,9 @@ module.exports = {
     name: 'soil-sample-log',
     executableName: 'soil-sample-log',
     appBundleId: 'com.soilsamplelog.app',
-    extraResource: ['./app-update.yml'],
+    // SLS-1-21: .env를 packaged 앱의 resources/ 디렉토리에 동봉 (process.resourcesPath/.env)
+    // GitHub Actions가 빌드 직전 secrets → .env 생성
+    extraResource: ['./app-update.yml', './.env'],
     icon: path.resolve(__dirname, 'assets', 'icon'),
   },
   rebuildConfig: {},

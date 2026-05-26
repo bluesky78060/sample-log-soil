@@ -895,6 +895,36 @@ document.getElementById('resetOrgNameBtn').addEventListener('click', () => {
 
 loadOrgName();
 
+// ========================================
+// 기본 시·도 설정 (필지 주소 검증용)
+// ========================================
+const DEFAULT_SIDO_KEY = 'app_default_sido';
+
+function loadDefaultSido() {
+    const saved = localStorage.getItem(DEFAULT_SIDO_KEY);
+    const el = document.getElementById('defaultSido');
+    if (el) el.value = saved || '';
+}
+
+const saveDefaultSidoBtn = document.getElementById('saveDefaultSidoBtn');
+if (saveDefaultSidoBtn) {
+    saveDefaultSidoBtn.addEventListener('click', () => {
+        const value = document.getElementById('defaultSido').value;
+        if (value) {
+            localStorage.setItem(DEFAULT_SIDO_KEY, value);
+        } else {
+            localStorage.removeItem(DEFAULT_SIDO_KEY);
+        }
+        const statusEl = document.getElementById('defaultSidoSaveStatus');
+        if (statusEl) {
+            statusEl.style.display = 'inline';
+            setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
+        }
+    });
+}
+
+loadDefaultSido();
+
 // 초기화
 loadSavedConfig();
 renderMigrationList();

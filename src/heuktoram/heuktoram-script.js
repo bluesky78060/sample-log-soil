@@ -93,12 +93,16 @@ class HeuktoramManager {
     // 초기화
     // ========================================
 
-    init() {
+    async init() {
         this.cacheElements();
         this.setDefaultYear();
         this.restoreFromSoilPage();  // 토양 접수 대장에서 전달된 데이터 복원
         this.bindEvents();
-        this.loadData();
+        // 분석결과 IDB 초기화 + localStorage 자동 마이그레이션(멱등)
+        try { await window.AnalysisDB?.init(); } catch (e) {
+            (window.logger?.warn || console.warn)('AnalysisDB 초기화 실패(LS 폴백):', e);
+        }
+        await this.loadData();
         this.render();
         this.setupResultImporter();
 
@@ -241,10 +245,10 @@ class HeuktoramManager {
 
     bindEvents() {
         // 연도 변경
-        this.yearSelect?.addEventListener('change', () => {
+        this.yearSelect?.addEventListener('change', async () => {
             this.selectedYear = this.yearSelect.value;
             this.preSelectedLogIds = null;  // 연도 변경 시 필터 초기화 (전체 표시)
-            this.loadData();
+            await this.loadData();
             this.render();
         });
 
@@ -311,12 +315,12 @@ class HeuktoramManager {
     // 데이터 로드/저장
     // ========================================
 
-    loadData() {
+    async loadData() {
         // 토양 접수 데이터 로드
         this.sampleLogs = this.loadSampleLogs();
 
-        // 검정 결과 로드
-        this.testResults = this.loadTestResults();
+        // 검정 결과 로드 (IDB 우선, 실패 시 localStorage 폴백)
+        this.testResults = await this.loadTestResults();
 
         // flat rows 생성
         this.buildFlatRows();
@@ -347,10 +351,22 @@ class HeuktoramManager {
         }
     }
 
-    loadTestResults() {
-        const key = `soilTestResults_${this.selectedYear}`;
+    async loadTestResults() {
+        // IDB 우선 (init에서 마이그레이션 완료 보장)
+        const lsKey = `soilTestResults_${this.selectedYear}`;
+        if (window.AnalysisDB?.isReady?.()) {
+            try {
+                // fire-and-forget IDB write의 갭 차단: 진행 중 저장 완료까지 대기
+                if (this._pendingIdbSave) { await this._pendingIdbSave.catch(() => {}); }
+                const map = await window.AnalysisDB.getMap('soil', this.selectedYear);
+                return map || {};
+            } catch (e) {
+                (window.logger?.warn || console.warn)('IDB 검정 결과 로드 실패, LS 폴백:', e);
+            }
+        }
+        // 폴백: localStorage (IDB 미초기화 또는 오류 시)
         try {
-            const data = localStorage.getItem(key);
+            const data = localStorage.getItem(lsKey);
             if (!data) return {};
             return JSON.parse(data) || {};
         } catch (e) {
@@ -359,12 +375,26 @@ class HeuktoramManager {
         }
     }
 
+    /**
+     * 검정 결과 저장: 동기 호출 호환을 위해 inner는 fire-and-forget.
+     * 1) IDB(영속 주 저장소)에 비동기 저장
+     * 2) localStorage(LS)에 백업 미러(rollback 안전 + 동기 폴백 지원)
+     */
     saveTestResults() {
-        const key = `soilTestResults_${this.selectedYear}`;
-        try {
-            localStorage.setItem(key, JSON.stringify(this.testResults));
-        } catch (e) {
-            (window.logger?.error || console.error)('검정 결과 저장 실패:', e);
+        const lsKey = `soilTestResults_${this.selectedYear}`;
+        // 진짜 스냅샷(깊은 복사): 이후 this.testResults 변경이 IDB 비동기 write에 영향 주지 않도록
+        let snapshot;
+        try { snapshot = JSON.parse(JSON.stringify(this.testResults || {})); }
+        catch { snapshot = { ...(this.testResults || {}) }; } // 순환참조 등 극단 케이스 폴백
+        // LS 백업(용량 초과 시 무시 — IDB가 진짜 저장소)
+        try { localStorage.setItem(lsKey, JSON.stringify(snapshot)); }
+        catch (e) { (window.logger?.warn || console.warn)('LS 백업 실패(IDB는 계속):', e); }
+        // IDB 영속 저장 — 진행 중 promise를 보관해 loadTestResults에서 await(fire-and-forget 갭 차단)
+        if (window.AnalysisDB?.isReady?.()) {
+            this._pendingIdbSave = window.AnalysisDB.saveMap('soil', this.selectedYear, snapshot)
+                .catch(e => {
+                    (window.logger?.error || console.error)('IDB 검정 결과 저장 실패:', e);
+                });
         }
     }
 
@@ -1185,14 +1215,16 @@ class HeuktoramManager {
      */
     getBeforeAfter(usageCode) {
         if (usageCode === '0' || usageCode === '') return '';
-        return this.bulkBeforeAfterSelect?.value || 'N';
+        // bulkBeforeAfterSelect 값('N'/'Y')을 BC3/BD3 범례 표기('전-N'/'후-Y')와 일치시켜 출력
+        const v = this.bulkBeforeAfterSelect?.value || 'N';
+        return v === 'Y' ? '후-Y' : '전-N';
     }
 
     // ========================================
     // 흙토람 서식 내보내기
     // ========================================
 
-    exportToHeuktoram() {
+    async exportToHeuktoram() {
         // 선택된 행만 내보내기 (선택 없으면 전체)
         let targetRows = this.flatRows;
         if (this.selectedKeys.size > 0) {
@@ -1222,10 +1254,38 @@ class HeuktoramManager {
             this.applyHeaderStyles(ws, wsData);
             this.applyHeaderMerges(ws);
 
+            // 1행(제목)·2행(안내문) 행 높이 설정 — 서식.xlsx 원본 기준
+            ws['!rows'] = ws['!rows'] || [];
+            ws['!rows'][0] = { hpt: 30 };    // 1행 높이 30pt
+            ws['!rows'][1] = { hpt: 369.5 }; // 2행 안내문 높이 (wrapText 19줄)
+
+            // 1행(제목) 셀 스타일: 좌측 정렬 + 굵게 (서식.xlsx 원본 기준)
+            const cellA1 = ws['A1'];
+            if (cellA1) {
+                cellA1.s = {
+                    alignment: { horizontal: 'left' },
+                    font: { bold: true, sz: 20, name: '맑은 고딕' }
+                };
+            }
+            // 2행(안내문) 셀 스타일: 좌측·중앙 정렬 + wrapText
+            const cellA2 = ws['A2'];
+            if (cellA2) {
+                cellA2.s = {
+                    alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+                    font: { sz: 11, name: '맑은 고딕' }
+                };
+            }
+
             XLSX.utils.book_append_sheet(wb, ws, '일괄등록양식');
 
+            // xlsx-js-style은 dataValidation을 출력하지 않으므로 JSZip으로 후처리하여
+            // 사용자가 엑셀에서 용도구분(G열) 셀을 클릭 시 드롭다운이 나타나도록 함
+            const arrayBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+            const validations = this.buildDataValidations(targetRows.length);
+            const patchedBuffer = await this.injectDataValidations(arrayBuffer, validations);
+
             const fileName = `흙토람_토양검정_${this.selectedYear}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-            XLSX.writeFile(wb, fileName);
+            this.downloadBuffer(patchedBuffer, fileName);
 
             if (window.showToast) {
                 window.showToast(`${targetRows.length}건 흙토람 서식으로 내보냈습니다.`, 'success');
@@ -1236,52 +1296,166 @@ class HeuktoramManager {
         }
     }
 
+    /**
+     * 데이터 유효성 검사 규칙 목록 빌드
+     * 현재는 용도구분(G열)만. 향후 다른 컬럼 추가 시 이 함수만 확장.
+     */
+    buildDataValidations(dataRowCount) {
+        if (dataRowCount <= 0) return [];
+        const startRow = 5;
+        const endRow = 4 + dataRowCount;
+        return [
+            {
+                // G열: 용도구분 코드
+                sqref: `G${startRow}:G${endRow}`,
+                options: ['일반적인토양검정-0', '토양개량제 규산-1', '토양개량제 석회질-2', '녹비작물-3']
+            },
+            {
+                // H열: 시행(재배)전후 — BC3='전-N', BD3='후-Y' 범례 텍스트와 동일
+                // 빈값 허용(allowBlank=1) — 용도구분 0(일반)일 때 사용 안 함
+                sqref: `H${startRow}:H${endRow}`,
+                options: ['전-N', '후-Y']
+            },
+            {
+                // AH열: 성토여부 — 흙토람 안내문 "성토여부는 미해당, 해당으로 입력"
+                sqref: `AH${startRow}:AH${endRow}`,
+                options: ['미해당', '해당']
+            }
+        ];
+    }
+
+    /**
+     * xlsx 파일은 ZIP 컨테이너이므로 JSZip으로 sheet XML을 풀어
+     * <dataValidations> XML을 직접 삽입한 뒤 재압축한다.
+     * SheetJS Community/xlsx-js-style이 dataValidation 출력을 지원하지 않아 사용.
+     */
+    async injectDataValidations(arrayBuffer, validations) {
+        if (!validations || validations.length === 0) return arrayBuffer;
+        const JSZip = window.JSZip;
+        if (!JSZip) {
+            (window.logger?.warn || console.warn)('JSZip 미사용. 드롭다운 적용 생략.');
+            return arrayBuffer;
+        }
+
+        const zip = await JSZip.loadAsync(arrayBuffer);
+        const sheetXmlPath = 'xl/worksheets/sheet1.xml';
+        const sheetFile = zip.file(sheetXmlPath);
+        if (!sheetFile) return arrayBuffer;
+
+        let xml = await sheetFile.async('string');
+        const dvXml = this.buildDataValidationsXml(validations);
+
+        // Excel 스펙: dataValidations는 mergeCells 다음 위치에 와야 함
+        if (xml.indexOf('</mergeCells>') !== -1) {
+            xml = xml.replace('</mergeCells>', '</mergeCells>' + dvXml);
+        } else if (xml.indexOf('</sheetData>') !== -1) {
+            xml = xml.replace('</sheetData>', '</sheetData>' + dvXml);
+        }
+
+        zip.file(sheetXmlPath, xml);
+        return await zip.generateAsync({ type: 'arraybuffer' });
+    }
+
+    /**
+     * dataValidations XML 빌드
+     * formula1 안의 인라인 목록은 큰따옴표로 감싸고 콤마로 구분 (Excel 스펙).
+     * XML 안의 큰따옴표는 &quot;로 이스케이프.
+     */
+    buildDataValidationsXml(validations) {
+        const parts = validations.map(v => {
+            const list = v.options.join(',');
+            return (
+                '<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1"'
+                + ` sqref="${v.sqref}">`
+                + `<formula1>&quot;${list}&quot;</formula1>`
+                + '</dataValidation>'
+            );
+        });
+        return `<dataValidations count="${validations.length}">${parts.join('')}</dataValidations>`;
+    }
+
+    /**
+     * ArrayBuffer를 Blob으로 변환 후 다운로드
+     */
+    downloadBuffer(arrayBuffer, fileName) {
+        const blob = new Blob([arrayBuffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
     buildWorksheetData(rows) {
         const data = [];
         const collectYear = this.collectYearInput?.value || this.selectedYear;
         const collector = this.collectorInput?.value || '';
 
-        // 1행: 제목
-        const row1 = new Array(50).fill('');
+        // 1행: 제목 (A1:AV1 병합)
+        const row1 = new Array(56).fill('');
         row1[0] = '토양검정 일괄입력 양식';
         data.push(row1);
 
-        // 2행: 안내
-        const row2 = new Array(50).fill('');
-        row2[0] = '※ 300건 이하로 입력해주세요. 주소매핑여부와 기타주소 컬럼은 빈값으로 두세요.';
+        // 2행: 안내문 (A2:AV2 병합) - 흙토람 서식.xlsx 원본과 동일
+        const row2 = new Array(56).fill('');
+        row2[0] = '아래 형식과 같이 입력되어야만 일괄입력을 할 수 있습니다. \n'
+            + '  - 필지구분은 "필지" 또는 "하위필지" 로 입력 (1,2,3,4 = 필지) (1-1, 2-1, 2-2 = 하위필지)\n'
+            + '  - 하위필지는 반드시 대표필지 아래에 연속으로 입력하고 채취년도,경지구분,시료번호,검정대상지 시도 및 시군구 주소를 대표필지와 일치\n'
+            + '  - 채취년도는 숫자(4자리)를 입력\n'
+            + '  - 경지구분은 1차와 2차를 나눠 입력\n'
+            + '  - 분석의뢰일(접수일자)는 숫자(4)-숫자(2)-숫자(2)로 정의하며 \'-\'로 구분하며, 필수 입력\n'
+            + '  - 검정 대상지는 시도, 시군구, 읍면동, 리를 나눠 입력\n'
+            + '  - 지번구분은 일반은 빈공백으로 산은 산이라고 명시하며 검정대상지번은 지번1과 지번2로 나눠 입력(지번2가 없을 경우 비워놓음)\n'
+            + '  - 주소매핑여부는 자동으로 체크 됩니다. 작성하지 마세요.\n'
+            + '  - 면적의 단위는 ㎡로, 숫자 형태로 입력\n'
+            + '  - 토양검정일은 숫자(4)-숫자(2)-숫자(2)로 정의하며 \'-\'로 구분\n'
+            + '  - 작물을 입력할 시에는 작물명 또는 숫자 5자리로 이루어진 작물코드 입력\n'
+            + '  - 용도구분은 코드를 [일반적인토양검정-0] 선택 시에는 시행(재배) 전후를 선택 하지 마세요.(추가 내용)\n'
+            + '  - 성토여부는 미해당, 해당으로 입력\n'
+            + '  - 경작자 주소(추가내용)는 선택사항이므로 생략하셔도 입력에는 문제가 없습니다.\n'
+            + '  - 신청인 전화번호는 \'-\' 없이 입력하세요(예:01023456789)\n'
+            + '  - 경영체등록번호/농업인번호를 조회하기 위해서는 개인(경작자명, 생년월일 모두 입력) / 법인(법인번호) 중 한 항목만 입력하세요. (해당 필드 필수입력 항목 아님)\n'
+            + '  - 생년월일은 숫자(8자리), 법인번호는 숫자(13자리)를 입력\n'
+            + '  - 생년월일, 법인번호 항목은 경영체등록번호/농업인번호 조회 목적으로만 사용함 (흙토람에 등록되지 않는 정보)\n\n'
+            + '원활한 일괄입력을 위하여 1회당 300건 이하의 자료 입력을 권장드립니다.';
         data.push(row2);
 
-        // 3행: 대분류 헤더 (실제 흙토람 서식 56열 기준)
-        const row3 = new Array(50).fill('');
+        // 3행: 대분류 헤더 (흙토람 서식.xlsx 기준 A~AV = 48열, AY~BD = 코드 범례)
+        const row3 = new Array(56).fill('');
         row3[0] = '필지구분';
-        row3[1] = '채취년도';
+        row3[1] = ' 채취년도';
         row3[2] = '시료채취자';
         row3[3] = '분석의뢰일(접수일자)';
-        row3[4] = '경지구분';    // 소분류: 1차
-        // [5]: 소분류 2차 (빈값)
-        row3[6] = '용도구분';    // 소분류: 코드
-        // [7]: 소분류 시행(재배)전후 (빈값)
+        row3[4] = ' 경지구분';   // 소분류: 1차, 2차
+        // [5]: 경지구분 2차 (가로 병합)
+        row3[6] = '용도구분';    // 소분류: 코드, 시행(재배)전후
+        // [7]: 용도구분 시행(재배)전후 (가로 병합)
         row3[8] = '시료번호';
-        row3[9] = '대상지 주소'; // 소분류: 시도
-        // [10~12]: 소분류 시군구, 읍면동, 리
+        row3[9] = '대상지 주소'; // 소분류: 시도, 시군구, 읍면동, 리 (가로 병합)
+        // [10~12]: 가로 병합
         row3[13] = '지번 구분';
-        row3[14] = '지번';       // 소분류: 지번1
-        // [15]: 소분류 지번2
+        row3[14] = '지번';       // 소분류: 지번1, 지번2 (가로 병합)
+        // [15]: 가로 병합
         row3[16] = '주소매핑여부';
         row3[17] = '기타주소';
         row3[18] = '면적(㎡)';
         row3[19] = '토양검정일';
         row3[20] = '경작자';
-        row3[21] = '경작자 주소(이전주소기준)'; // 소분류: 시도
-        // [22~28]: 소분류 시군구, 읍면동, 도로명, 본번, 부번, 동층호, 법정동
-        row3[29] = '개인 (Agrix 조회용)'; // 소분류: 경작자명
-        // [30]: 소분류 생년월일
+        row3[21] = '경작자 주소(이전주소기준)'; // 소분류 시도~법정동 (가로 병합 V3:AC3)
+        // [22~28]: 가로 병합
+        row3[29] = '개인 (Agrix 조회용)'; // 소분류 경작자명, 생년월일 (AD3:AE3 가로 병합)
+        // [30]: 가로 병합
         row3[31] = '법인 (Agrix 조회용)'; // 소분류: 법인번호
-        row3[32] = '작물명 또는\n작물코드';
+        row3[32] = ' 작물명 또는\n작물코드';
         row3[33] = '성토여부';
         row3[34] = '점토함량';
-        row3[35] = 'pH';
-        row3[36] = '유기물';
+        row3[35] = ' pH';
+        row3[36] = ' 유기물';
         row3[37] = '유효인산';
         row3[38] = '교환성 칼륨';
         row3[39] = '교환성 칼슘';
@@ -1295,11 +1469,17 @@ class HeuktoramManager {
         row3[47] = '신청인 전화번호';
         row3[48] = '개인정보\n수집·이용 동의';
         row3[49] = '개인정보\n제3자 제공동의';
+        // 코드 범례 (AY=50 ~ BD=55) — 흙토람 서식 원본과 동일
+        row3[50] = '일반적인토양검정-0';
+        row3[51] = '토양개량제 규산-1';
+        row3[52] = '토양개량제 석회질-2';
+        row3[53] = '녹비작물-3';
+        row3[54] = '전-N';
+        row3[55] = '후-Y';
         data.push(row3);
 
         // 4행: 소분류 헤더
-        const row4 = new Array(50).fill('');
-        row4[0] = '필지/하위필지';
+        const row4 = new Array(56).fill('');
         row4[4] = '1차';
         row4[5] = '2차';
         row4[6] = '코드';
@@ -1321,7 +1501,6 @@ class HeuktoramManager {
         row4[29] = '경작자명';
         row4[30] = '생년월일';
         row4[31] = '법인번호';
-        row4[33] = '미해당/해당';
         data.push(row4);
 
         // 5행부터 데이터
@@ -1421,16 +1600,16 @@ class HeuktoramManager {
 
     getColumnWidths() {
         return [
-            { wch: 12 }, // [0]  필지구분 / 필지/하위필지
+            { wch: 12 }, // [0]  필지구분
             { wch: 10 }, // [1]  채취년도
             { wch: 12 }, // [2]  시료채취자
             { wch: 20 }, // [3]  분석의뢰일(접수일자)
             { wch: 10 }, // [4]  경지구분 1차
             { wch: 8 },  // [5]  경지구분 2차
-            { wch: 20 }, // [6]  용도구분 코드 (일반적인토양검정-0 등)
+            { wch: 20 }, // [6]  용도구분 코드
             { wch: 16 }, // [7]  시행(재배)전후
             { wch: 10 }, // [8]  시료번호
-            { wch: 12 }, // [9]  시도
+            { wch: 12 }, // [9]  대상지 시도
             { wch: 10 }, // [10] 시군구
             { wch: 10 }, // [11] 읍면동
             { wch: 8 },  // [12] 리
@@ -1452,9 +1631,9 @@ class HeuktoramManager {
             { wch: 20 }, // [28] (법정동, 공동주택명)
             { wch: 12 }, // [29] Agrix 경작자명
             { wch: 12 }, // [30] 생년월일
-            { wch: 18 }, // [31] 법인번호 (법인 Agrix 조회용)
+            { wch: 18 }, // [31] 법인번호
             { wch: 22 }, // [32] 작물명 또는 작물코드
-            { wch: 12 }, // [33] 성토여부 / 미해당/해당
+            { wch: 12 }, // [33] 성토여부
             { wch: 10 }, // [34] 점토함량
             { wch: 6 },  // [35] pH
             { wch: 8 },  // [36] 유기물
@@ -1471,6 +1650,12 @@ class HeuktoramManager {
             { wch: 16 }, // [47] 신청인 전화번호
             { wch: 16 }, // [48] 개인정보 수집·이용 동의
             { wch: 16 }, // [49] 개인정보 제3자 제공동의
+            { wch: 22 }, // [50] 일반적인토양검정-0
+            { wch: 18 }, // [51] 토양개량제 규산-1
+            { wch: 20 }, // [52] 토양개량제 석회질-2
+            { wch: 12 }, // [53] 녹비작물-3
+            { wch: 8 },  // [54] 전-N
+            { wch: 8 },  // [55] 후-Y
         ];
     }
 
@@ -1480,9 +1665,9 @@ class HeuktoramManager {
     applyHeaderStyles(ws, wsData) {
         const colCount = wsData[0]?.length || 48;
 
-        // 3행 (인덱스 2): 대분류 - 연한 파란색
+        // 3행 (인덱스 2): 대분류 - 회색 (서식.xlsx 원본 indexed=22 = #C0C0C0)
         const row3Style = {
-            fill: { fgColor: { rgb: 'B4C6E7' } },
+            fill: { fgColor: { rgb: 'C0C0C0' } },
             font: { bold: true, sz: 10 },
             alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
             border: {
@@ -1493,9 +1678,9 @@ class HeuktoramManager {
             }
         };
 
-        // 4행 (인덱스 3): 소분류 - 연한 노란색
+        // 4행 (인덱스 3): 소분류 - 회색 (서식.xlsx 원본 indexed=22 = #C0C0C0)
         const row4Style = {
-            fill: { fgColor: { rgb: 'FCE4B5' } },
+            fill: { fgColor: { rgb: 'C0C0C0' } },
             font: { bold: true, sz: 9 },
             alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
             border: {
@@ -1518,25 +1703,39 @@ class HeuktoramManager {
         };
 
         const rowCount = wsData.length;
+        // 데이터 영역은 A~AX(0~49)만, 코드 범례 영역(AY~BD=50~55)은 헤더 행에만 표시
+        const DATA_COL_END = 50;
 
         for (let c = 0; c < colCount; c++) {
             const col = XLSX.utils.encode_col(c);
 
-            // 3행 (엑셀 행3 = 인덱스 2)
+            // 3행 (엑셀 행3 = 인덱스 2) — 헤더 스타일은 데이터 영역(0~49)에만 적용
             const cell3Addr = col + '3';
-            if (!ws[cell3Addr]) ws[cell3Addr] = { v: '', t: 's' };
-            ws[cell3Addr].s = row3Style;
+            if (c < DATA_COL_END) {
+                if (!ws[cell3Addr]) ws[cell3Addr] = { v: '', t: 's' };
+                ws[cell3Addr].s = row3Style;
+            } else if (ws[cell3Addr] && ws[cell3Addr].v !== '' && ws[cell3Addr].v !== undefined) {
+                // 코드 범례 영역(AY3~BD3): 배경/굵기/테두리 없이 일반 셀 (서식.xlsx 원본 기준)
+                ws[cell3Addr].s = {
+                    font: { sz: 11, name: '맑은 고딕' },
+                    alignment: { horizontal: 'center', vertical: 'center' }
+                };
+            }
 
-            // 4행 (엑셀 행4 = 인덱스 3)
-            const cell4Addr = col + '4';
-            if (!ws[cell4Addr]) ws[cell4Addr] = { v: '', t: 's' };
-            ws[cell4Addr].s = row4Style;
+            // 4행 (엑셀 행4 = 인덱스 3) — 데이터 영역만
+            if (c < DATA_COL_END) {
+                const cell4Addr = col + '4';
+                if (!ws[cell4Addr]) ws[cell4Addr] = { v: '', t: 's' };
+                ws[cell4Addr].s = row4Style;
+            }
 
-            // 5행~ 데이터 행: 가운데 정렬
-            for (let r = 4; r < rowCount; r++) {
-                const addr = col + (r + 1);
-                if (!ws[addr]) ws[addr] = { v: '', t: 's' };
-                ws[addr].s = dataStyle;
+            // 5행~ 데이터 행: 데이터 영역(0~47)만 스타일 적용
+            if (c < DATA_COL_END) {
+                for (let r = 4; r < rowCount; r++) {
+                    const addr = col + (r + 1);
+                    if (!ws[addr]) ws[addr] = { v: '', t: 's' };
+                    ws[addr].s = dataStyle;
+                }
             }
         }
     }
@@ -1548,12 +1747,13 @@ class HeuktoramManager {
      */
     applyHeaderMerges(ws) {
         const merges = [
-            // 1행: 제목 A1:C1 병합
-            { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
-            // 2행: 안내 A2:H2 병합
-            { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+            // 1행: 제목 A1:AV1 병합 (서식.xlsx 원본 기준)
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 47 } },
+            // 2행: 안내 A2:AV2 병합 (서식.xlsx 원본 기준)
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 47 } },
 
             // 3행-4행 세로 병합 (단독 컬럼)
+            { s: { r: 2, c: 0 }, e: { r: 3, c: 0 } },   // A3:A4 필지구분
             { s: { r: 2, c: 1 }, e: { r: 3, c: 1 } },   // B3:B4 채취년도
             { s: { r: 2, c: 2 }, e: { r: 3, c: 2 } },   // C3:C4 시료채취자
             { s: { r: 2, c: 3 }, e: { r: 3, c: 3 } },   // D3:D4 분석의뢰일
@@ -1564,7 +1764,9 @@ class HeuktoramManager {
             { s: { r: 2, c: 18 }, e: { r: 3, c: 18 } },  // S3:S4 면적
             { s: { r: 2, c: 19 }, e: { r: 3, c: 19 } },  // T3:T4 토양검정일
             { s: { r: 2, c: 20 }, e: { r: 3, c: 20 } },  // U3:U4 경작자
+            // AF3:AF4 세로 병합 없음 — AF3='법인 (Agrix 조회용)', AF4='법인번호' 각각 별도 셀 (서식.xlsx 원본 기준)
             { s: { r: 2, c: 32 }, e: { r: 3, c: 32 } },  // AG3:AG4 작물명
+            { s: { r: 2, c: 33 }, e: { r: 3, c: 33 } },  // AH3:AH4 성토여부
             { s: { r: 2, c: 34 }, e: { r: 3, c: 34 } },  // AI3:AI4 점토함량
             { s: { r: 2, c: 35 }, e: { r: 3, c: 35 } },  // AJ3:AJ4 pH
             { s: { r: 2, c: 36 }, e: { r: 3, c: 36 } },  // AK3:AK4 유기물
@@ -1593,6 +1795,7 @@ class HeuktoramManager {
 
         ws['!merges'] = (ws['!merges'] || []).concat(merges);
     }
+
 }
 
 // ========================================

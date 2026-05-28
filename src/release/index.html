@@ -599,9 +599,37 @@
         <div class="timeline">
 
 
-            <!-- v1.3.0 -->
+            <!-- v1.4.0 -->
             <div class="version-entry">
                 <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.4.0</span>
+                                <span class="version-date">2026-05-29</span>
+                            </div>
+                            <div class="version-title">흙토람 일괄입력 양식 100% 호환 + 드롭다운 데이터 유효성 검사</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                            <span class="badge badge-feature">기능</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>흙토람 서식 100% 일치</strong> — 흙토람 공식 "토양검정 일괄입력 양식" 원본과 셀 위치·헤더·병합·안내문·코드 범례(AY~BD)까지 동일하게 출력. 별도 수정 없이 그대로 일괄업로드 가능.</li>
+                        <li><strong>1행 제목·2행 안내문 스타일링</strong> — 1행 좌측 정렬 + 20pt 맑은 고딕 굵게, 2행 19개 항목 안내문 wrapText + 행 높이 369.5pt로 한눈에 보이도록 표시.</li>
+                        <li><strong>AF 컬럼 분리</strong> — '법인 (Agrix 조회용)'와 '법인번호'를 3·4행에 각각 별도 셀로 노출 (이전엔 병합되어 법인번호가 가려짐).</li>
+                        <li><strong>헤더 배경 회색(#C0C0C0) 통일</strong> — 3·4행 대분류·소분류 헤더를 서식.xlsx 원본과 동일한 회색으로. 코드 범례(AY~BD)는 배경 없이 일반 셀.</li>
+                        <li><strong>드롭다운 데이터 유효성 검사</strong> — 사용자가 엑셀에서 직접 수정할 때 ▼ 드롭다운으로 선택 가능: <code>용도구분(G열)</code> 4가지 / <code>시행(재배)전후(H열)</code> 전-N·후-Y / <code>성토여부(AH열)</code> 미해당·해당.</li>
+                        <li><strong>JSZip 후처리로 표준 호환</strong> — xlsx-js-style이 dataValidation 출력을 미지원하는 한계를 우회. ZIP 컨테이너의 sheet1.xml에 표준 XML 직접 삽입.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v1.3.0 -->
+            <div class="version-entry">
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -612,7 +640,6 @@
                             <div class="version-title">전국 기관용 필지 주소 검증 + 검증 표시 버그 수정</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                             <span class="badge badge-feature">기능</span>
                             <span class="badge badge-fix">수정</span>
                         </div>

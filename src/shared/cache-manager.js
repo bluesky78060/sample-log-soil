@@ -46,7 +46,7 @@ const CacheManager = (function() {
         const lastClear = localStorage.getItem('lastCacheClear');
         if (!lastClear) return false;
 
-        const lastClearDate = new Date(parseInt(lastClear));
+        const lastClearDate = new Date(parseInt(lastClear, 10));
         const now = new Date();
 
         // 같은 주인지 확인 (ISO 주 기준)
@@ -171,7 +171,7 @@ const CacheManager = (function() {
         const autoCleared = localStorage.getItem('cacheAutoCleared');
 
         return {
-            lastClear: lastClear ? new Date(parseInt(lastClear)) : null,
+            lastClear: lastClear ? new Date(parseInt(lastClear, 10)) : null,
             lastAutoClear: autoCleared ? JSON.parse(autoCleared) : null
         };
     }

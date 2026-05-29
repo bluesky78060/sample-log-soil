@@ -860,7 +860,8 @@ initNetworkAccessUI();
 // ========================================
 // 기관명 설정
 // ========================================
-const DEFAULT_ORG_NAME = '봉화군농업기술센터 안전성분석센터';
+// 전국 기관 배포용: 특정 기관명을 기본값으로 하드코딩하지 않는다(미설정 시 빈 값, placeholder 안내).
+const DEFAULT_ORG_NAME = '';
 const ORG_NAME_KEY = 'app_org_name';
 
 function loadOrgName() {
@@ -881,11 +882,11 @@ document.getElementById('saveOrgNameBtn').addEventListener('click', () => {
 });
 
 document.getElementById('resetOrgNameBtn').addEventListener('click', () => {
-    if (!confirm('기관명을 기본값으로 복원하시겠습니까?')) return;
+    if (!confirm('기관명을 초기화하시겠습니까?')) return;
     localStorage.removeItem(ORG_NAME_KEY);
     document.getElementById('orgName').value = DEFAULT_ORG_NAME;
     const statusEl = document.getElementById('orgNameSaveStatus');
-    statusEl.textContent = '기본값 복원됨';
+    statusEl.textContent = '초기화됨';
     statusEl.style.display = 'inline';
     setTimeout(() => {
         statusEl.textContent = '저장됨';

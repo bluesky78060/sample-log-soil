@@ -112,11 +112,11 @@ class AddressManager {
             <div class="juso-search-wrap" data-id="${safeId}">
                 <div class="juso-search-row">
                     <input type="text" class="juso-search-input"
-                        placeholder="도로명/지번/건물명 검색 (예: 봉화읍 봉성로 1)"
+                        placeholder="도로명/지번/건물명 검색"
                         autocomplete="off" maxlength="80">
                     <button type="button" class="juso-search-btn">검색</button>
                 </div>
-                <div class="juso-search-hint">예: <em>봉화읍 봉성로</em>, <em>봉화군 삼계리</em>, <em>봉화초등학교</em></div>
+                <div class="juso-search-hint">예: <em>○○로 12</em>, <em>○○읍 ○○리</em>, <em>○○초등학교</em></div>
                 <div class="juso-search-status" aria-live="polite"></div>
                 <ul class="juso-search-results"></ul>
                 <div class="juso-search-pager">

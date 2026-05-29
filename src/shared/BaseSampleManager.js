@@ -36,6 +36,8 @@ class BaseSampleManager {
         this.listViewStale = true;  // PER-5: 목록 뷰 리렌더 필요 여부
         this._firebaseCache = new Map();  // PER-9: 연도별 Firebase 데이터 캐시 { data, timestamp }
         this._firebaseCacheTTL = 30000;   // PER-9: 캐시 유효 시간 (30초)
+        this._firebaseCacheMax = 5;       // 메모리 누수 방지: 캐시 보관 연도 상한
+        this._hashChangeHandler = null;   // destroy()에서 해제하기 위한 핸들러 참조
 
         // PaginationManager 인스턴스
         this.pagination = null;
@@ -97,7 +99,8 @@ class BaseSampleManager {
 
             // hash 기반 뷰 전환
             this.handleHashChange();
-            window.addEventListener('hashchange', () => this.handleHashChange());
+            this._hashChangeHandler = () => this.handleHashChange();
+            window.addEventListener('hashchange', this._hashChangeHandler);
 
             this.log('초기화 완료');
         } catch (error) {
@@ -238,7 +241,7 @@ class BaseSampleManager {
 
         // Firebase 백그라운드 동기화 (fire-and-forget — Quota 초과 시에도 UI 블로킹 없음)
         if (window.firestoreDb?.isEnabled()) {
-            window.firestoreDb.batchSave(this.moduleKey, parseInt(this.selectedYear), this.sampleLogs)
+            window.firestoreDb.batchSave(this.moduleKey, parseInt(this.selectedYear, 10), this.sampleLogs)
                 .then(() => this.log('Firebase 동기화 완료:', this.sampleLogs.length, '건'))
                 .catch(err => (window.logger?.error || console.error)('Firebase 동기화 실패:', err));
         }
@@ -269,7 +272,7 @@ class BaseSampleManager {
 
         // Firebase 삭제 (백그라운드)
         if (window.firestoreDb?.isEnabled()) {
-            window.firestoreDb.delete(this.moduleKey, parseInt(this.selectedYear), String(id))
+            window.firestoreDb.delete(this.moduleKey, parseInt(this.selectedYear, 10), String(id))
                 .then(() => this.log('Firebase 삭제 완료:', id))
                 .catch(err => (window.logger?.error || console.error)('Firebase 삭제 실패:', err));
         }
@@ -301,7 +304,13 @@ class BaseSampleManager {
                         this.sampleLogs = firebaseLogs;
 
                         // PER-9: TTL 포함 캐시 저장
-                        if (!cacheValid) this._firebaseCache.set(year, { data: JSON.parse(JSON.stringify(firebaseLogs)), timestamp: Date.now() });
+                        if (!cacheValid) {
+                            // 메모리 누수 방지: 상한 초과 시 가장 오래된 항목 제거(LRU 근사)
+                            if (this._firebaseCache.size >= this._firebaseCacheMax && !this._firebaseCache.has(year)) {
+                                this._firebaseCache.delete(this._firebaseCache.keys().next().value);
+                            }
+                            this._firebaseCache.set(year, { data: JSON.parse(JSON.stringify(firebaseLogs)), timestamp: Date.now() });
+                        }
 
                         // Firebase 데이터를 localStorage에 저장 (캐싱)
                         localStorage.setItem(yearStorageKey, JSON.stringify(firebaseLogs));
@@ -434,7 +443,7 @@ class BaseSampleManager {
                 firestoreDb: !!window.firestoreDb
             });
 
-            const data = await window.firestoreDb.getAll(this.moduleKey, parseInt(year));
+            const data = await window.firestoreDb.getAll(this.moduleKey, parseInt(year, 10));
             this.log(` Firebase 응답:`, data ? `${data.length}건` : 'null/undefined');
             this.log(` Firebase 데이터 샘플:`, data && data.length > 0 ? data[0] : 'No data');
             return data || [];
@@ -450,7 +459,10 @@ class BaseSampleManager {
      */
     smartMerge(localData, firebaseData) {
         if (window.SyncUtils?.smartMerge) {
-            return window.SyncUtils.smartMerge(localData, firebaseData);
+            // SyncUtils.smartMerge는 { data, hasChanges, ... } 객체를 반환하므로
+            // 배열 계약을 유지하기 위해 data를 언래핑한다 (객체를 그대로 쓰면 데이터 손상)
+            const result = window.SyncUtils.smartMerge(localData, firebaseData);
+            return Array.isArray(result) ? result : (result?.data || []);
         }
         // 폴백: id 기준 union merge (로컬 우선 — Firebase만 반환하면 로컬 변경 유실)
         const map = new Map();
@@ -664,6 +676,17 @@ class BaseSampleManager {
             clearTimeout(this.autoSaveTimer);
             this.autoSaveTimer = null;
         }
+
+        // hashchange 리스너 해제 (익명 핸들러 누수 방지)
+        if (this._hashChangeHandler) {
+            window.removeEventListener('hashchange', this._hashChangeHandler);
+            this._hashChangeHandler = null;
+        }
+
+        // Firebase 캐시/페이지네이션/싱크 프로미스 정리
+        this._firebaseCache.clear();
+        this.pagination = null;
+        this.cloudSyncPromise = null;
 
         // 참조 정리
         this.form = null;

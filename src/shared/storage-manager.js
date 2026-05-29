@@ -179,9 +179,14 @@ async function loadData(sampleType, year, localStorageKey) {
         return localData ? JSON.parse(localData) : [];
     } catch (error) {
         (window.logger?.error || console.error)('데이터 로드 실패:', error);
-        // 에러 시 localStorage 폴백
-        const localData = localStorage.getItem(localStorageKey);
-        return localData ? JSON.parse(localData) : [];
+        // 에러 시 localStorage 폴백 — 손상된 JSON으로 인한 예외 재발 방지
+        try {
+            const localData = localStorage.getItem(localStorageKey);
+            return localData ? JSON.parse(localData) : [];
+        } catch (parseError) {
+            (window.logger?.error || console.error)('localStorage 폴백 파싱 실패:', parseError);
+            return [];
+        }
     }
 }
 

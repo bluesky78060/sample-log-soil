@@ -599,9 +599,38 @@
         <div class="timeline">
 
 
-            <!-- v1.4.0 -->
+            <!-- v1.5.0 -->
             <div class="version-entry">
                 <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.5.0</span>
+                                <span class="version-date">2026-05-29</span>
+                            </div>
+                            <div class="version-title">코드 리뷰 기반 보안·안정성 대규모 개선 + 전국 기관 배포 정합성</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                            <span class="badge badge-feature">보안·안정성</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>API 키 노출 차단</strong> — 지도 좌표(VWORLD) API 키가 웹 배포 파일에 노출되던 문제를 해결했습니다. 키는 데스크톱 앱 내부에서만 사용됩니다.</li>
+                        <li><strong>자동 업데이트 정상화</strong> — 업데이트 확인 대상 저장소가 잘못 지정돼 있던 문제를 바로잡았습니다.</li>
+                        <li><strong>데이터 안전성</strong> — 클라우드 동기화 중 데이터가 손상될 수 있던 문제와, 저장 데이터가 깨졌을 때 화면이 멈추던 경로를 보강했습니다.</li>
+                        <li><strong>전국 기관 배포 대응</strong> — 흙토람 주소의 시·도 자동 판정을 전국 시군구로 확장(경상북도 포함)하고, 봉화군 전용 예시·기관명 기본값을 일반화했습니다.</li>
+                        <li><strong>보안 강화</strong> — 데스크톱 창 샌드박스 적용, 외부 링크 처리 강화, 입력값 정화 보강, 검색 하이라이트 XSS 방지.</li>
+                        <li><strong>의존성 보안 패치</strong> — protobufjs(심각) 및 dompurify(XSS) 취약점을 패치했습니다.</li>
+                        <li><strong>안정성 개선</strong> — 장시간 사용 시 메모리 누수 정리, 엑셀 대량 가져오기 행 상한(5000) 추가, 접수번호 정렬·숫자 처리 정합성 개선.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v1.4.0 -->
+            <div class="version-entry">
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -612,7 +641,6 @@
                             <div class="version-title">흙토람 일괄입력 양식 100% 호환 + 드롭다운 데이터 유효성 검사</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                             <span class="badge badge-feature">기능</span>
                         </div>
                     </div>

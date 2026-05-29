@@ -137,9 +137,10 @@ function smartMerge(localData, cloudData) {
 
     // 접수번호 기준 정렬
     merged.sort((a, b) => {
-        const aNum = parseInt(a.receptionNumber) || 0;
-        const bNum = parseInt(b.receptionNumber) || 0;
-        return aNum - bNum;
+        const aNum = parseInt(a.receptionNumber, 10) || 0;
+        const bNum = parseInt(b.receptionNumber, 10) || 0;
+        // 숫자 동률(또는 비숫자 접수번호로 NaN→0 clump) 시 문자열 보조 정렬로 안정화
+        return aNum - bNum || String(a.receptionNumber || '').localeCompare(String(b.receptionNumber || ''));
     });
 
     return { data: merged, hasChanges, updated, added, deleted };

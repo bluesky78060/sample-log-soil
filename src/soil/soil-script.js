@@ -828,7 +828,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                                        id="lot-address-${parcel.id}"
                                        name="lot-address-${parcel.id}"
                                        data-id="${parcel.id}"
-                                       placeholder="예: 문단리 224, 문단리 산 423"
+                                       placeholder="예: ○○리 224, ○○리 산 423"
                                        value="${safeLotAddress}">
                                 <ul class="lot-address-autocomplete-list" id="lotAutocomplete-${parcel.id}"></ul>
                             </div>
@@ -880,7 +880,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                                        id="sub-lot-${parcel.id}"
                                        name="sub-lot-${parcel.id}"
                                        data-id="${parcel.id}"
-                                       placeholder="예: 문단리 224, 문단리 산 423">
+                                       placeholder="예: ○○리 224, ○○리 산 423">
                                 <ul class="lot-address-autocomplete-list" id="subLotAutocomplete-${parcel.id}"></ul>
                             </div>
                             <button type="button" class="btn-add-sub-lot-icon" data-id="${parcel.id}" title="하위 필지 추가">+</button>
@@ -2990,8 +2990,8 @@ class SoilSampleManager extends window.BaseSampleManager {
             regionOptions.innerHTML = sanitizeHTML(parseResult.locations.map((location, index) => `
                 <div class="region-option" data-index="${index}">
                     <div class="region-option-content">
-                        <div class="region-option-title">${location.fullAddress}</div>
-                        <div class="region-option-subtitle">${location.region} ${location.district}</div>
+                        <div class="region-option-title">${escapeHTML(location.fullAddress)}</div>
+                        <div class="region-option-subtitle">${escapeHTML(location.region)} ${escapeHTML(location.district)}</div>
                     </div>
                     <div class="region-option-icon">→</div>
                 </div>
@@ -4207,7 +4207,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         if (this.sampleLogs.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
         const selectedIds = this.getSelectedIds();
         const logsToExport = selectedIds.length > 0
-            ? this.sampleLogs.filter(log => selectedIds.includes(log.id)) : this.sampleLogs;
+            ? this.sampleLogs.filter(log => selectedIds.includes(String(log.id))) : this.sampleLogs;
         if (selectedIds.length > 0) this.showToast(`선택한 ${logsToExport.length}건을 내보냅니다.`, 'info');
 
         const reversedLogs = [...logsToExport].sort((a, b) => {
@@ -4362,7 +4362,7 @@ class SoilSampleManager extends window.BaseSampleManager {
             },
             templateConfig: {
                 headers: ['접수번호', '구분', '목적(용도)', '필지 주소', '작물', '면적(m2)', '비고'],
-                sampleRow: ['1', '밭', '일반재배', '봉화군 봉화읍 문단리 224', '고추', '1500', ''],
+                sampleRow: ['1', '밭', '일반재배', '○○시 ○○읍 ○○리 100', '고추', '1500', ''],
                 colWidths: [{ wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 35 }, { wch: 12 }, { wch: 12 }, { wch: 20 }],
                 sheetName: '토양시료', fileName: '토양_가져오기_서식'
             },
@@ -4548,22 +4548,11 @@ class SoilSampleManager extends window.BaseSampleManager {
             }
         }
 
-        // 웹 환경: 직접 fetch (등록된 도메인에서만 작동). 키는 network-config.js의 VWORLD_API_KEY 사용.
-        const apiKey = window.NETWORK_CONFIG?.VWORLD_API_KEY;
-        if (!apiKey) return null;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-        try {
-            const url = `https://api.vworld.kr/req/address?service=address&request=getCoord&version=2.0&crs=epsg:4326&address=${encodeURIComponent(fullAddress)}&refine=true&simple=false&format=json&type=parcel&key=${apiKey}`;
-            const res = await fetch(url, { signal: controller.signal });
-            if (!res.ok) return null;
-            const data = await res.json();
-            return data?.response?.status === 'OK';
-        } catch {
-            return null;
-        } finally {
-            clearTimeout(timeoutId);
-        }
+        // 웹 환경: VWORLD API 키를 렌더러/번들에 노출하지 않기 위해 직접 fetch 경로를 제거함.
+        // (과거: window.NETWORK_CONFIG.VWORLD_API_KEY 직접 사용 → docs/ 빌드 산출물에 키 평문 노출 보안 결함)
+        // 좌표 기반 필지 검증은 Electron(IPC, main 프로세스 process.env)에서만 수행하며,
+        // 웹 환경에서는 검증을 생략한다(null = 미검증). 웹에서 검증이 필요하면 서버 프록시를 도입할 것.
+        return null;
     }
 
     async validateAndMarkLogs(logs) {

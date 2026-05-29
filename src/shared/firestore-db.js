@@ -341,7 +341,13 @@ async function migrateFromLocalStorage(sampleType, year, localStorageKey) {
             return { success: true, count: 0 };
         }
 
-        const samples = JSON.parse(localData);
+        let samples;
+        try {
+            samples = JSON.parse(localData);
+        } catch (parseError) {
+            (window.logger?.error || console.error)(`마이그레이션 JSON 파싱 실패 (${localStorageKey}):`, parseError);
+            return { success: false, count: 0, message: 'JSON 파싱 실패' };
+        }
         if (!Array.isArray(samples) || samples.length === 0) {
             return { success: true, count: 0 };
         }

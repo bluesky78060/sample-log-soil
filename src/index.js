@@ -3,7 +3,7 @@
  * @description 앱 초기화, 창 관리, IPC 핸들러 정의
  */
 
-const { app, BrowserWindow, Menu, ipcMain, dialog, session } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, session, shell } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { autoUpdater } = require('electron-updater');
@@ -67,7 +67,7 @@ autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.setFeedURL({
   provider: 'github',
   owner: 'bluesky78060',
-  repo: 'sample-log-electron'
+  repo: 'sample-log-soil'
 });
 
 // Windows 설치/제거 시 바로가기 생성/삭제 처리
@@ -330,8 +330,15 @@ const createWindow = () => {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
     },
+  });
+
+  // 새 창 열기 차단: 외부 http(s) 링크만 시스템 브라우저로, 그 외(javascript: 등)는 거부
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    try { const p = new URL(url).protocol; if (p === 'http:' || p === 'https:') shell.openExternal(url); } catch { /* invalid url → deny */ }
+    return { action: 'deny' };
   });
 
   // 앱 로드 전략:
@@ -558,12 +565,19 @@ async function openAnalysisPopup(key, options) {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
+            sandbox: true
         },
     });
 
     analysisWindows[key] = win;
     win.on('closed', () => { analysisWindows[key] = null; });
+
+    // 새 창 열기 차단 (외부 http(s)만 시스템 브라우저)
+    win.webContents.setWindowOpenHandler(({ url }) => {
+        try { const p = new URL(url).protocol; if (p === 'http:' || p === 'https:') shell.openExternal(url); } catch { /* invalid url → deny */ }
+        return { action: 'deny' };
+    });
 
     // 외부 URL 네비게이션 차단
     win.webContents.on('will-navigate', (event, url) => {
@@ -629,12 +643,19 @@ ipcMain.handle('open-heuktoram', async () => {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
+            sandbox: true
         },
     });
 
     // H-1: 창 닫힘 시 참조 정리
     heuktoramWindow.on('closed', () => { heuktoramWindow = null; });
+
+    // 새 창 열기 차단 (외부 http(s)만 시스템 브라우저)
+    heuktoramWindow.webContents.setWindowOpenHandler(({ url }) => {
+        try { const p = new URL(url).protocol; if (p === 'http:' || p === 'https:') shell.openExternal(url); } catch { /* invalid url → deny */ }
+        return { action: 'deny' };
+    });
 
     // M-3: 외부 URL 네비게이션 차단 (메인 윈도우와 동일)
     heuktoramWindow.webContents.on('will-navigate', (event, url) => {

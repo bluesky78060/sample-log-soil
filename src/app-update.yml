@@ -1,4 +1,4 @@
 provider: github
 owner: bluesky78060
-repo: sample-log-electron
+repo: sample-log-soil
 updaterCacheDirName: sample-log-updater

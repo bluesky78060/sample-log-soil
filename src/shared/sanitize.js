@@ -31,7 +31,9 @@ function sanitizeHTML(html) {
                 'min', 'max', 'step', 'pattern', 'required', 'maxlength', 'minlength',
                 'rows', 'cols', 'multiple', 'accept'
             ],
-            FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+            // 폼 태그는 신뢰 마크업 렌더링(드롭다운/버튼 등)에 필요해 허용하되,
+            // ALLOWED_ATTR 화이트리스트로 on* 이벤트는 이미 차단됨. 방어 보강 차원에서 위험 속성 명시 금지.
+            FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange', 'oninput', 'onsubmit', 'formaction'],
             ALLOW_DATA_ATTR: true
         };
         return DOMPurify.sanitize(html, config);

@@ -798,8 +798,8 @@
             "mrl_count": 78
         },
         "Fluorochloridone": {
-            "kor": "",
-            "confidence": "unmapped",
+            "kor": "플루오로클로리돈",
+            "confidence": "unverified",
             "score": 0.8
         },
         "Fluquinconazole": {

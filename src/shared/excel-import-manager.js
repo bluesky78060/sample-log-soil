@@ -165,6 +165,13 @@ class ExcelImportManager {
                     return;
                 }
 
+                // 대량 행 UI 프리즈 방지: 상한 초과 시 잘라내고 경고
+                const MAX_IMPORT_ROWS = 5000;
+                if (this._excelData.length > MAX_IMPORT_ROWS) {
+                    showToast(`행이 너무 많습니다(${this._excelData.length}건). 처음 ${MAX_IMPORT_ROWS}건만 처리합니다.`, 'warning');
+                    this._excelData = this._excelData.slice(0, MAX_IMPORT_ROWS);
+                }
+
                 // 자동 매핑 수행
                 this._autoMap();
 
@@ -251,13 +258,13 @@ class ExcelImportManager {
 
             const select = row.querySelector('.mapping-select');
             select.addEventListener('change', (e) => {
-                const colIdx = parseInt(e.target.dataset.colIdx);
+                const colIdx = parseInt(e.target.dataset.colIdx, 10);
                 const value = e.target.value;
 
                 if (value) {
                     // 기존 매핑에서 같은 필드 제거 (중복 방지)
                     for (const [k, v] of Object.entries(this._columnMapping)) {
-                        if (v === value && parseInt(k) !== colIdx) {
+                        if (v === value && parseInt(k, 10) !== colIdx) {
                             delete this._columnMapping[k];
                             const otherSelect = area.querySelector(`select[data-col-idx="${k}"]`);
                             if (otherSelect) {
@@ -306,7 +313,7 @@ class ExcelImportManager {
         // 역매핑: 앱 필드 → 엑셀 컬럼 인덱스
         const fieldToCol = {};
         for (const [colIdx, field] of Object.entries(this._columnMapping)) {
-            fieldToCol[field] = parseInt(colIdx);
+            fieldToCol[field] = parseInt(colIdx, 10);
         }
 
         const warnings = [];

@@ -32,12 +32,13 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # VWORLD_API_KEY는 렌더러 번들에 노출되면 안 되므로 network-config.js에 넣지 않는다.
+      # 좌표 검증은 main process(process.env.VWORLD_API_KEY, IPC)에서만 수행한다 (SLS-1-43).
       - name: Create network-config with secrets
         run: |
           @"
           window.NETWORK_CONFIG = {
-              ALLOWED_GATEWAY: '${{ secrets.ALLOWED_GATEWAY }}',
-              VWORLD_API_KEY: '${{ secrets.VWORLD_API_KEY }}'
+              ALLOWED_GATEWAY: '${{ secrets.ALLOWED_GATEWAY }}'
           };
           "@ | Out-File -FilePath "src/shared/network-config.js" -Encoding utf8
         shell: pwsh

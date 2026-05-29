@@ -1,0 +1,32 @@
+#!/bin/sh
+# Pre-push hook: prevent tag pushes when source tree is dirty.
+#
+# Triggered on `git push origin <tag>`. Checks src/, package.json, scripts/
+# for uncommitted or untracked files and aborts the push if any are found.
+#
+# Bypass (NOT recommended): git push --no-verify origin <tag>
+
+while read local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/tags/*)
+      tag="${remote_ref#refs/tags/}"
+      dirty=$(git status --porcelain -- src/ package.json scripts/ 2>/dev/null)
+
+      if [ -n "$dirty" ]; then
+        printf '\n\033[31m[X] Pre-tag check FAILED: %s 푸시 차단\033[0m\n\n' "$tag" >&2
+        printf 'src/, package.json, scripts/ 영역에 미커밋/미추적 파일이 있습니다:\n\n' >&2
+        printf '%s\n\n' "$dirty" >&2
+        printf '해결:\n' >&2
+        printf '  git status --short -- src/ package.json scripts/\n' >&2
+        printf '  git add <files> && git commit -m "..."\n' >&2
+        printf '  git push origin %s\n\n' "$tag" >&2
+        printf '강제 우회(권장하지 않음): git push --no-verify origin %s\n\n' "$tag" >&2
+        exit 1
+      fi
+
+      printf '\033[32m[OK] Pre-tag check passed: %s\033[0m\n' "$tag"
+      ;;
+  esac
+done
+
+exit 0

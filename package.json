@@ -5,6 +5,7 @@
   "description": "My Electron application description",
   "main": "src/index.js",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "dev": "vite src --port 3000",
     "dev:electron": "concurrently -k \"vite src --port 3000\" \"wait-on http://localhost:3000 && electron-forge start -- --dev\"",
     "dev:build": "vite build src",

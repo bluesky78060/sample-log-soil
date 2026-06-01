@@ -9,7 +9,7 @@
  * @returns {string} 새니타이즈된 HTML 문자열
  */
 function sanitizeHTML(html) {
-    if (typeof DOMPurify !== 'undefined') {
+    if (typeof window.DOMPurify !== 'undefined') {
         const config = {
             ALLOWED_TAGS: [
                 'div', 'span', 'p', 'br', 'hr',
@@ -36,7 +36,7 @@ function sanitizeHTML(html) {
             FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange', 'oninput', 'onsubmit', 'formaction'],
             ALLOW_DATA_ATTR: true
         };
-        return DOMPurify.sanitize(html, config);
+        return window.DOMPurify.sanitize(html, config);
     }
     // DOMPurify가 없으면 기본 이스케이프 처리
     return escapeHTML(html);

@@ -46,7 +46,10 @@ test.describe('설명서 캡처', () => {
   test('섹션3: 접수 목록', async ({ page }) => {
     await gotoAndWait(page, '/soil/');
     await page.click('[data-view="list"]');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(400);
+    // 기본 필터(미완료) 해제 — 전체 목록 노출
+    await page.selectOption('#completedFilter', '');
+    await page.waitForTimeout(400);
     await annotate(page, [
       { selector: '[data-view="list"]', number: 1, label: '목록 보기 탭' },
     ]);

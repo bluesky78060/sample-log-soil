@@ -930,8 +930,10 @@ loadDefaultSido();
 loadSavedConfig();
 renderMigrationList();
 
-// 인증 파일 상태 확인 (Electron)
-checkAuthFileStatus();
+// 인증 파일 상태 확인: queueMicrotask로 모듈 평가 완료 후 실행
+// (settings-entry.js의 window.DOMPurify 설정이 모든 import 평가 뒤 body에서 이뤄지므로,
+//  동기 top-level 호출 시점에는 window.DOMPurify가 아직 undefined임)
+queueMicrotask(() => checkAuthFileStatus());
 
 // 연결 상태 확인
 (async function() {

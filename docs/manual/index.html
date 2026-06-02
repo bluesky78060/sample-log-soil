@@ -1024,14 +1024,19 @@
                 <p>등록 방식을 세밀하게 정하는 칸입니다.</p>
                 <ol class="guide-step">
                     <li><strong>접수번호 자동부여</strong> — 켜 두면 접수번호를 비워 둔 행에 대해 <strong>경지구분별로 1번부터 차례대로</strong> 번호를 매겨 줍니다.</li>
-                    <li><strong>중복 처리</strong> — 이미 같은 접수번호가 있을 때 <strong>건너뛰기(그대로 둠)</strong> 할지, <strong>덮어쓰기(새 내용으로 교체)</strong> 할지 고릅니다.</li>
+                    <li><strong>중복 처리</strong> — <strong>같은 경지구분 1차</strong>에 이미 같은 접수번호가 있을 때 <strong>건너뛰기(그 행은 등록하지 않음)</strong> 할지, <strong>그래도 추가(같은 번호로 한 건 더 등록)</strong> 할지 고릅니다.</li>
                 </ol>
+
+                <div class="info-box">
+                    <h4>ℹ️ 중복은 "경지구분별 접수번호"로 판정합니다</h4>
+                    <p>같은 <strong>연도</strong> 안에서 <strong>경지구분 1차가 같고 접수번호(본번)도 같을 때만</strong> 중복으로 봅니다. 경지구분이 다르면 접수번호가 같아도 중복이 아닙니다(예: <strong>개량제 1번</strong>과 <strong>직불 1번</strong>은 서로 별개). 성명·주소는 중복 판정에 쓰지 않습니다. 또한 위 <strong>접수번호 자동부여</strong>를 켜 두면 경지구분별로 비어 있는 다음 번호를 매기므로 중복이 생기지 않습니다.</p>
+                </div>
 
                 <h3>⑤ 미리보기 후 가져오기</h3>
                 <p>마지막으로 어떤 시료가 등록될지 표로 미리 보여 줍니다. 각 행 앞에는 <strong>색깔 배지</strong>가 붙어 상태를 알려 줍니다.</p>
 
                 <div class="term-box">
-                    <p><span class="term-name">신규(초록) · 중복(노랑) · 오류(빨강) 배지</span> — <strong>신규(초록)</strong>는 새로 등록될 정상 행, <strong>중복(노랑)</strong>은 이미 같은 접수번호가 있어 ④ 옵션에 따라 건너뛰거나 덮어쓸 행, <strong>오류(빨강)</strong>는 필수 항목이 비었거나 형식이 맞지 않아 <strong>등록되지 않는 행</strong>입니다.</p>
+                    <p><span class="term-name">신규(초록) · 중복(노랑) · 오류(빨강) 배지</span> — <strong>신규(초록)</strong>는 새로 등록될 정상 행, <strong>중복(노랑)</strong>은 같은 경지구분에 이미 같은 접수번호가 있어 ④ 옵션에 따라 건너뛰거나 한 건 더 추가될 행, <strong>오류(빨강)</strong>는 필수 항목이 비었거나 형식이 맞지 않아 <strong>등록되지 않는 행</strong>입니다.</p>
                 </div>
 
                 <ol class="guide-step">
@@ -1050,8 +1055,8 @@
                 </div>
 
                 <div class="warning-box">
-                    <h4>⚠️ 중복(노랑) 행을 덮어쓸 때 주의하세요</h4>
-                    <p>④ 옵션에서 <strong>"덮어쓰기"</strong>를 고르면, 같은 접수번호로 이미 저장돼 있던 기존 내용이 엑셀 내용으로 <strong>교체</strong>됩니다. 한 번 덮어쓰면 되돌릴 수 없으니, 가져오기 전에 <strong>"JSON 저장"</strong>으로 백업해 두는 것을 권장합니다.</p>
+                    <h4>⚠️ "그래도 추가"를 고를 때 주의하세요</h4>
+                    <p>④ 옵션에서 <strong>"그래도 추가(덮어쓰기)"</strong>를 고르면, 같은 경지구분에 같은 접수번호가 있어도 <strong>그 행을 한 건 더 등록</strong>합니다(기존 행을 지우지는 않습니다). 그러면 같은 접수번호가 두 건이 되어 목록에 중복으로 보일 수 있으니, 보통은 기본값인 <strong>"건너뛰기"</strong>를 권장합니다. 가져오기 전에 <strong>"JSON 저장"</strong>으로 백업해 두면 더 안전합니다.</p>
                 </div>
             </div>
 

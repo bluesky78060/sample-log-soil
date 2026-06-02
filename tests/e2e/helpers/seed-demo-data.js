@@ -17,7 +17,7 @@ const STORAGE_KEY = 'soilSampleLogs';
 
 /** @type {Array<Object>} */
 const DEMO_RECORDS = [
-    // --- 레코드 1: 필지 1개, 작물 1개 (일반 농경지) ---
+    // --- 레코드 1: 필지 1개, 작물 1개 (일반 농경지) — 경지구분1차: 농가의뢰 ---
     {
         id: 'demo-record-001',
         receptionNumber: '1',
@@ -32,6 +32,7 @@ const DEMO_RECORDS = [
         purpose: '작물재배',
         receptionMethod: '방문',
         note: '',
+        landClass1: '농가의뢰',
         groupId: 'demo-group-001',
         parcelIndex: 1,
         totalParcels: 1,
@@ -55,7 +56,7 @@ const DEMO_RECORDS = [
         ]
     },
 
-    // --- 레코드 2: 필지 1개, 작물 1개 (성토) ---
+    // --- 레코드 2: 필지 1개, 작물 1개 (성토) — 경지구분1차: 농가의뢰 ---
     {
         id: 'demo-record-002',
         receptionNumber: '2',
@@ -70,6 +71,7 @@ const DEMO_RECORDS = [
         purpose: '토양개량',
         receptionMethod: '우편',
         note: '토양 개량 목적 성토 확인 요청',
+        landClass1: '농가의뢰',
         groupId: 'demo-group-002',
         parcelIndex: 1,
         totalParcels: 1,
@@ -94,7 +96,7 @@ const DEMO_RECORDS = [
     },
 
     // --- 레코드 3: 필지 2개 (그룹), 필지별 작물 1개씩 ---
-    // 3-1: 첫 번째 필지
+    // 3-1: 첫 번째 필지 — 경지구분1차: 개량제
     {
         id: 'demo-record-003a',
         receptionNumber: '3',
@@ -109,6 +111,7 @@ const DEMO_RECORDS = [
         purpose: '작물재배',
         receptionMethod: '방문',
         note: '',
+        landClass1: '개량제',
         groupId: 'demo-group-003',
         parcelIndex: 1,
         totalParcels: 2,
@@ -131,7 +134,7 @@ const DEMO_RECORDS = [
             }
         ]
     },
-    // 3-2: 두 번째 필지 (같은 그룹)
+    // 3-2: 두 번째 필지 (같은 그룹) — 경지구분1차: 직불
     {
         id: 'demo-record-003b',
         receptionNumber: '4',
@@ -146,6 +149,7 @@ const DEMO_RECORDS = [
         purpose: '작물재배',
         receptionMethod: '방문',
         note: '',
+        landClass1: '직불',
         groupId: 'demo-group-003',
         parcelIndex: 2,
         totalParcels: 2,

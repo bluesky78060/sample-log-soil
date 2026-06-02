@@ -111,4 +111,57 @@ test.describe('설명서 캡처', () => {
     await page.screenshot({ path: path.join(OUT, 'step-10-heuktoram-input.png') });
     await clearAnnotations(page);
   });
+
+  test('섹션v160-a: 경지구분 1차 필드 (접수 폼)', async ({ page }) => {
+    await gotoAndWait(page, '/soil/');
+    // 폼이 보이는 상태(기본 register 뷰)에서 경지구분 1차 필드가 포함된 폼 영역 캡처
+    await page.waitForSelector('#landClass1', { timeout: 5000 });
+    await annotate(page, [
+      { selector: '#landClass1', number: 1, label: '경지구분 1차 (11종 선택)' },
+    ]);
+    await page.screenshot({ path: path.join(OUT, 'step-11-landclass1-field.png') });
+    await clearAnnotations(page);
+  });
+
+  test('섹션v160-b: 경지구분 1차 탭 (목록 뷰)', async ({ page }) => {
+    await gotoAndWait(page, '/soil/');
+    await page.click('[data-view="list"]');
+    await page.waitForTimeout(400);
+    // 전체 목록 표시 (완료 필터 해제)
+    await page.selectOption('#completedFilter', '');
+    await page.waitForTimeout(400);
+    await page.waitForSelector('#landClass1Tab', { timeout: 5000 });
+    await annotate(page, [
+      { selector: '#landClass1Tab', number: 1, label: '경지구분 1차 탭 (탭별 독립번호)' },
+    ]);
+    await page.screenshot({ path: path.join(OUT, 'step-12-landclass1-tab.png') });
+    await clearAnnotations(page);
+  });
+
+  test('섹션v160-c: 엑셀 가져오기 모달', async ({ page }) => {
+    await gotoAndWait(page, '/soil/');
+    await page.waitForSelector('#soilImportBtn', { timeout: 5000 });
+    await page.click('#soilImportBtn');
+    // 동적 생성 모달 대기
+    await page.waitForSelector('#soilImporterModal:not([hidden])', { timeout: 5000 });
+    await page.waitForTimeout(500);
+    // 경지구분 1차 일괄선택이 보이도록 .sri-body 스크롤 (파일 업로드 라디오도 함께 보이게)
+    await page.evaluate(() => {
+      const body = document.querySelector('#soilImporterModal .sri-body');
+      const el = document.querySelector('[data-el="bulkLandClass"]');
+      if (body && el) {
+        // bulkLandClass가 스크롤 영역 중간에 오도록 조정
+        const elTop = el.getBoundingClientRect().top;
+        const bodyTop = body.getBoundingClientRect().top;
+        const offset = elTop - bodyTop - body.clientHeight / 2;
+        body.scrollTop += offset;
+      }
+    });
+    await page.waitForTimeout(200);
+    await annotate(page, [
+      { selector: '[data-el="bulkLandClass"]', number: 1, label: '경지구분 1차 일괄선택 (전체 행 일괄 적용)' },
+    ]);
+    await page.screenshot({ path: path.join(OUT, 'step-13-import-modal.png') });
+    await clearAnnotations(page);
+  });
 });

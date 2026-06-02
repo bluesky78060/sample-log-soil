@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>경지구분 1차 + 흙토람式 가져오기 모달 — 구현 계획서</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --green:#22c55e; --green-dark:#16a34a;
+    --blue:#3b82f6; --blue-dark:#2563eb;
+    --text:#1e293b; --muted:#64748b;
+    --border:#e2e8f0; --warn:#ef4444; --amber:#f59e0b;
+    --bg-card:#ffffff;
+  }
+  body{
+    font-family:'Noto Sans KR',sans-serif;
+    background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 50%,#f0fdf4 100%);
+    color:var(--text); min-height:100vh; padding:24px 16px; line-height:1.7;
+  }
+  .container{
+    max-width:980px; margin:0 auto;
+    background:rgba(255,255,255,.96); backdrop-filter:blur(10px);
+    border-radius:24px; box-shadow:0 25px 80px rgba(0,0,0,.13); overflow:hidden;
+  }
+
+  /* Header */
+  .header{
+    background:linear-gradient(135deg,#1e293b 0%,#334155 100%);
+    color:#fff; padding:46px 40px; text-align:center; position:relative; overflow:hidden;
+  }
+  .header::before{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse at 18% 22%,rgba(34,197,94,.18) 0%,transparent 50%),
+      radial-gradient(ellipse at 82% 78%,rgba(59,130,246,.18) 0%,transparent 50%);
+  }
+  .header h1{
+    font-size:2.1rem; font-weight:700; margin-bottom:10px; position:relative;
+    background:linear-gradient(135deg,#fff 0%,#22c55e 32%,#3b82f6 62%,#f59e0b 100%);
+    background-size:200% auto; -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .header p{font-size:1.02rem; opacity:.9; position:relative}
+  .header .meta{
+    display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; position:relative;
+  }
+  .header .badge{
+    background:rgba(34,197,94,.18); color:#4ade80; padding:5px 14px; border-radius:20px;
+    font-size:.82rem; border:1px solid rgba(34,197,94,.3);
+  }
+  .header .badge.blue{background:rgba(59,130,246,.18); color:#93c5fd; border-color:rgba(59,130,246,.3)}
+
+  /* TOC */
+  .toc{background:linear-gradient(180deg,#f8fafc 0%,#fff 100%); padding:30px 40px; border-bottom:1px solid var(--border)}
+  .toc h2{font-size:1.25rem; margin-bottom:16px; display:flex; align-items:center; gap:10px}
+  .toc ul{list-style:none; display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px}
+  .toc a{
+    display:flex; align-items:center; gap:10px; padding:12px 16px; background:#fff;
+    color:#334155; text-decoration:none; border-radius:12px; border:1px solid var(--border);
+    transition:all .25s cubic-bezier(.4,0,.2,1); font-weight:500; font-size:.94rem;
+  }
+  .toc a:hover{
+    background:linear-gradient(135deg,var(--green),var(--green-dark)); color:#fff;
+    transform:translateY(-3px); box-shadow:0 8px 22px rgba(34,197,94,.22); border-color:transparent;
+  }
+  .toc a .i{font-size:1.2rem}
+
+  /* Content */
+  .content{padding:40px}
+  .section{margin-bottom:48px; scroll-margin-top:18px}
+  .section > h2{
+    font-size:1.45rem; margin-bottom:18px; padding-bottom:10px;
+    border-bottom:3px solid; border-image:linear-gradient(90deg,#22c55e,#3b82f6,#f59e0b) 1;
+    display:flex; align-items:center; gap:12px;
+  }
+  .section h3{font-size:1.12rem; margin:22px 0 10px; color:#0f172a; display:flex; align-items:center; gap:8px}
+  .card{
+    background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
+    padding:22px 24px; margin-bottom:16px; box-shadow:0 2px 10px rgba(0,0,0,.04);
+  }
+  p{margin-bottom:10px}
+  ul.bullets{list-style:none; margin:8px 0}
+  ul.bullets li{position:relative; padding-left:24px; margin-bottom:8px}
+  ul.bullets li::before{content:'▸'; position:absolute; left:6px; color:var(--green); font-weight:700}
+  code{
+    background:#f1f5f9; color:#0f172a; padding:2px 7px; border-radius:6px;
+    font-family:'SF Mono',ui-monospace,Menlo,monospace; font-size:.86em;
+  }
+  .note-box{
+    border-left:4px solid var(--blue); background:#eff6ff; padding:14px 18px;
+    border-radius:0 12px 12px 0; margin:14px 0; font-size:.94rem;
+  }
+  .warn-box{
+    border-left:4px solid var(--warn); background:#fef2f2; padding:14px 18px;
+    border-radius:0 12px 12px 0; margin:14px 0; font-size:.94rem;
+  }
+  .ok-box{
+    border-left:4px solid var(--green); background:#f0fdf4; padding:14px 18px;
+    border-radius:0 12px 12px 0; margin:14px 0; font-size:.94rem;
+  }
+
+  /* landClass chips */
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin:12px 0}
+  .chip{
+    background:linear-gradient(135deg,#f0fdf4,#dcfce7); color:#166534;
+    border:1px solid #bbf7d0; padding:6px 14px; border-radius:20px; font-size:.88rem; font-weight:500;
+  }
+  .chip .num{
+    display:inline-block; background:var(--green); color:#fff; border-radius:50%;
+    width:18px; height:18px; line-height:18px; text-align:center; font-size:.7rem; margin-right:6px;
+  }
+
+  /* table */
+  table{width:100%; border-collapse:collapse; margin:14px 0; font-size:.9rem}
+  th,td{border:1px solid var(--border); padding:9px 12px; text-align:left}
+  th{background:#f8fafc; font-weight:600; color:#334155}
+  tbody tr:nth-child(even){background:#fbfdff}
+
+  /* steps */
+  .steps{counter-reset:s; list-style:none}
+  .steps li{
+    position:relative; padding:14px 18px 14px 56px; margin-bottom:10px;
+    background:#fff; border:1px solid var(--border); border-radius:12px;
+  }
+  .steps li::before{
+    counter-increment:s; content:counter(s);
+    position:absolute; left:16px; top:50%; transform:translateY(-50%);
+    width:28px; height:28px; line-height:28px; text-align:center; border-radius:50%;
+    background:linear-gradient(135deg,var(--blue),var(--blue-dark)); color:#fff; font-weight:600; font-size:.9rem;
+  }
+
+  /* ============ MOCKUP : import modal (inline, opened state) ============ */
+  .mockup-stage{
+    position:relative; background:repeating-linear-gradient(45deg,#eef2f7,#eef2f7 12px,#e9eef4 12px,#e9eef4 24px);
+    border:1px dashed #cbd5e1; border-radius:16px; padding:34px 16px; overflow:hidden;
+  }
+  .mockup-stage .overlay-label{
+    position:absolute; top:12px; left:16px; font-size:.78rem; color:#94a3b8; letter-spacing:.03em;
+  }
+  .imp-modal{
+    max-width:760px; margin:0 auto; background:#fff; border-radius:16px;
+    box-shadow:0 30px 90px rgba(15,23,42,.28); overflow:hidden; border:1px solid var(--border);
+  }
+  .imp-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 24px; border-bottom:1px solid var(--border);
+    background:linear-gradient(135deg,#f0fdf4 0%,#eff6ff 100%);
+  }
+  .imp-header h3{margin:0; font-size:1.18rem; font-weight:700; display:flex; align-items:center; gap:9px}
+  .imp-close{
+    border:none; background:#fff; border:1px solid var(--border); border-radius:10px;
+    width:36px; height:36px; cursor:pointer; font-size:1rem; color:#64748b; transition:all .2s;
+  }
+  .imp-close:hover{background:#fef2f2; color:var(--warn); border-color:#fecaca}
+  .imp-body{padding:22px 24px; max-height:none}
+  .imp-sec{margin-bottom:24px}
+  .imp-sec > h4{
+    font-size:.98rem; font-weight:600; margin-bottom:12px; color:#0f172a;
+    display:flex; align-items:center; gap:8px;
+  }
+  .imp-sec .step-num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:50%; background:var(--green); color:#fff; font-size:.74rem; font-weight:700;
+  }
+
+  /* mode toggle */
+  .mode-toggle{display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap}
+  .mode-toggle label{
+    flex:1; min-width:200px; display:flex; align-items:center; gap:10px; cursor:pointer;
+    padding:12px 16px; border:1.5px solid var(--border); border-radius:12px; transition:all .2s; background:#fff;
+  }
+  .mode-toggle label:hover{border-color:#bbf7d0}
+  .mode-toggle input{accent-color:var(--green); width:17px; height:17px}
+  .mode-toggle label.active{border-color:var(--green); background:#f0fdf4; box-shadow:0 2px 8px rgba(34,197,94,.12)}
+  .mode-toggle .mt-title{font-weight:600; font-size:.92rem}
+  .mode-toggle .mt-sub{font-size:.78rem; color:var(--muted); display:block}
+
+  /* dropzone */
+  .dropzone{
+    border:2px dashed #93c5fd; border-radius:14px; padding:30px 20px; text-align:center;
+    background:linear-gradient(180deg,#f0f9ff,#fff); transition:all .2s;
+  }
+  .dropzone:hover{border-color:var(--blue); background:#eff6ff}
+  .dropzone .dz-icon{font-size:2.4rem; display:block; margin-bottom:8px}
+  .dropzone .dz-main{font-weight:600; font-size:.96rem; margin-bottom:4px}
+  .dropzone .dz-sub{font-size:.82rem; color:var(--muted)}
+  .dropzone .dz-btn{
+    margin-top:14px; border:none; background:linear-gradient(135deg,var(--blue),var(--blue-dark));
+    color:#fff; padding:10px 22px; border-radius:10px; font-weight:600; cursor:pointer; font-size:.9rem;
+    font-family:inherit;
+  }
+  .file-opts{display:flex; gap:12px; margin-top:14px; flex-wrap:wrap}
+  .file-opts .fo{flex:1; min-width:160px}
+  .file-opts label{font-size:.82rem; color:var(--muted); display:block; margin-bottom:5px; font-weight:500}
+  .paste-area{display:none}
+  .paste-area textarea{
+    width:100%; min-height:120px; border:1.5px solid var(--border); border-radius:12px;
+    padding:12px 14px; font-family:'SF Mono',ui-monospace,monospace; font-size:.84rem; resize:vertical;
+  }
+  .paste-area textarea:focus{outline:none; border-color:var(--blue)}
+
+  /* selects/inputs */
+  select,.imp-input{
+    width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:10px;
+    font-family:inherit; font-size:.9rem; background:#fff; color:var(--text); cursor:pointer;
+  }
+  select:focus,.imp-input:focus{outline:none; border-color:var(--green)}
+
+  /* mapping grid */
+  .map-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; margin-bottom:12px}
+  .map-row{display:flex; align-items:center; gap:8px}
+  .map-row .map-label{flex:0 0 92px; font-size:.84rem; color:#334155; font-weight:500}
+  .map-row .map-arrow{color:var(--muted); flex:0 0 auto}
+  .map-row select{flex:1}
+  .auto-map-btn{
+    border:none; background:#fff; border:1.5px solid var(--green); color:var(--green-dark);
+    padding:8px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:.86rem; font-family:inherit;
+    transition:all .2s;
+  }
+  .auto-map-btn:hover{background:var(--green); color:#fff}
+
+  /* bulk landclass */
+  .bulk-row{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:14px 18px;
+  }
+  .bulk-row .bulk-label{font-weight:600; font-size:.92rem; flex:0 0 auto}
+  .bulk-row select{flex:1; min-width:200px; max-width:260px}
+
+  /* options */
+  .opt-list{display:flex; flex-direction:column; gap:10px}
+  .opt-list label{display:flex; align-items:center; gap:9px; font-size:.9rem; cursor:pointer}
+  .opt-list input[type=checkbox]{accent-color:var(--green); width:17px; height:17px}
+  .opt-list input[type=radio]{accent-color:var(--blue); width:16px; height:16px}
+  .opt-sub{display:flex; gap:18px; padding-left:26px; margin-top:2px; flex-wrap:wrap}
+
+  /* preview */
+  .preview-summary{display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap}
+  .pv-pill{padding:6px 14px; border-radius:20px; font-size:.84rem; font-weight:600; display:flex; align-items:center; gap:6px}
+  .pv-pill.new{background:#dcfce7; color:#166534}
+  .pv-pill.dup{background:#fef3c7; color:#92400e}
+  .pv-pill.err{background:#fee2e2; color:#991b1b}
+  .pv-table-wrap{border:1px solid var(--border); border-radius:12px; overflow:auto; max-height:240px}
+  .pv-table{margin:0; font-size:.82rem; min-width:680px}
+  .pv-table th{position:sticky; top:0; z-index:1; font-size:.78rem}
+  .pv-table td{padding:7px 10px}
+  .badge-status{padding:2px 9px; border-radius:12px; font-size:.72rem; font-weight:600; white-space:nowrap}
+  .badge-status.new{background:#dcfce7; color:#166534}
+  .badge-status.dup{background:#fef3c7; color:#92400e}
+  .badge-status.err{background:#fee2e2; color:#991b1b}
+
+  /* footer */
+  .imp-footer{
+    display:flex; align-items:center; gap:12px; padding:18px 24px;
+    border-top:1px solid var(--border); background:#f8fafc;
+  }
+  .imp-footer .spacer{flex:1}
+  .btn-cancel{
+    border:1.5px solid var(--border); background:#fff; color:#475569;
+    padding:11px 24px; border-radius:11px; font-weight:600; cursor:pointer; font-size:.92rem; font-family:inherit;
+  }
+  .btn-cancel:hover{background:#f1f5f9}
+  .btn-import{
+    border:none; background:linear-gradient(135deg,var(--green),var(--green-dark)); color:#fff;
+    padding:11px 28px; border-radius:11px; font-weight:700; cursor:pointer; font-size:.92rem; font-family:inherit;
+    box-shadow:0 4px 14px rgba(34,197,94,.3);
+  }
+  .btn-import:hover{transform:translateY(-1px); box-shadow:0 6px 18px rgba(34,197,94,.4)}
+
+  .footer-note{text-align:center; padding:24px; color:var(--muted); font-size:.85rem; border-top:1px solid var(--border)}
+
+  /* responsive */
+  @media (max-width:640px){
+    .content{padding:24px 18px}
+    .header{padding:34px 22px}
+    .header h1{font-size:1.6rem}
+    .map-grid{grid-template-columns:1fr}
+    .imp-body{padding:18px 16px}
+    .imp-header,.imp-footer{padding:16px}
+    .mockup-stage{padding:24px 8px}
+    .bulk-row select{max-width:none}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header class="header">
+    <h1>경지구분 1차 + 흙토람式 가져오기 모달</h1>
+    <p>토양 시료 접수 대장 — 구현 계획서 &amp; 디자인 목업</p>
+    <div class="meta">
+      <span class="badge">SLS · 토양 전용</span>
+      <span class="badge blue">2026-06-02</span>
+      <span class="badge">계획 + 목업 (구현 전)</span>
+    </div>
+  </header>
+
+  <!-- TOC -->
+  <nav class="toc">
+    <h2>📑 목차</h2>
+    <ul>
+      <li><a href="#overview"><span class="i">🗺️</span>개요</a></li>
+      <li><a href="#f1"><span class="i">🏷️</span>기능 1 · 경지구분 1차 필드</a></li>
+      <li><a href="#f1b"><span class="i">🔢</span>기능 1b · 독립 번호 + 탭</a></li>
+      <li><a href="#f1c"><span class="i">📦</span>기능 1c · 기존 데이터 마이그레이션</a></li>
+      <li><a href="#f2"><span class="i">📥</span>기능 2 · 가져오기 모달</a></li>
+      <li><a href="#mockup"><span class="i">🎨</span>가져오기 모달 디자인 목업</a></li>
+      <li><a href="#files"><span class="i">🗂️</span>영향 파일</a></li>
+      <li><a href="#steps"><span class="i">🪜</span>구현 단계</a></li>
+    </ul>
+  </nav>
+
+  <main class="content">
+
+    <!-- OVERVIEW -->
+    <section id="overview" class="section">
+      <h2>🗺️ 개요</h2>
+      <div class="card">
+        <p>봉화군 및 전국 기관용 <strong>토양 시료 접수 대장</strong>에 두 가지 기능을 추가합니다.</p>
+        <ul class="bullets">
+          <li><strong>경지구분 1차 필드 추가</strong> + 경지구분별 독립 번호/탭</li>
+          <li><strong>흙토람式 가져오기 모달</strong> (엑셀 업로드/붙여넣기 → 컬럼 매핑 → 일괄 등록)</li>
+        </ul>
+        <div class="note-box">
+          농촌진흥청 <strong>토양검정업무시스템</strong>이 경지구분(개량제·직불·자체 등)별로
+          따로 등록·번호를 매기는 방식을 그대로 반영합니다. 기존 데이터 모델은 건드리지 않고
+          <code>landClass1</code> 필드를 <strong>순수 추가</strong>하는 비파괴 설계입니다.
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURE 1 -->
+    <section id="f1" class="section">
+      <h2>🏷️ 기능 1 · 경지구분 1차 필드</h2>
+      <div class="card">
+        <h3>📍 폼 위치 &amp; 신규 드롭다운</h3>
+        <p>토양 접수 폼의 <strong>토양 시료 정보</strong> 영역에서
+        <strong>구분 · 목적(용도) · 경지구분 1차</strong> 세 항목을 <strong>한 줄(3열)에 나란히 배치</strong>하고,
+        <strong>비고</strong>는 그 아래 전체 너비로 둡니다.
+        (현재 폼: <code>src/soil/index.html</code> 240~268줄에 <code>#subCategory</code>·<code>#purpose</code>·<code>#note</code> 존재 —
+        기존 2열 배치를 3열로 확장)</p>
+
+        <style>
+          .fm-card{background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px 18px 20px; box-shadow:0 4px 14px rgba(0,0,0,.06); margin:14px 0}
+          .fm-title{display:flex; align-items:center; gap:8px; font-weight:700; color:#1e293b; margin-bottom:14px; font-size:1rem}
+          .fm-row3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+          .fm-field{display:flex; flex-direction:column; gap:6px}
+          .fm-label{font-size:.85rem; font-weight:600; color:#475569}
+          .fm-label .req{color:#ef4444; margin-left:2px}
+          .fm-new{display:inline-block; margin-left:6px; font-size:.68rem; font-weight:700; color:#fff; background:#22c55e; border-radius:10px; padding:1px 7px; vertical-align:middle}
+          .fm-control{display:flex; align-items:center; justify-content:space-between; gap:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:11px 13px; color:#1e293b; font-size:.95rem}
+          .fm-control.new{border-color:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.12)}
+          .fm-control .caret{color:#94a3b8}
+          .fm-control .ph{color:#94a3b8}
+          .fm-full{margin-top:14px}
+          @media (max-width:640px){ .fm-row3{grid-template-columns:1fr} }
+        </style>
+        <div class="fm-card">
+          <div class="fm-title">🧪 토양 시료 정보</div>
+          <div class="fm-row3">
+            <div class="fm-field">
+              <span class="fm-label">구분</span>
+              <div class="fm-control"><span>🥬 밭</span><span class="caret">▾</span></div>
+            </div>
+            <div class="fm-field">
+              <span class="fm-label">목적 (용도)<span class="req">*</span></span>
+              <div class="fm-control"><span>🌾 일반재배</span><span class="caret">▾</span></div>
+            </div>
+            <div class="fm-field">
+              <span class="fm-label">경지구분 1차<span class="fm-new">NEW</span></span>
+              <div class="fm-control new"><span>농가의뢰</span><span class="caret">▾</span></div>
+            </div>
+          </div>
+          <div class="fm-field fm-full">
+            <span class="fm-label">비고</span>
+            <div class="fm-control"><span class="ph">추가 메모 사항을 입력하세요</span></div>
+          </div>
+        </div>
+        <div class="note-box">기존에는 <strong>구분 · 목적</strong> 2열 + <strong>비고</strong> 별도 줄 구조였으나,
+        <strong>경지구분 1차</strong>를 추가하며 첫 줄을 <strong>구분 · 목적 · 경지구분 1차 3열</strong>로 확장합니다.
+        좁은 화면(모바일)에서는 자동으로 세로 1열로 접힙니다.</div>
+
+        <h3>🏷️ 값 11개 (순서 유지)</h3>
+        <div class="chips">
+          <span class="chip"><span class="num">1</span>개량제</span>
+          <span class="chip"><span class="num">2</span>전략</span>
+          <span class="chip"><span class="num">3</span>직불</span>
+          <span class="chip"><span class="num">4</span>자체</span>
+          <span class="chip"><span class="num">5</span>기타</span>
+          <span class="chip"><span class="num">6</span>친환경</span>
+          <span class="chip"><span class="num">7</span>유기농</span>
+          <span class="chip"><span class="num">8</span>무농약</span>
+          <span class="chip"><span class="num">9</span>GAP</span>
+          <span class="chip"><span class="num">10</span>농가의뢰</span>
+          <span class="chip"><span class="num">11</span>대표필지</span>
+        </div>
+        <div class="note-box">입력 데이터 값 <code>gap</code> 은 화면에 <strong>GAP</strong> 으로 표기합니다.</div>
+
+        <h3>🗃️ 데이터 모델</h3>
+        <ul class="bullets">
+          <li>레코드에 <code>landClass1</code> 필드 <strong>신규 추가</strong> (순수 추가)</li>
+          <li>기존 <code>subCategory</code>(구분) / <code>purpose</code>(목적) / <code>note</code>(비고) 는 <strong>그대로 유지</strong></li>
+        </ul>
+
+        <h3>🔗 흙토람 연동</h3>
+        <p>현재 <code>src/heuktoram/heuktoram-script.js</code> 내보내기에서 경지구분 1차에 해당하는
+        <code>dataRow[4]</code> 가 <code>'농가의뢰'</code> 로 <strong>하드코딩</strong>되어 있습니다 (확인: 1541줄).</p>
+        <div class="ok-box">
+          개선: <code>dataRow[4]</code> 를 레코드의 <code>landClass1</code> 값으로 연동하고,
+          비어 있으면 기본값 <code>농가의뢰</code> 를 사용합니다.
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURE 1b -->
+    <section id="f1b" class="section">
+      <h2>🔢 기능 1b · 경지구분별 독립 일련번호 + 목록 탭</h2>
+      <div class="card">
+        <h3>🔢 독립 시퀀스</h3>
+        <p>접수번호 시퀀스를 <strong>(연도 + 경지구분 1차)</strong> 단위로 독립 관리합니다.
+        → 개량제 1·2·3…, 직불 1·2·3… 각각 1부터 시작.</p>
+        <ul class="bullets">
+          <li>레코드 고유키 = <code>연도 + landClass1 + receptionNumber</code></li>
+          <li>중복 검사 · 다음번호 자동추천도 이 단위로 동작</li>
+        </ul>
+
+        <h3>🗂️ 목록 탭</h3>
+        <ul class="bullets">
+          <li>접수 목록 화면 상단에 <strong>경지구분 1차 탭(또는 드롭다운)</strong> 배치</li>
+          <li>선택 분류의 레코드만 자체 번호로 표시, <strong>"전체"</strong> 보기 옵션 유지</li>
+          <li>통계 · 엑셀 내보내기는 <strong>현재 선택 탭 기준</strong></li>
+        </ul>
+        <div class="note-box">
+          저장 구조 참고: <code>soilSampleLogs_{year}</code> (연도별 배열, 각 레코드 <code>receptionNumber</code> 보유).
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURE 1c -->
+    <section id="f1c" class="section">
+      <h2>📦 기능 1c · 기존 데이터 마이그레이션</h2>
+      <div class="card">
+        <ul class="bullets">
+          <li><code>landClass1</code> 없는 기존 레코드 → 기본 <strong>농가의뢰</strong> 탭에 귀속</li>
+          <li>표시 시점에 기본값 부여 (lazy default)</li>
+        </ul>
+        <div class="ok-box">
+          기본값 <code>농가의뢰</code> 는 현재 흙토람 하드코딩값과 동일하므로,
+          기존 내보내기 결과와 100% 일치 — <strong>안전한 마이그레이션</strong>입니다.
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURE 2 -->
+    <section id="f2" class="section">
+      <h2>📥 기능 2 · 가져오기 모달 (흙토람式)</h2>
+      <div class="card">
+        <p>기존 <code>src/soil</code> 의 단순 엑셀 읽기 가져오기를 <strong>흙토람式 모달</strong>로 교체합니다.
+        참고 패턴: <code>src/heuktoram/heuktoram-result-importer.js</code> + 흙토람 모달 구조.</p>
+
+        <h3>🧩 모달 섹션 구성</h3>
+        <table>
+          <thead><tr><th style="width:34px">#</th><th>섹션</th><th>내용</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>엑셀 데이터 입력</td><td>"엑셀 파일 업로드(권장) / 텍스트 붙여넣기" 라디오 토글. 파일=드래그앤드롭+파일선택+시트선택+헤더행, 붙여넣기=textarea</td></tr>
+            <tr><td>2</td><td>컬럼 매핑 (소일 버전)</td><td>엑셀 컬럼 → 접수번호[선택, 비우면 자동부여]·성명·연락처·지번주소·작물·면적·구분·목적(용도)·비고. <strong>자동 매핑 추정</strong> 버튼</td></tr>
+            <tr><td>3</td><td>경지구분 1차 일괄선택</td><td>11개 값 드롭다운 → 가져오는 모든 행에 적용</td></tr>
+            <tr><td>4</td><td>옵션</td><td>접수번호 자동부여(경지구분별 독립 시퀀스) / 중복 시 처리(건너뛰기·덮어쓰기) 등</td></tr>
+            <tr><td>5</td><td>미리보기</td><td>생성될 행 표 (신규/중복/오류 배지 · 건수 요약)</td></tr>
+          </tbody>
+        </table>
+        <p>푸터: <strong>취소</strong> / <strong>가져오기</strong>(저장 — 신규 레코드 생성, 번호 자동/엑셀값).</p>
+      </div>
+    </section>
+
+    <!-- MOCKUP -->
+    <section id="mockup" class="section">
+      <h2>🎨 가져오기 모달 디자인 목업</h2>
+      <p style="margin-bottom:16px">아래는 실제로 열린 상태의 모달 디자인입니다. <strong>파일/붙여넣기 토글</strong>,
+      <strong>경지구분 1차 셀렉트(11개 값)</strong>, <strong>미리보기 표(신규/중복 배지)</strong> 가 실제로 동작합니다.</p>
+
+      <div class="mockup-stage">
+        <span class="overlay-label">▣ 모달 오버레이 (열린 상태)</span>
+
+        <div class="imp-modal" role="dialog" aria-modal="true" aria-labelledby="impTitle">
+          <!-- header -->
+          <header class="imp-header">
+            <h3 id="impTitle">📥 토양 시료 엑셀 가져오기</h3>
+            <button type="button" class="imp-close" aria-label="닫기">✕</button>
+          </header>
+
+          <div class="imp-body">
+
+            <!-- 1) 입력 방식 -->
+            <div class="imp-sec">
+              <h4><span class="step-num">1</span> 엑셀 데이터 입력</h4>
+              <div class="mode-toggle">
+                <label class="active" id="modeFileLabel">
+                  <input type="radio" name="impMode" value="file" checked>
+                  <span><span class="mt-title">📤 엑셀 파일 업로드</span><span class="mt-sub">권장 · .xlsx / .xls 드래그앤드롭</span></span>
+                </label>
+                <label id="modePasteLabel">
+                  <input type="radio" name="impMode" value="paste">
+                  <span><span class="mt-title">📋 텍스트 붙여넣기</span><span class="mt-sub">엑셀 셀 복사 → 붙여넣기</span></span>
+                </label>
+              </div>
+
+              <!-- file mode -->
+              <div id="fileArea">
+                <div class="dropzone">
+                  <span class="dz-icon">⬆️</span>
+                  <div class="dz-main">파일을 여기로 끌어다 놓으세요</div>
+                  <div class="dz-sub">또는 아래 버튼으로 파일을 선택합니다</div>
+                  <button type="button" class="dz-btn">파일 선택</button>
+                </div>
+                <div class="file-opts">
+                  <div class="fo">
+                    <label>시트 선택</label>
+                    <select><option>Sheet1</option><option>접수목록</option><option>2026</option></select>
+                  </div>
+                  <div class="fo">
+                    <label>헤더 행</label>
+                    <select><option>1행</option><option>2행</option><option>3행</option></select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- paste mode -->
+              <div id="pasteArea" class="paste-area">
+                <textarea placeholder="엑셀에서 셀을 복사한 뒤 여기에 붙여넣으세요 (탭 구분)&#10;예) 홍길동	010-1234-5678	봉화읍 내성리 123	벼	1200	논	일반재배"></textarea>
+              </div>
+            </div>
+
+            <!-- 2) 컬럼 매핑 -->
+            <div class="imp-sec">
+              <h4><span class="step-num">2</span> 컬럼 매핑
+                <button type="button" class="auto-map-btn" style="margin-left:auto">✨ 자동 매핑 추정</button>
+              </h4>
+              <div class="map-grid">
+                <div class="map-row"><span class="map-label">접수번호</span><span class="map-arrow">→</span>
+                  <select><option>(비움 · 자동부여)</option><option selected>A열: 접수번호</option><option>B열</option></select></div>
+                <div class="map-row"><span class="map-label">성명</span><span class="map-arrow">→</span>
+                  <select><option selected>B열: 성명</option><option>A열</option><option>C열</option></select></div>
+                <div class="map-row"><span class="map-label">연락처</span><span class="map-arrow">→</span>
+                  <select><option selected>C열: 연락처</option><option>(없음)</option></select></div>
+                <div class="map-row"><span class="map-label">지번주소</span><span class="map-arrow">→</span>
+                  <select><option selected>D열: 지번주소</option><option>(없음)</option></select></div>
+                <div class="map-row"><span class="map-label">작물</span><span class="map-arrow">→</span>
+                  <select><option selected>E열: 작물</option><option>(없음)</option></select></div>
+                <div class="map-row"><span class="map-label">면적</span><span class="map-arrow">→</span>
+                  <select><option selected>F열: 면적(㎡)</option><option>(없음)</option></select></div>
+                <div class="map-row"><span class="map-label">구분</span><span class="map-arrow">→</span>
+                  <select><option selected>G열: 구분</option><option>(없음)</option></select></div>
+                <div class="map-row"><span class="map-label">목적(용도)</span><span class="map-arrow">→</span>
+                  <select><option selected>H열: 목적</option><option>(없음)</option></select></div>
+                <div class="map-row"><span class="map-label">비고</span><span class="map-arrow">→</span>
+                  <select><option>(없음)</option><option>I열: 비고</option></select></div>
+              </div>
+            </div>
+
+            <!-- 3) 경지구분 1차 일괄선택 -->
+            <div class="imp-sec">
+              <h4><span class="step-num">3</span> 경지구분 1차 일괄선택</h4>
+              <div class="bulk-row">
+                <span class="bulk-label">🏷️ 모든 행에 적용:</span>
+                <select id="bulkLandClass" aria-label="경지구분 1차 일괄선택"></select>
+                <span style="font-size:.82rem;color:var(--muted)">가져오는 전체 행에 동일 적용됩니다</span>
+              </div>
+            </div>
+
+            <!-- 4) 옵션 -->
+            <div class="imp-sec">
+              <h4><span class="step-num">4</span> 옵션</h4>
+              <div class="opt-list">
+                <label><input type="checkbox" checked> 접수번호 자동부여 <span style="color:var(--muted);font-size:.82rem">(경지구분별 독립 시퀀스)</span></label>
+                <label style="margin-top:4px">중복 시 처리:</label>
+                <div class="opt-sub">
+                  <label style="font-size:.86rem"><input type="radio" name="dupPolicy" checked> 건너뛰기</label>
+                  <label style="font-size:.86rem"><input type="radio" name="dupPolicy"> 덮어쓰기</label>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5) 미리보기 -->
+            <div class="imp-sec" style="margin-bottom:4px">
+              <h4><span class="step-num">5</span> 미리보기</h4>
+              <div class="preview-summary">
+                <span class="pv-pill new">✅ 신규 <span id="cntNew">3</span></span>
+                <span class="pv-pill dup">⚠️ 중복 <span id="cntDup">1</span></span>
+                <span class="pv-pill err">⛔ 오류 <span id="cntErr">0</span></span>
+              </div>
+              <div class="pv-table-wrap">
+                <table class="pv-table" id="pvTable">
+                  <thead>
+                    <tr><th>상태</th><th>접수번호</th><th>성명</th><th>연락처</th><th>지번주소</th><th>작물</th><th>면적</th><th>경지구분1차</th></tr>
+                  </thead>
+                  <tbody id="pvBody"><!-- JS 주입 --></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- footer -->
+          <footer class="imp-footer">
+            <span style="font-size:.84rem;color:var(--muted)">총 4건 중 신규 3건이 등록됩니다</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn-cancel">취소</button>
+            <button type="button" class="btn-import">📥 가져오기</button>
+          </footer>
+        </div>
+      </div>
+
+      <div class="note-box" style="margin-top:18px">
+        외부 의존성 없이 이모지로 아이콘을 대체했습니다 (material-icons 미사용).
+        실제 구현 시 앱 공통 스타일과 <code>heuktoram-result-importer.js</code> 패턴을 따릅니다.
+      </div>
+    </section>
+
+    <!-- FILES -->
+    <section id="files" class="section">
+      <h2>🗂️ 영향 파일 (구현 시)</h2>
+      <div class="card">
+        <table>
+          <thead><tr><th>파일</th><th>변경 내용</th></tr></thead>
+          <tbody>
+            <tr><td><code>src/soil/index.html</code></td><td>폼에 경지구분 1차 추가, 목록 탭, 모달 마크업</td></tr>
+            <tr><td><code>src/soil/soil-script.js</code></td><td>필드 수집/저장, 독립 번호 로직, 탭 필터</td></tr>
+            <tr><td><code>src/soil/soil-result-importer.js</code> <span style="color:var(--green);font-weight:600">(신규)</span></td><td>가져오기 모달 로직 (heuktoram-result-importer.js 참고)</td></tr>
+            <tr><td><code>src/heuktoram/heuktoram-script.js</code></td><td><code>dataRow[4]</code> → <code>landClass1</code> 연동</td></tr>
+            <tr><td>스타일</td><td>모달/탭/필드 관련 CSS</td></tr>
+          </tbody>
+        </table>
+        <div class="note-box">구현은 별도 단계입니다. 이 문서는 <strong>계획 + 목업</strong>까지입니다.</div>
+      </div>
+    </section>
+
+    <!-- STEPS -->
+    <section id="steps" class="section">
+      <h2>🪜 구현 단계 (권장 순서)</h2>
+      <div class="card">
+        <ol class="steps">
+          <li>데이터 모델 · 마이그레이션 (<code>landClass1</code> 기본 농가의뢰)</li>
+          <li>폼 필드 추가 + 흙토람 연동 (<code>dataRow[4]</code>)</li>
+          <li>독립 번호 + 목록 탭</li>
+          <li>가져오기 모달</li>
+          <li>빌드 · 검증</li>
+        </ol>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="footer-note">
+    토양 시료 접수 대장 (SLS) · 경지구분 1차 + 가져오기 모달 계획서 · 2026-06-02
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var LAND_CLASS_VALUES = ['개량제','전략','직불','자체','기타','친환경','유기농','무농약','GAP','농가의뢰','대표필지'];
+
+  // (a) file / paste 토글
+  var fileArea = document.getElementById('fileArea');
+  var pasteArea = document.getElementById('pasteArea');
+  var fileLabel = document.getElementById('modeFileLabel');
+  var pasteLabel = document.getElementById('modePasteLabel');
+  document.querySelectorAll('input[name="impMode"]').forEach(function(r){
+    r.addEventListener('change', function(){
+      var isFile = (this.value === 'file');
+      fileArea.style.display = isFile ? '' : 'none';
+      pasteArea.style.display = isFile ? 'none' : 'block';
+      fileLabel.classList.toggle('active', isFile);
+      pasteLabel.classList.toggle('active', !isFile);
+    });
+  });
+
+  // (b) 경지구분 1차 셀렉트 11개 값
+  var bulk = document.getElementById('bulkLandClass');
+  if (bulk){
+    LAND_CLASS_VALUES.forEach(function(v, i){
+      var o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      if (v === '농가의뢰') o.selected = true; // 기본값
+      bulk.appendChild(o);
+    });
+  }
+
+  // (c) 샘플 미리보기 표 (신규/중복 배지)
+  var sample = [
+    {st:'new', no:'개량제-1', name:'홍길동', tel:'010-1234-5678', addr:'봉화읍 내성리 123', crop:'벼', area:'1,200', lc:'농가의뢰'},
+    {st:'new', no:'개량제-2', name:'김영희', tel:'010-2222-3333', addr:'춘양면 의양리 45-2', crop:'사과', area:'2,400', lc:'농가의뢰'},
+    {st:'dup', no:'개량제-3', name:'박철수', tel:'010-5555-6666', addr:'물야면 오록리 7', crop:'고추', area:'800', lc:'농가의뢰'},
+    {st:'new', no:'개량제-4', name:'이순신', tel:'010-7777-8888', addr:'법전면 풍정리 210', crop:'배추', area:'1,560', lc:'농가의뢰'}
+  ];
+  var labels = {'new':'신규','dup':'중복','err':'오류'};
+  var body = document.getElementById('pvBody');
+  if (body){
+    sample.forEach(function(row){
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><span class="badge-status '+row.st+'">'+labels[row.st]+'</span></td>'+
+        '<td>'+row.no+'</td><td>'+row.name+'</td><td>'+row.tel+'</td>'+
+        '<td>'+row.addr+'</td><td>'+row.crop+'</td><td>'+row.area+'</td><td>'+row.lc+'</td>';
+      body.appendChild(tr);
+    });
+  }
+})();
+</script>
+</body>
+</html>

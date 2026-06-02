@@ -1538,7 +1538,7 @@ class HeuktoramManager {
             dataRow[1] = collectYear;
             dataRow[2] = collector || row.log.name || '';
             dataRow[3] = row.log.date || '';
-            dataRow[4] = '농가의뢰';
+            dataRow[4] = (row.log.landClass1 && String(row.log.landClass1).trim()) || '농가의뢰';
             dataRow[5] = this.getCategoryCode(category);
             const usageLabels = {
                 '0': '일반적인토양검정-0',

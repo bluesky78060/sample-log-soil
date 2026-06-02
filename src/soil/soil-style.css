@@ -1304,3 +1304,71 @@ tr.farm-separator:hover {
 [data-theme="dark"] .data-table .col-name {
     border-right-color: #44403c;
 }
+
+/* ========================================
+   경지구분 1차 (landClass1) - 폼 3열 + 목록 탭
+   ======================================== */
+
+/* 구분·목적·경지구분1차 한 줄 (3열 그리드) */
+.form-row.triple {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* 좁은 화면에서 1열로 접힘 */
+@media (max-width: 1024px) {
+    .form-row.triple {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 경지구분 1차 목록 탭 (필터 셀렉트와 동일 외형) */
+select#landClass1Tab.landclass1-tab {
+    padding: 0.4rem 2rem 0.4rem 0.75rem;
+    border: 1px solid #d5e0d8;
+    border-radius: 8px;
+    background-color: #ffffff;
+    font-size: 0.85rem;
+    color: #374151;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+}
+
+select#landClass1Tab.landclass1-tab:hover {
+    border-color: var(--soil-primary);
+}
+
+select#landClass1Tab.landclass1-tab:focus {
+    outline: none;
+    border-color: var(--soil-primary);
+    box-shadow: 0 0 0 2px var(--soil-primary-light);
+}
+
+select#landClass1Tab.landclass1-tab.has-filter {
+    border-color: var(--soil-primary);
+    background-color: var(--soil-primary-light);
+    font-weight: 600;
+}
+
+[data-theme="dark"] select#landClass1Tab.landclass1-tab {
+    background-color: #292524;
+    border-color: #44403c;
+    color: #e7e5e4;
+}
+
+[data-theme="dark"] select#landClass1Tab.landclass1-tab:hover,
+[data-theme="dark"] select#landClass1Tab.landclass1-tab:focus {
+    border-color: var(--soil-primary);
+}
+
+[data-theme="dark"] select#landClass1Tab.landclass1-tab option {
+    background-color: #292524;
+    color: #e7e5e4;
+}
+
+[data-theme="dark"] select#landClass1Tab.landclass1-tab.has-filter {
+    background-color: rgba(34, 197, 94, 0.18);
+}

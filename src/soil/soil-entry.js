@@ -35,3 +35,6 @@ import '../cropData.js';
 
 // Main script
 import './soil-script.js';
+
+// 흙토람式 가져오기 모달 (soil-script.js 뒤 — window.soilManager 준비 후 버튼 연결)
+import './soil-result-importer.js';

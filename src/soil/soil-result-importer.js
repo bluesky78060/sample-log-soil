@@ -191,6 +191,10 @@
   box-shadow:0 4px 14px rgba(34,197,94,.3);display:flex;align-items:center;gap:7px}
 .sri-btn-import:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(34,197,94,.4)}
 .sri-btn-import:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.sri-btn-dlerr{border:1.5px solid #fca5a5;background:#fff1f2;color:#b91c1c;padding:10px 18px;border-radius:11px;
+  font-weight:600;cursor:pointer;font-size:.88rem;font-family:inherit;transition:all .2s}
+.sri-btn-dlerr:hover{background:#fee2e2;border-color:#f87171}
+.sri-btn-dlerr[hidden]{display:none}
 @media (max-width:640px){
   .sri-mapgrid{grid-template-columns:1fr}
   .sri-body{padding:18px 16px}
@@ -224,6 +228,8 @@
 [data-theme="dark"] .sri-pv-empty{border-color:#44403c;color:#78716c}
 [data-theme="dark"] .sri-footer{background:#231f1d;border-top-color:#44403c}
 [data-theme="dark"] .sri-btn-cancel{background:#292524;color:#d6d3d1;border-color:#57534e}
+[data-theme="dark"] .sri-btn-dlerr{background:#2d1515;border-color:#7f1d1d;color:#fca5a5}
+[data-theme="dark"] .sri-btn-dlerr:hover{background:#3f1a1a;border-color:#ef4444}
 `;
         document.head.appendChild(style);
     }
@@ -343,6 +349,7 @@
   <footer class="sri-footer">
     <span class="sri-footer-note" data-el="footerNote"></span>
     <span class="sri-spacer"></span>
+    <button type="button" class="sri-btn-dlerr" data-act="dlErrorCsv" hidden>⚠️ 오류 행 CSV</button>
     <button type="button" class="sri-btn-cancel" data-act="close">취소</button>
     <button type="button" class="sri-btn-import" data-act="import" disabled>📥 가져오기</button>
   </footer>
@@ -410,6 +417,7 @@
                 if (act === 'close') this.close();
                 else if (act === 'import') this._commit();
                 else if (act === 'automap') this._autoMap();
+                else if (act === 'dlErrorCsv') this._downloadErrorCsv();
                 else if (act === 'pick') { e.stopPropagation(); this._els.fileInput?.click(); }
             });
             // 오버레이 클릭 → 닫기 (다이얼로그 내부 클릭은 무시)
@@ -910,6 +918,7 @@
             const summary = this._els.summary;
             const box = this._els.previewBox;
             const importBtn = this._els.modal.querySelector('[data-act="import"]');
+            const dlErrBtn = this._els.modal.querySelector('[data-act="dlErrorCsv"]');
             const note = this._els.footerNote;
             if (!summary || !box) return;
 
@@ -918,6 +927,7 @@
                 summary.innerHTML = '<span class="sri-muted">데이터·컬럼 매핑을 지정하면 미리보기가 표시됩니다.</span>';
                 box.innerHTML = '<div class="sri-pv-empty">성명 또는 지번주소 컬럼을 매핑하면 미리보기가 생성됩니다.</div>';
                 if (importBtn) { importBtn.disabled = true; importBtn.textContent = '📥 가져오기'; }
+                if (dlErrBtn) { dlErrBtn.hidden = true; dlErrBtn.textContent = '⚠️ 오류 행 CSV'; }
                 if (note) note.textContent = '';
                 return;
             }
@@ -962,6 +972,15 @@
                 importBtn.disabled = p.willImport === 0;
                 importBtn.textContent = p.willImport > 0 ? `📥 ${p.willImport}건 가져오기` : '📥 가져오기';
             }
+            if (dlErrBtn) {
+                if (p.stats.err > 0) {
+                    dlErrBtn.hidden = false;
+                    dlErrBtn.textContent = `⚠️ 오류 행 CSV (${p.stats.err}건)`;
+                } else {
+                    dlErrBtn.hidden = true;
+                    dlErrBtn.textContent = '⚠️ 오류 행 CSV';
+                }
+            }
             if (note) {
                 note.textContent = `총 ${p.stats.total}건 중 ${p.willImport}건이 [${p.landClass1}]으로 등록됩니다`;
             }
@@ -1001,6 +1020,59 @@
             if (failed > 0) parts.push(`실패 ${failed}건`);
             toast(parts.join(' · '), failed > 0 ? 'warning' : 'success');
             this.close();
+        }
+
+        // ----------------------------------------------------------
+        // 오류 행 CSV 다운로드
+        // ----------------------------------------------------------
+        _downloadErrorCsv() {
+            const items = this._state.preview?.items || [];
+            const errs = items.filter(it => it.status === 'err');
+            if (errs.length === 0) return;
+
+            /** CSV 셀 이스케이프 (RFC 4180 + CSV 인젝션 방지) */
+            function csvCell(val) {
+                let s = String(val ?? '');
+                // CSV 인젝션 방지: 수식 시작 문자 앞에 작은따옴표 삽입
+                if (s.length > 0 && '=+-@|'.includes(s[0])) s = "'" + s;
+                // 콤마·큰따옴표·개행이 포함되면 큰따옴표로 감싸고 내부 " → ""
+                if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+                    s = '"' + s.replace(/"/g, '""') + '"';
+                }
+                return s;
+            }
+
+            const header = ['성명', '연락처', '지번주소', '작물', '면적', '구분', '목적', '오류사유'];
+            const lines = [header.map(csvCell).join(',')];
+            for (const it of errs) {
+                const r = it.rec || {};
+                lines.push([
+                    csvCell(r.name),
+                    csvCell(r.phoneNumber),
+                    csvCell(r.lotAddress),
+                    csvCell(r.cropsDisplay),
+                    csvCell(r.area),
+                    csvCell(r.subCategory),
+                    csvCell(r.purpose),
+                    csvCell(it.reason),
+                ].join(','));
+            }
+
+            const bom = '﻿';
+            const csv = bom + lines.join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `가져오기_오류행_${dateStr}.csv`;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast(`오류 행 ${errs.length}건을 CSV로 저장했습니다.`, 'success');
         }
     }
 

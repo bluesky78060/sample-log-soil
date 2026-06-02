@@ -1,7 +1,7 @@
 {
   "name": "soil-sample-log",
   "productName": "토양 시료 접수 대장",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "My Electron application description",
   "main": "src/index.js",
   "scripts": {

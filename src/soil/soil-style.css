@@ -1269,7 +1269,8 @@ tr.farm-separator:hover {
 .data-table .col-date       { left: 150px; min-width: 90px; }
 .data-table .col-category   { left: 240px; min-width: 55px; }
 .data-table .col-purpose    { left: 295px; min-width: 70px; }
-.data-table .col-name       { left: 365px; min-width: 70px; border-right: 2px solid #e2d9c8; }
+.data-table .col-landclass1 { left: 365px; min-width: 70px; }
+.data-table .col-name       { left: 435px; min-width: 70px; border-right: 2px solid #e2d9c8; }
 
 /* 고정 컬럼 행 배경 (tbody) */
 .data-table tbody td.sticky-col {

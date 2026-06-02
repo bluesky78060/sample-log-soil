@@ -154,8 +154,59 @@
 
             <form id="sampleForm" class="sample-form">
                 <div class="form-two-column">
-                    <!-- 왼쪽: 기본 정보 + 시료 정보 -->
+                    <!-- 왼쪽: 토양 시료 정보 + 기본 정보 + 비고 -->
                     <div class="form-left-column">
+                        <!-- 토양 시료 정보 카드 -->
+                        <div class="form-card">
+                            <div class="card-header">
+                                <span class="card-icon">🌱</span>
+                                <h3>토양 시료 정보</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-row triple">
+                                    <div class="form-field">
+                                        <label for="landClass1">경지구분 1차</label>
+                                        <select id="landClass1" name="landClass1">
+                                            <option value="개량제">개량제</option>
+                                            <option value="전략">전략</option>
+                                            <option value="직불">직불</option>
+                                            <option value="자체">자체</option>
+                                            <option value="기타">기타</option>
+                                            <option value="친환경">친환경</option>
+                                            <option value="유기농">유기농</option>
+                                            <option value="무농약">무농약</option>
+                                            <option value="GAP">GAP</option>
+                                            <option value="농가의뢰" selected>농가의뢰</option>
+                                            <option value="대표필지">대표필지</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="subCategory">구분</label>
+                                        <select id="subCategory" name="subCategory">
+                                            <option value="">선택하세요</option>
+                                            <option value="논">🌾 논</option>
+                                            <option value="밭">🥬 밭</option>
+                                            <option value="과수">🍎 과수</option>
+                                            <option value="시설">🏠 시설</option>
+                                            <option value="임야">🌲 임야</option>
+                                            <option value="성토">🚜 성토</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="purpose">목적 (용도) <span class="required">*</span></label>
+                                        <select id="purpose" name="purpose" required>
+                                            <option value="">선택하세요</option>
+                                            <option value="일반재배">🌾 일반재배</option>
+                                            <option value="무농약">🍃 무농약</option>
+                                            <option value="유기">♻️ 유기</option>
+                                            <option value="GAP">✅ GAP</option>
+                                            <option value="저탄소">🌱 저탄소</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- 기본 정보 카드 -->
                         <div class="form-card">
                             <div class="card-header">
@@ -231,58 +282,16 @@
                             </div>
                         </div>
 
-                        <!-- 시료 정보 카드 -->
+                        <!-- 비고 카드 -->
                         <div class="form-card">
                             <div class="card-header">
-                                <span class="card-icon">🌱</span>
-                                <h3>토양 시료 정보</h3>
+                                <span class="card-icon">📝</span>
+                                <h3>비고</h3>
                             </div>
                             <div class="card-body">
-                                <div class="form-row triple">
-                                    <div class="form-field">
-                                        <label for="subCategory">구분</label>
-                                        <select id="subCategory" name="subCategory">
-                                            <option value="">선택하세요</option>
-                                            <option value="논">🌾 논</option>
-                                            <option value="밭">🥬 밭</option>
-                                            <option value="과수">🍎 과수</option>
-                                            <option value="시설">🏠 시설</option>
-                                            <option value="임야">🌲 임야</option>
-                                            <option value="성토">🚜 성토</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-field">
-                                        <label for="purpose">목적 (용도) <span class="required">*</span></label>
-                                        <select id="purpose" name="purpose" required>
-                                            <option value="">선택하세요</option>
-                                            <option value="일반재배">🌾 일반재배</option>
-                                            <option value="무농약">🍃 무농약</option>
-                                            <option value="유기">♻️ 유기</option>
-                                            <option value="GAP">✅ GAP</option>
-                                            <option value="저탄소">🌱 저탄소</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-field">
-                                        <label for="landClass1">경지구분 1차</label>
-                                        <select id="landClass1" name="landClass1">
-                                            <option value="개량제">개량제</option>
-                                            <option value="전략">전략</option>
-                                            <option value="직불">직불</option>
-                                            <option value="자체">자체</option>
-                                            <option value="기타">기타</option>
-                                            <option value="친환경">친환경</option>
-                                            <option value="유기농">유기농</option>
-                                            <option value="무농약">무농약</option>
-                                            <option value="GAP">GAP</option>
-                                            <option value="농가의뢰" selected>농가의뢰</option>
-                                            <option value="대표필지">대표필지</option>
-                                        </select>
-                                    </div>
-                                </div>
                                 <div class="form-row">
                                     <div class="form-field full-width">
-                                        <label for="note">비고</label>
-                                        <input type="text" id="note" name="note" placeholder="추가 메모 사항을 입력하세요">
+                                        <input type="text" id="note" name="note" aria-label="비고" placeholder="추가 메모 사항을 입력하세요">
                                     </div>
                                 </div>
                             </div>
@@ -399,6 +408,7 @@
                             <th class="col-date sticky-col">접수일자</th>
                             <th class="col-category sticky-col">구분</th>
                             <th class="col-purpose sticky-col">목적(용도)</th>
+                            <th class="col-landclass1 sticky-col">경지구분</th>
                             <th class="col-name sticky-col">성명</th>
                             <th class="col-zipcode">우편번호</th>
                             <th>주소</th>

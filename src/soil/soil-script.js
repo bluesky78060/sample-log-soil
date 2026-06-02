@@ -3313,7 +3313,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                 const separatorTr = document.createElement('tr');
                 separatorTr.className = 'farm-separator';
                 const separatorTd = document.createElement('td');
-                separatorTd.colSpan = 18;
+                separatorTd.colSpan = 19;
                 separatorTr.appendChild(separatorTd);
                 fragment.appendChild(separatorTr);
             }
@@ -3379,6 +3379,12 @@ class SoilSampleManager extends window.BaseSampleManager {
             tdPurpose.className = 'col-purpose sticky-col';
             tdPurpose.textContent = row._parcelPurpose || row.purpose || '-';
             tr.appendChild(tdPurpose);
+
+            // 경지구분 1차
+            const tdLandClass1 = document.createElement('td');
+            tdLandClass1.className = 'col-landclass1 sticky-col';
+            tdLandClass1.textContent = row.landClass1 || LAND_CLASS1_DEFAULT;
+            tr.appendChild(tdLandClass1);
 
             // 성명 (클릭 시 같은 이름 일괄 선택)
             const tdName = document.createElement('td');
@@ -4482,7 +4488,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(sanitizeExcelData(excelData));
         ws['!cols'] = [
-            { wch: 14 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 15 },
+            { wch: 14 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 15 },
             { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 25 }, { wch: 30 }, { wch: 15 },
             { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 8 }, { wch: 18 }
         ];

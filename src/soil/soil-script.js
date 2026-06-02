@@ -16,6 +16,18 @@ const STORAGE_KEY = 'soilSampleLogs';
 /** @type {string} */
 const AUTO_SAVE_FILE = 'soil-autosave.json';
 
+/**
+ * 경지구분 1차 선택지 (11개)
+ * @type {string[]}
+ */
+const LAND_CLASS1_OPTIONS = ['개량제', '전략', '직불', '자체', '기타', '친환경', '유기농', '무농약', 'GAP', '농가의뢰', '대표필지'];
+
+/**
+ * 경지구분 1차 기본값
+ * @type {string}
+ */
+const LAND_CLASS1_DEFAULT = '농가의뢰';
+
 // ========================================
 // SoilSampleManager 클래스
 // ========================================
@@ -44,7 +56,8 @@ class SoilSampleManager extends window.BaseSampleManager {
             receptionTo: '',
             lot: '',
             purpose: '',
-            completed: 'incomplete'
+            completed: 'incomplete',
+            landClass1: ''
         };
         this.isFullView = false;
         this.autoSaveFileHandle = null;
@@ -75,6 +88,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.receptionNumberInput = null;
         this.subCategorySelect = null;
         this.purposeSelect = null;
+        this.landClass1Select = null;
         this.receptionMethodBtns = null;
         this.receptionMethodInput = null;
         this.navSubmitBtn = null;
@@ -164,6 +178,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.receptionNumberInput = document.getElementById('receptionNumber');
         this.subCategorySelect = document.getElementById('subCategory');
         this.purposeSelect = document.getElementById('purpose');
+        this.landClass1Select = document.getElementById('landClass1');
         this.receptionMethodBtns = document.querySelectorAll('.reception-method-btn');
         this.receptionMethodInput = document.getElementById('receptionMethod');
         this.navSubmitBtn = document.getElementById('navSubmitBtn');
@@ -254,6 +269,10 @@ class SoilSampleManager extends window.BaseSampleManager {
             }
             if (log.isComplete === undefined) {
                 log.isComplete = false;
+            }
+            // 경지구분 1차 마이그레이션: 없으면 기본값으로 채움
+            if (log.landClass1 === undefined || log.landClass1 === null || log.landClass1 === '') {
+                log.landClass1 = LAND_CLASS1_DEFAULT;
             }
             return log;
         });
@@ -638,10 +657,26 @@ class SoilSampleManager extends window.BaseSampleManager {
     // 접수번호 생성
     // ========================================
 
-    generateNextReceptionNumber() {
+    /**
+     * 현재 폼에서 선택된 경지구분 1차 값 반환 (없으면 기본값)
+     * @returns {string}
+     */
+    getCurrentLandClass1() {
+        return (this.landClass1Select?.value) || LAND_CLASS1_DEFAULT;
+    }
+
+    /**
+     * 일반(성토 제외) 다음 접수번호 생성.
+     * 같은 경지구분 1차 범위 내에서 독립적으로 max+1 계산.
+     * @param {string} [landClass1] 기준 경지구분 1차 (미지정 시 현재 폼 값)
+     * @returns {string}
+     */
+    generateNextReceptionNumber(landClass1) {
+        const targetClass = landClass1 || this.getCurrentLandClass1();
         let maxNumber = 0;
         this.sampleLogs.forEach(log => {
             if (log.receptionNumber && log.subCategory !== '성토') {
+                if ((log.landClass1 || LAND_CLASS1_DEFAULT) !== targetClass) return;
                 const baseNumber = log.receptionNumber.split('-')[0];
                 if (baseNumber.startsWith('F')) return;
                 const num = parseInt(baseNumber, 10);
@@ -651,14 +686,22 @@ class SoilSampleManager extends window.BaseSampleManager {
             }
         });
         const nextNumber = maxNumber + 1;
-        this.log('다음 접수번호 생성:', nextNumber, '(기존 최대:', maxNumber, ')');
+        this.log('다음 접수번호 생성:', nextNumber, '(경지구분1차:', targetClass, ', 기존 최대:', maxNumber, ')');
         return String(nextNumber);
     }
 
-    generateNextFillReceptionNumber() {
+    /**
+     * 성토(F) 다음 접수번호 생성.
+     * 같은 경지구분 1차 범위 내에서 독립적으로 max+1 계산.
+     * @param {string} [landClass1] 기준 경지구분 1차 (미지정 시 현재 폼 값)
+     * @returns {string}
+     */
+    generateNextFillReceptionNumber(landClass1) {
+        const targetClass = landClass1 || this.getCurrentLandClass1();
         let maxNumber = 0;
         this.sampleLogs.forEach(log => {
             if (log.receptionNumber && log.subCategory === '성토') {
+                if ((log.landClass1 || LAND_CLASS1_DEFAULT) !== targetClass) return;
                 const baseNumber = log.receptionNumber.split('-')[0];
                 const numStr = baseNumber.replace('F', '');
                 const num = parseInt(numStr, 10);
@@ -668,8 +711,105 @@ class SoilSampleManager extends window.BaseSampleManager {
             }
         });
         const nextNumber = maxNumber + 1;
-        this.log('다음 성토 접수번호 생성: F' + nextNumber, '(기존 최대:', maxNumber, ')');
+        this.log('다음 성토 접수번호 생성: F' + nextNumber, '(경지구분1차:', targetClass, ', 기존 최대:', maxNumber, ')');
         return `F${nextNumber}`;
+    }
+
+    // ========================================
+    // 가져오기용 공개 API (스트림 B 연동 계약)
+    // ========================================
+
+    /**
+     * 지정 연도 저장소에서 같은 경지구분 1차 범위의 다음 일반 접수번호(숫자) 계산.
+     * 성토(F)는 제외하며, 가져오기는 일반 번호 체계를 사용한다.
+     * @param {number|string} year 대상 연도
+     * @param {string} landClass1 경지구분 1차
+     * @returns {number} 다음 접수번호(정수)
+     */
+    getNextNumberForClass(year, landClass1) {
+        const targetClass = landClass1 || LAND_CLASS1_DEFAULT;
+        const targetYear = year || this.selectedYear;
+        // 현재 로드된 연도면 메모리 데이터, 아니면 해당 연도 저장소를 읽는다.
+        const logs = (String(targetYear) === String(this.selectedYear))
+            ? this.sampleLogs
+            : SampleUtils.safeParseJSON(this.getStorageKey(targetYear), []);
+        let maxNumber = 0;
+        logs.forEach(log => {
+            if (!log.receptionNumber || log.subCategory === '성토') return;
+            if ((log.landClass1 || LAND_CLASS1_DEFAULT) !== targetClass) return;
+            const baseNumber = (log.receptionNumber || '').split('-')[0];
+            if (baseNumber.startsWith('F')) return;
+            const num = parseInt(baseNumber, 10);
+            if (!isNaN(num) && num > maxNumber) maxNumber = num;
+        });
+        return maxNumber + 1;
+    }
+
+    /**
+     * 현재 연도 저장소에 가져온 레코드 한 건 추가.
+     * receptionNumber 미지정 시 landClass1별 독립 번호를 자동 부여한다.
+     * @param {Object} record - { name, phoneNumber, lotAddress, cropsDisplay, area,
+     *   subCategory, purpose, note, landClass1, receptionNumber? }
+     * @returns {Object} 저장된 레코드(부여된 receptionNumber 포함)
+     */
+    addImportedRecord(record) {
+        const src = record || {};
+        const landClass1 = src.landClass1 || LAND_CLASS1_DEFAULT;
+
+        // 접수번호: 지정값 우선, 없으면 경지구분 1차별 독립 번호 자동 부여
+        let receptionNumber = (src.receptionNumber != null && String(src.receptionNumber).trim() !== '')
+            ? String(src.receptionNumber).trim()
+            : String(this.getNextNumberForClass(this.selectedYear, landClass1));
+
+        const lotAddress = src.lotAddress || '';
+        const cropsDisplay = src.cropsDisplay || '-';
+        const area = (src.area != null ? String(src.area) : '0');
+        const nowISO = new Date().toISOString();
+
+        const newLog = {
+            id: crypto.randomUUID(),
+            receptionNumber,
+            date: src.date || new Date().toISOString().slice(0, 10),
+            name: src.name || '',
+            phoneNumber: src.phoneNumber || '',
+            address: src.address || '',
+            addressPostcode: src.addressPostcode || '',
+            addressRoad: src.addressRoad || '',
+            addressDetail: src.addressDetail || '',
+            subCategory: src.subCategory || '-',
+            purpose: src.purpose || '',
+            landClass1,
+            receptionMethod: src.receptionMethod || '-',
+            note: src.note || '',
+            groupId: crypto.randomUUID(),
+            parcelIndex: 1,
+            totalParcels: 1,
+            createdAt: nowISO,
+            updatedAt: nowISO,
+            isComplete: false,
+            parcels: [{
+                id: crypto.randomUUID(),
+                lotAddress,
+                isMountain: false,
+                subLots: [],
+                crops: cropsDisplay && cropsDisplay !== '-'
+                    ? [{ name: cropsDisplay, area: (parseFloat(area) || 0).toString() }]
+                    : [],
+                category: src.subCategory || '',
+                purpose: src.purpose || '',
+                note: src.note || ''
+            }],
+            lotAddress,
+            area: (parseFloat(area) || 0).toString(),
+            cropsDisplay
+        };
+
+        this.sampleLogs.push(newLog);
+        this.saveLogs();
+        this.firebaseSaveRecords(newLog);
+        this.filterAndRenderLogs();
+        this.log('가져오기 레코드 추가:', receptionNumber, '(경지구분1차:', landClass1, ')');
+        return newLog;
     }
 
     // ========================================
@@ -1629,6 +1769,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                 addressDetail: this.addressDetail?.value || '',
                 subCategory: formData.get('subCategory') || '-',
                 purpose: formData.get('purpose'),
+                landClass1: formData.get('landClass1') || LAND_CLASS1_DEFAULT,
                 receptionMethod: formData.get('receptionMethod') || '-',
                 note: formData.get('note') || '',
                 updatedAt: new Date().toISOString()
@@ -1763,6 +1904,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                 addressDetail: this.addressDetail?.value || '',
                 subCategory: effectiveSubCategory,
                 purpose: effectivePurpose,
+                landClass1: formData.get('landClass1') || existingLog.landClass1 || LAND_CLASS1_DEFAULT,
                 receptionMethod: formData.get('receptionMethod') || '-',
                 note: formData.get('note') || '',
                 parcels: validParcels.map(p => ({
@@ -1813,9 +1955,11 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         const yearStorageKey = this.getStorageKey(this.selectedYear);
         const latestLogs = SampleUtils.safeParseJSON(yearStorageKey, []);
+        const currentLandClass1 = this.getCurrentLandClass1();
 
         const duplicateNumbers = numbersToCheck.filter(numToCheck => {
             return latestLogs.some(log => {
+                if ((log.landClass1 || LAND_CLASS1_DEFAULT) !== currentLandClass1) return false;
                 const logBaseNumber = (log.receptionNumber || '').split('-')[0];
                 return logBaseNumber === numToCheck;
             });
@@ -1842,6 +1986,7 @@ class SoilSampleManager extends window.BaseSampleManager {
             addressDetail: this.addressDetail?.value || '',
             subCategory: formData.get('subCategory') || '-',
             purpose: formData.get('purpose'),
+            landClass1: formData.get('landClass1') || LAND_CLASS1_DEFAULT,
             receptionMethod: formData.get('receptionMethod') || '-',
             note: formData.get('note') || '',
             createdAt: new Date().toISOString(),
@@ -2076,6 +2221,10 @@ class SoilSampleManager extends window.BaseSampleManager {
             this.purposeSelect.value = log.purpose || '';
         }
 
+        if (this.landClass1Select) {
+            this.landClass1Select.value = log.landClass1 || LAND_CLASS1_DEFAULT;
+        }
+
         const receptionMethodBtns = document.querySelectorAll('.reception-method-btn');
         receptionMethodBtns.forEach(btn => {
             btn.classList.remove('active');
@@ -2183,6 +2332,8 @@ class SoilSampleManager extends window.BaseSampleManager {
         }
 
         if (this.purposeSelect) this.purposeSelect.value = firstLog.purpose || '';
+
+        if (this.landClass1Select) this.landClass1Select.value = firstLog.landClass1 || LAND_CLASS1_DEFAULT;
 
         const receptionMethodBtns = document.querySelectorAll('.reception-method-btn');
         receptionMethodBtns.forEach(btn => {
@@ -2341,6 +2492,9 @@ class SoilSampleManager extends window.BaseSampleManager {
             const matchesPurpose = !this.currentSearchFilter.purpose ||
                 (log.purpose || '') === this.currentSearchFilter.purpose;
 
+            const matchesLandClass1 = !this.currentSearchFilter.landClass1 ||
+                (log.landClass1 || LAND_CLASS1_DEFAULT) === this.currentSearchFilter.landClass1;
+
             let matchesCompleted = true;
             if (this.currentSearchFilter.completed === 'completed') {
                 matchesCompleted = log.isComplete === true;
@@ -2348,11 +2502,23 @@ class SoilSampleManager extends window.BaseSampleManager {
                 matchesCompleted = !log.isComplete;
             }
 
-            return matchesName && matchesReception && matchesDate && matchesLot && matchesPurpose && matchesCompleted;
+            return matchesName && matchesReception && matchesDate && matchesLot && matchesPurpose && matchesLandClass1 && matchesCompleted;
         });
 
         this.renderLogs(filteredLogs);
         this.updateSearchButtonState();
+    }
+
+    /**
+     * 현재 경지구분 1차 탭으로 필터링된 레코드 반환.
+     * 탭이 '전체'(빈 값)면 전체 sampleLogs 반환.
+     * 통계·엑셀 내보내기가 현재 탭 데이터 기준으로 동작하도록 사용.
+     * @returns {Array}
+     */
+    getTabFilteredLogs() {
+        const tab = this.currentSearchFilter.landClass1;
+        if (!tab) return this.sampleLogs;
+        return this.sampleLogs.filter(log => (log.landClass1 || LAND_CLASS1_DEFAULT) === tab);
     }
 
     updateSearchButtonState() {
@@ -2379,6 +2545,14 @@ class SoilSampleManager extends window.BaseSampleManager {
                 purposeFilter.classList.remove('has-filter');
             }
         }
+        const landClass1Tab = document.getElementById('landClass1Tab');
+        if (landClass1Tab) {
+            if (this.currentSearchFilter.landClass1) {
+                landClass1Tab.classList.add('has-filter');
+            } else {
+                landClass1Tab.classList.remove('has-filter');
+            }
+        }
     }
 
     // ========================================
@@ -2386,8 +2560,9 @@ class SoilSampleManager extends window.BaseSampleManager {
     // ========================================
 
     calculateStatistics() {
-        const total = this.sampleLogs.length;
-        const completed = this.sampleLogs.filter(log => log.isComplete).length;
+        const logs = this.getTabFilteredLogs();
+        const total = logs.length;
+        const completed = logs.filter(log => log.isComplete).length;
         const pending = total - completed;
 
         const bySubCategory = {};
@@ -2401,7 +2576,7 @@ class SoilSampleManager extends window.BaseSampleManager {
             '기타': { label: '📦 기타', class: 'category-other' }
         };
 
-        this.sampleLogs.forEach(log => {
+        logs.forEach(log => {
             const category = log.subCategory || '기타';
             if (!bySubCategory[category]) {
                 bySubCategory[category] = { count: 0, ...categoryMapping[category] || categoryMapping['기타'] };
@@ -2421,7 +2596,7 @@ class SoilSampleManager extends window.BaseSampleManager {
             byPurpose[key] = { count: 0, ...val };
         });
 
-        this.sampleLogs.forEach(log => {
+        logs.forEach(log => {
             const purpose = log.purpose || '기타';
             if (!byPurpose[purpose]) {
                 byPurpose[purpose] = { count: 0, ...purposeMapping[purpose] || { label: purpose, class: 'purpose-general' } };
@@ -2435,7 +2610,7 @@ class SoilSampleManager extends window.BaseSampleManager {
             const monthKey = String(i).padStart(2, '0');
             byMonth[monthKey] = { count: 0, completed: 0, pending: 0, label: monthNames[i - 1], class: 'month' };
         }
-        this.sampleLogs.forEach(log => {
+        logs.forEach(log => {
             if (log.date) {
                 const monthNum = log.date.substring(5, 7);
                 if (byMonth[monthNum]) {
@@ -3490,6 +3665,18 @@ class SoilSampleManager extends window.BaseSampleManager {
             });
         }
 
+        // 경지구분 1차 변경 시 접수번호를 해당 분류 기준으로 재추천 (수정 모드 제외)
+        if (this.landClass1Select) {
+            this.landClass1Select.addEventListener('change', () => {
+                if (this.receptionNumberInput && !this.editingLogId && !this.editingGroupId) {
+                    const isFill = this.subCategorySelect?.value === '성토';
+                    this.receptionNumberInput.value = isFill
+                        ? this.generateNextFillReceptionNumber()
+                        : this.generateNextReceptionNumber();
+                }
+            });
+        }
+
         // 초기 필지 1개 추가
         this.addParcel();
 
@@ -3804,6 +3991,15 @@ class SoilSampleManager extends window.BaseSampleManager {
             });
         }
 
+        // 경지구분 1차 목록 탭
+        const landClass1Tab = document.getElementById('landClass1Tab');
+        if (landClass1Tab) {
+            landClass1Tab.addEventListener('change', (e) => {
+                this.currentSearchFilter.landClass1 = e.target.value;
+                this.filterAndRenderLogs();
+            });
+        }
+
         if (openSearchModalBtn) {
             openSearchModalBtn.addEventListener('click', () => {
                 if (searchDateFromInput) searchDateFromInput.value = this.currentSearchFilter.dateFrom;
@@ -3846,7 +4042,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                 if (searchLotInput) searchLotInput.value = '';
                 if (purposeFilter) purposeFilter.value = '';
                 if (completedFilter) completedFilter.value = 'incomplete';
-                this.currentSearchFilter = { dateFrom: '', dateTo: '', name: '', receptionFrom: '', receptionTo: '', lot: '', purpose: '', completed: 'incomplete' };
+                // 경지구분 1차 탭 선택은 고급검색 초기화 대상이 아니므로 유지
+                this.currentSearchFilter = { dateFrom: '', dateTo: '', name: '', receptionFrom: '', receptionTo: '', lot: '', purpose: '', completed: 'incomplete', landClass1: this.currentSearchFilter.landClass1 || '' };
                 this.filterAndRenderLogs();
                 closeSearchModal();
             });
@@ -4204,10 +4401,12 @@ class SoilSampleManager extends window.BaseSampleManager {
     // ========================================
 
     exportToExcel() {
-        if (this.sampleLogs.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
+        // 현재 경지구분 1차 탭 기준 데이터로 내보내기 (선택 항목이 있으면 그 항목 우선)
+        const tabLogs = this.getTabFilteredLogs();
+        if (tabLogs.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
         const selectedIds = this.getSelectedIds();
         const logsToExport = selectedIds.length > 0
-            ? this.sampleLogs.filter(log => selectedIds.includes(String(log.id))) : this.sampleLogs;
+            ? tabLogs.filter(log => selectedIds.includes(String(log.id))) : tabLogs;
         if (selectedIds.length > 0) this.showToast(`선택한 ${logsToExport.length}건을 내보냅니다.`, 'info');
 
         const reversedLogs = [...logsToExport].sort((a, b) => {
@@ -4233,6 +4432,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                     const excelLotAddress = parcel.lotAddress ? (parcel.isMountain ? `${parcel.lotAddress} (산)` : parcel.lotAddress) : '-';
                     excelData.push({
                         '접수번호': log.receptionNumber, '접수일자': log.date, '구분': log.subCategory || '-',
+                        '경지구분1차': log.landClass1 || LAND_CLASS1_DEFAULT,
                         '목적(용도)': parcel.purpose || log.purpose || '-', '성명': log.name, '전화번호': log.phoneNumber,
                         '시도': addressParts.sido || '-', '시군구': addressParts.sigungu || '-',
                         '읍면동': addressParts.eupmyeondong || '-', '나머지주소': addressParts.rest || '-',
@@ -4249,7 +4449,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                             const subLotTotalArea = subLotCrops.length > 0 ? subLotCrops.reduce((sum, c) => sum + (parseFloat(c.area) || 0), 0) : 0;
                             excelData.push({
                                 '접수번호': `${log.receptionNumber}-${sIdx + 1}`, '접수일자': log.date,
-                                '구분': log.subCategory || '-', '목적(용도)': parcel.purpose || log.purpose || '-',
+                                '구분': log.subCategory || '-', '경지구분1차': log.landClass1 || LAND_CLASS1_DEFAULT,
+                                '목적(용도)': parcel.purpose || log.purpose || '-',
                                 '성명': log.name, '전화번호': log.phoneNumber, '시도': addressParts.sido || '-',
                                 '시군구': addressParts.sigungu || '-', '읍면동': addressParts.eupmyeondong || '-',
                                 '나머지주소': addressParts.rest || '-', '전체주소': fullAddress,
@@ -4265,6 +4466,7 @@ class SoilSampleManager extends window.BaseSampleManager {
             } else {
                 excelData.push({
                     '접수번호': log.receptionNumber, '접수일자': log.date, '구분': log.subCategory || '-',
+                    '경지구분1차': log.landClass1 || LAND_CLASS1_DEFAULT,
                     '목적(용도)': log.purpose || '-', '성명': log.name, '전화번호': log.phoneNumber,
                     '시도': addressParts.sido || '-', '시군구': addressParts.sigungu || '-',
                     '읍면동': addressParts.eupmyeondong || '-', '나머지주소': addressParts.rest || '-',
@@ -4280,7 +4482,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(sanitizeExcelData(excelData));
         ws['!cols'] = [
-            { wch: 14 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 15 },
+            { wch: 14 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 15 },
             { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 25 }, { wch: 30 }, { wch: 15 },
             { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 8 }, { wch: 18 }
         ];

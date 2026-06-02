@@ -236,7 +236,7 @@
                                 <h3>토양 시료 정보</h3>
                             </div>
                             <div class="card-body">
-                                <div class="form-row">
+                                <div class="form-row triple">
                                     <div class="form-field">
                                         <label for="subCategory">구분</label>
                                         <select id="subCategory" name="subCategory">
@@ -258,6 +258,22 @@
                                             <option value="유기">♻️ 유기</option>
                                             <option value="GAP">✅ GAP</option>
                                             <option value="저탄소">🌱 저탄소</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="landClass1">경지구분 1차</label>
+                                        <select id="landClass1" name="landClass1">
+                                            <option value="개량제">개량제</option>
+                                            <option value="전략">전략</option>
+                                            <option value="직불">직불</option>
+                                            <option value="자체">자체</option>
+                                            <option value="기타">기타</option>
+                                            <option value="친환경">친환경</option>
+                                            <option value="유기농">유기농</option>
+                                            <option value="무농약">무농약</option>
+                                            <option value="GAP">GAP</option>
+                                            <option value="농가의뢰" selected>농가의뢰</option>
+                                            <option value="대표필지">대표필지</option>
                                         </select>
                                     </div>
                                 </div>
@@ -326,6 +342,20 @@
                         <option value="">전체 상태</option>
                         <option value="incomplete" selected>⬜ 미완료</option>
                         <option value="completed">✅ 완료</option>
+                    </select>
+                    <select id="landClass1Tab" class="landclass1-tab appearance-none" title="경지구분 1차">
+                        <option value="">전체 경지구분</option>
+                        <option value="개량제">개량제</option>
+                        <option value="전략">전략</option>
+                        <option value="직불">직불</option>
+                        <option value="자체">자체</option>
+                        <option value="기타">기타</option>
+                        <option value="친환경">친환경</option>
+                        <option value="유기농">유기농</option>
+                        <option value="무농약">무농약</option>
+                        <option value="GAP">GAP</option>
+                        <option value="농가의뢰">농가의뢰</option>
+                        <option value="대표필지">대표필지</option>
                     </select>
                     <span class="record-count" id="recordCount">0건</span>
                 </div>

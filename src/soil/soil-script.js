@@ -781,6 +781,8 @@ class SoilSampleManager extends window.BaseSampleManager {
             landClass1,
             receptionMethod: src.receptionMethod || '-',
             note: src.note || '',
+            businessRegNo: src.businessRegNo || '',
+            basePnu: src.basePnu || '',
             groupId: crypto.randomUUID(),
             parcelIndex: 1,
             totalParcels: 1,
@@ -1810,6 +1812,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                             totalParcels: validParcels.length,
                             createdAt: existingLog?.createdAt || new Date().toISOString(),
                             isComplete: existingLog?.isComplete || false,
+                            businessRegNo: existingLog?.businessRegNo || '',
+                            basePnu: existingLog?.basePnu || '',
                             parcels: [{
                                 id: crypto.randomUUID(),
                                 lotAddress: parcel.lotAddress,
@@ -1839,6 +1843,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                         totalParcels: validParcels.length,
                         createdAt: existingLog?.createdAt || new Date().toISOString(),
                         isComplete: existingLog?.isComplete || false,
+                        businessRegNo: existingLog?.businessRegNo || '',
+                        basePnu: existingLog?.basePnu || '',
                         parcels: [{
                             id: crypto.randomUUID(),
                             lotAddress: parcel.lotAddress,

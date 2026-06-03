@@ -43,6 +43,9 @@
         { key: 'subCategory',     label: '구분',     auto: ['구분', '지목', 'category'] },
         { key: 'purpose',         label: '목적',     auto: ['목적', '용도', 'purpose'] },
         { key: 'note',            label: '비고',     auto: ['비고', '메모', '참고', 'note', 'remark'] },
+        // 공익직불제용 (선택)
+        { key: 'businessRegNo',   label: '경영체등록번호', optional: true, auto: ['경영체등록번호', '경영체', '등록번호', 'businessregno', 'bizno', 'businessno'] },
+        { key: 'basePnu',         label: 'BASEPNU',  optional: true, auto: ['basepnu', 'basepun', 'base_pnu', 'pnu', '필지고유번호', '직불신청pnu'] },
     ];
 
     // ============================================================
@@ -858,6 +861,8 @@
                     subCategory: get('subCategory'),
                     purpose: get('purpose'),
                     note: get('note'),
+                    businessRegNo: get('businessRegNo'),
+                    basePnu: get('basePnu'),
                     landClass1,
                 };
 

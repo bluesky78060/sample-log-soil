@@ -76,6 +76,11 @@ if (require('electron-squirrel-startup')) {
 }
 
 /** @type {Electron.BrowserWindow | null} */
+// Vite dev server URL (개발 모드 전용). 환경변수 미지정 시 기본 포트로 폴백.
+//   dev 판정은 process.env.DEV_MODE / process.argv('--dev')로 별도 수행하며,
+//   packaged 앱에서는 dev server 연결 실패 후 docs/ 빌드 파일로 폴백된다.
+const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:3000';
+
 let mainWindow = null;
 
 /** Vite 개발 서버 URL (전체 IPC 핸들러 공통) */

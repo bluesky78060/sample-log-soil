@@ -31,8 +31,6 @@ class BaseSampleManager {
         this.currentPage = 1;
         this.itemsPerPage = 100;
         this.totalPages = 1;
-        this.isCloudSyncing = false;
-        this.cloudSyncPromise = null;  // Promise-based lock
         this.listViewStale = true;  // PER-5: 목록 뷰 리렌더 필요 여부
         this._firebaseCache = new Map();  // PER-9: 연도별 Firebase 데이터 캐시 { data, timestamp }
         this._firebaseCacheTTL = 30000;   // PER-9: 캐시 유효 시간 (30초)
@@ -301,9 +299,8 @@ class BaseSampleManager {
 
                     if (firebaseLogs && firebaseLogs.length > 0) {
                         this.log(` Firebase 데이터:`, firebaseLogs.length, '건');
-                        this.sampleLogs = firebaseLogs;
 
-                        // PER-9: TTL 포함 캐시 저장
+                        // PER-9: TTL 포함 캐시 저장 (Firebase 원본 기준 — 다음 로드에서 재병합)
                         if (!cacheValid) {
                             // 메모리 누수 방지: 상한 초과 시 가장 오래된 항목 제거(LRU 근사)
                             if (this._firebaseCache.size >= this._firebaseCacheMax && !this._firebaseCache.has(year)) {
@@ -312,9 +309,25 @@ class BaseSampleManager {
                             this._firebaseCache.set(year, { data: JSON.parse(JSON.stringify(firebaseLogs)), timestamp: Date.now() });
                         }
 
-                        // Firebase 데이터를 localStorage에 저장 (캐싱)
-                        localStorage.setItem(yearStorageKey, JSON.stringify(firebaseLogs));
-                        this.log(` Firebase 데이터를 localStorage에 캐싱`);
+                        // 통째 교체 대신 로컬과 스마트 병합(동기화 경로 단일화):
+                        //  - 오프라인에서 로컬에만 추가된(syncedAt 없는) 레코드 → 보존(유실 방지)
+                        //  - 클라우드에서 삭제된(과거 동기화되어 syncedAt 있는) 레코드 → 로컬에서도 제거
+                        //  - 양쪽 존재 시 updatedAt 최신 우선
+                        const localLogs = this.safeParseArray(yearStorageKey);
+                        const mergedLogs = this.smartMerge(localLogs, firebaseLogs);
+                        this.sampleLogs = mergedLogs;
+
+                        // 병합 결과를 localStorage에 저장 (Quota 보호)
+                        try {
+                            localStorage.setItem(yearStorageKey, JSON.stringify(mergedLogs));
+                        } catch (e) {
+                            if (e.name === 'QuotaExceededError' || e.code === 22) {
+                                (window.logger?.warn || console.warn)('데이터 캐싱 중 localStorage 용량 초과:', e);
+                            } else {
+                                throw e;
+                            }
+                        }
+                        this.log(` Firebase+로컬 병합 결과 저장 (${mergedLogs.length}건, 로컬 ${localLogs.length}건)`);
                     } else {
                         this.log(` Firebase에 데이터 없음, localStorage 확인`);
                         // Firebase에 데이터가 없으면 localStorage 확인
@@ -375,62 +388,6 @@ class BaseSampleManager {
     }
 
     /**
-     * 클라우드 동기화
-     * @param {string} year - 연도
-     * @param {Array} localLogs - 로컬 로그 데이터
-     */
-    async syncWithCloud(year, localLogs) {
-        if (!window.firebaseConfig?.isEnabled()) {
-            return;
-        }
-
-        // Promise-based lock: 이미 동기화 중이면 기존 작업 완료 대기
-        if (this.cloudSyncPromise) {
-            this.log('⏳ 기존 동기화 작업 대기 중...');
-            await this.cloudSyncPromise;
-            return;
-        }
-
-        this.cloudSyncPromise = (async () => {
-            this.isCloudSyncing = true;
-            this.log('☁️ 클라우드 동기화 시작');
-
-            try {
-                const firebaseLogs = await this.loadFromFirebase(year);
-
-                if (firebaseLogs && firebaseLogs.length > 0) {
-                    // Firebase fetch 중 saveLogs()가 this.sampleLogs를 변경했을 수 있으므로
-                    // 스냅샷(localLogs) 대신 현재 this.sampleLogs를 로컬 기준으로 사용
-                    const currentLogs = this.sampleLogs;
-                    const mergedLogs = this.smartMerge(currentLogs, firebaseLogs);
-
-                    if (mergedLogs.length !== currentLogs.length ||
-                        this.hasChanges(currentLogs, mergedLogs)) {
-
-                        this.sampleLogs = mergedLogs;
-                        try {
-                            localStorage.setItem(this.getStorageKey(year), JSON.stringify(mergedLogs));
-                        } catch (e) {
-                            if (e.name === 'QuotaExceededError' || e.code === 22) {
-                                (window.logger?.warn || console.warn)('동기화 중 localStorage 용량 초과:', e);
-                                this.sampleLogs = currentLogs;
-                                return;
-                            }
-                            throw e;
-                        }
-                        this.log('✅ 클라우드 데이터 병합 완료');
-                    }
-                }
-            } finally {
-                this.isCloudSyncing = false;
-                this.cloudSyncPromise = null;
-            }
-        })();
-
-        await this.cloudSyncPromise;
-    }
-
-    /**
      * Firebase에서 데이터 로드
      * @param {string} year - 연도
      */
@@ -472,21 +429,6 @@ class BaseSampleManager {
             else if (item) noId.push(item);
         });
         return [...Array.from(map.values()), ...noId];
-    }
-
-    /**
-     * 데이터 변경 감지 (최적화: 배열의 경우 id/updatedAt만 비교)
-     */
-    hasChanges(data1, data2) {
-        if (!Array.isArray(data1) || !Array.isArray(data2)) {
-            return JSON.stringify(data1) !== JSON.stringify(data2);
-        }
-        if (data1.length !== data2.length) return true;
-        for (let i = 0; i < data1.length; i++) {
-            if (data1[i].id !== data2[i].id) return true;
-            if (data1[i].updatedAt !== data2[i].updatedAt) return true;
-        }
-        return false;
     }
 
     // ========================================
@@ -683,10 +625,9 @@ class BaseSampleManager {
             this._hashChangeHandler = null;
         }
 
-        // Firebase 캐시/페이지네이션/싱크 프로미스 정리
+        // Firebase 캐시/페이지네이션 정리
         this._firebaseCache.clear();
         this.pagination = null;
-        this.cloudSyncPromise = null;
 
         // 참조 정리
         this.form = null;

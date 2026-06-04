@@ -28,7 +28,7 @@
     const FILE_SIZE_WARN = 5 * 1024 * 1024;    // 5MB: 경고만
     const FILE_SIZE_HARD = 50 * 1024 * 1024;   // 50MB: 거부
     const PREVIEW_ROW_LIMIT = 200;             // 미리보기 표 최대 행
-    const LAND_CLASS1_OPTIONS = ['개량제', '전략', '직불', '자체', '기타', '친환경', '유기농', '무농약', 'GAP', '농가의뢰', '대표필지'];
+    const LAND_CLASS1_OPTIONS = ['개량제', '전략', '직불', '자체', '기타', '친환경', '유기농', '무농약', 'GAP', '농가의뢰', '대표필지', '공익직불제'];
     const LAND_CLASS1_DEFAULT = '농가의뢰';
 
     // 매핑 대상 접수 필드 (순서 = 매핑 UI 표시 순서)

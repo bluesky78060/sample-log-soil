@@ -17,16 +17,22 @@ const STORAGE_KEY = 'soilSampleLogs';
 const AUTO_SAVE_FILE = 'soil-autosave.json';
 
 /**
- * 경지구분 1차 선택지 (11개)
+ * 경지구분 1차 선택지 (12개)
  * @type {string[]}
  */
-const LAND_CLASS1_OPTIONS = ['개량제', '전략', '직불', '자체', '기타', '친환경', '유기농', '무농약', 'GAP', '농가의뢰', '대표필지'];
+const LAND_CLASS1_OPTIONS = ['개량제', '전략', '직불', '자체', '기타', '친환경', '유기농', '무농약', 'GAP', '농가의뢰', '대표필지', '공익직불제'];
 
 /**
  * 경지구분 1차 기본값
  * @type {string}
  */
 const LAND_CLASS1_DEFAULT = '농가의뢰';
+
+/**
+ * 공익직불제 기준년도(이행점검명) 선택지 (임시값, 추후 교체 가능)
+ * @type {string[]}
+ */
+const GONGIK_BASE_YEAR_OPTIONS = ['2024토양화학성분 기준', '2025토양화학성분 기준', '2026토양화학성분 기준', '2027토양화학성분 기준'];
 
 // ========================================
 // SoilSampleManager 클래스
@@ -274,6 +280,9 @@ class SoilSampleManager extends window.BaseSampleManager {
             if (log.landClass1 === undefined || log.landClass1 === null || log.landClass1 === '') {
                 log.landClass1 = LAND_CLASS1_DEFAULT;
             }
+            // 공익직불제 전용 메타 마이그레이션
+            if (log.gongikOrder === undefined) log.gongikOrder = '1';
+            if (log.gongikBaseYear === undefined) log.gongikBaseYear = '';
             return log;
         });
     }
@@ -608,6 +617,10 @@ class SoilSampleManager extends window.BaseSampleManager {
         if (!this.tableBody) return;
         this.tableBody.innerHTML = '';
 
+        // 공익직불제 탭 선택 시 경영체등록번호·BASEPNU 컬럼 표시
+        const gongikOn = this.currentSearchFilter?.landClass1 === '공익직불제';
+        document.getElementById('logTable')?.classList.toggle('gongik-on', gongikOn);
+
         this.updateRecordCount();
 
         if (!logs || logs.length === 0) {
@@ -782,6 +795,8 @@ class SoilSampleManager extends window.BaseSampleManager {
             receptionMethod: src.receptionMethod || '-',
             note: src.note || '',
             businessRegNo: src.businessRegNo || '',
+            gongikOrder: src.gongikOrder || '1',
+            gongikBaseYear: src.gongikBaseYear || '',
             basePnu: src.basePnu || '',
             groupId: crypto.randomUUID(),
             parcelIndex: 1,
@@ -1813,6 +1828,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                             createdAt: existingLog?.createdAt || new Date().toISOString(),
                             isComplete: existingLog?.isComplete || false,
                             businessRegNo: existingLog?.businessRegNo || '',
+                            gongikOrder: existingLog?.gongikOrder || '1',
+                            gongikBaseYear: existingLog?.gongikBaseYear || '',
                             basePnu: existingLog?.basePnu || '',
                             parcels: [{
                                 id: crypto.randomUUID(),
@@ -1844,6 +1861,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                         createdAt: existingLog?.createdAt || new Date().toISOString(),
                         isComplete: existingLog?.isComplete || false,
                         businessRegNo: existingLog?.businessRegNo || '',
+                        gongikOrder: existingLog?.gongikOrder || '1',
+                        gongikBaseYear: existingLog?.gongikBaseYear || '',
                         basePnu: existingLog?.basePnu || '',
                         parcels: [{
                             id: crypto.randomUUID(),
@@ -1995,6 +2014,8 @@ class SoilSampleManager extends window.BaseSampleManager {
             landClass1: formData.get('landClass1') || LAND_CLASS1_DEFAULT,
             receptionMethod: formData.get('receptionMethod') || '-',
             note: formData.get('note') || '',
+            gongikOrder: '1',
+            gongikBaseYear: '',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -3302,6 +3323,10 @@ class SoilSampleManager extends window.BaseSampleManager {
         if (!this.tableBody) return;
         this.tableBody.innerHTML = '';
 
+        // 공익직불제 탭 선택 시 경영체등록번호·BASEPNU 컬럼 표시
+        const gongikOn = this.currentSearchFilter?.landClass1 === '공익직불제';
+        document.getElementById('logTable')?.classList.toggle('gongik-on', gongikOn);
+
         if (this.currentFlatRows.length === 0) {
             this.updatePaginationUI();
             return;
@@ -3319,7 +3344,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                 const separatorTr = document.createElement('tr');
                 separatorTr.className = 'farm-separator';
                 const separatorTd = document.createElement('td');
-                separatorTd.colSpan = 19;
+                // 19 = 기본 표시 컬럼 수, 22 = + 공익직불제 컬럼 3개(경영체등록번호·차수·기준년도)
+                separatorTd.colSpan = gongikOn ? 22 : 19;
                 separatorTr.appendChild(separatorTd);
                 fragment.appendChild(separatorTr);
             }
@@ -3488,6 +3514,48 @@ class SoilSampleManager extends window.BaseSampleManager {
             tdMailDate.className = 'col-mail-date';
             tdMailDate.textContent = row.mailDate || '-';
             tr.appendChild(tdMailDate);
+
+            // 공익직불제 전용: 경영체등록번호 · BASEPNU (gongik-on일 때만 표시)
+            const tdBizReg = document.createElement('td');
+            tdBizReg.className = 'col-bizreg gongik-col';
+            tdBizReg.textContent = row.businessRegNo || '-';
+            tr.appendChild(tdBizReg);
+
+            // 공익직불제 전용: 차수 편집 셀
+            const tdOrder = document.createElement('td');
+            tdOrder.className = 'col-order gongik-col';
+            const orderSelect = document.createElement('select');
+            orderSelect.className = 'gongik-order-select';
+            orderSelect.dataset.id = row.id;
+            [['1', '1차'], ['2', '2차']].forEach(([val, label]) => {
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = label;
+                orderSelect.appendChild(opt);
+            });
+            orderSelect.value = row.gongikOrder || '1';
+            tdOrder.appendChild(orderSelect);
+            tr.appendChild(tdOrder);
+
+            // 공익직불제 전용: 기준년도 편집 셀
+            const tdBaseYear = document.createElement('td');
+            tdBaseYear.className = 'col-baseyear gongik-col';
+            const baseYearSelect = document.createElement('select');
+            baseYearSelect.className = 'gongik-baseyear-select';
+            baseYearSelect.dataset.id = row.id;
+            const emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.textContent = '(선택)';
+            baseYearSelect.appendChild(emptyOpt);
+            GONGIK_BASE_YEAR_OPTIONS.forEach((val) => {
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = val;
+                baseYearSelect.appendChild(opt);
+            });
+            baseYearSelect.value = row.gongikBaseYear || '';
+            tdBaseYear.appendChild(baseYearSelect);
+            tr.appendChild(tdBaseYear);
 
             // 액션 버튼
             const tdAction = document.createElement('td');
@@ -3924,6 +3992,26 @@ class SoilSampleManager extends window.BaseSampleManager {
                 if (e.target.classList.contains('row-checkbox')) {
                     this.updateSelectAllState();
                     this.updateSelectedCount();
+                    return;
+                }
+                // 공익직불제 전용: 차수/기준년도 행별 편집
+                const isOrder = e.target.classList.contains('gongik-order-select');
+                const isBaseYear = e.target.classList.contains('gongik-baseyear-select');
+                if (isOrder || isBaseYear) {
+                    const id = e.target.dataset.id;
+                    const log = this.sampleLogs.find(l => l.id === id);
+                    if (log) {
+                        const val = e.target.value;
+                        if (isOrder) log.gongikOrder = val;
+                        else log.gongikBaseYear = val;
+                        log.updatedAt = new Date().toISOString();
+                        this.saveLogs();
+                        // 같은 log가 여러 행(필지)으로 펼쳐진 경우 형제 select 값 동기화
+                        const cls = isOrder ? 'gongik-order-select' : 'gongik-baseyear-select';
+                        this.tableBody.querySelectorAll(`.${cls}[data-id="${id}"]`).forEach(sel => {
+                            if (sel !== e.target) sel.value = val;
+                        });
+                    }
                 }
             });
         }

@@ -183,6 +183,7 @@ class HeuktoramManager {
         this.bulkTestDateInput = document.getElementById('bulkTestDate');
         this.bulkUsageCodeSelect = document.getElementById('bulkUsageCode');
         this.bulkBeforeAfterSelect = document.getElementById('bulkBeforeAfter');
+        this.exportFormatSelect = document.getElementById('exportFormatSelect');
         this.selectAllCheckbox = document.getElementById('selectAll');
         this.selectAllBtn = document.getElementById('selectAllBtn');
         this.applyBulkBtn = document.getElementById('applyBulkBtn');
@@ -305,7 +306,15 @@ class HeuktoramManager {
         this.applyBulkBtn?.addEventListener('click', () => this.applyBulkValues());
 
         // 내보내기
-        this.exportBtn?.addEventListener('click', () => this.exportToHeuktoram());
+        // 내보내기 버튼: 선택된 양식으로 분기
+        this.exportBtn?.addEventListener('click', () => {
+            const fmt = this.exportFormatSelect?.value || 'heuktoram';
+            if (fmt === 'gongik') {
+                this.exportToGongik();
+            } else {
+                this.exportToHeuktoram();
+            }
+        });
 
         // 전체 보기 토글
         this.toggleColumnsBtn?.addEventListener('click', () => this.toggleHiddenColumns());
@@ -1799,6 +1808,424 @@ class HeuktoramManager {
         ];
 
         ws['!merges'] = (ws['!merges'] || []).concat(merges);
+    }
+
+    // ========================================
+    // 공익직불제 이행점검 서식 내보내기 (40열, C열부터)
+    // ========================================
+
+    /**
+     * 공익직불제 "직불제 이행점검 1차 신규입력" 양식으로 내보내기.
+     * 검정값·토양검정일 등 데이터 소스는 흙토람 export(buildWorksheetData)와 동일.
+     * 데이터는 C열(인덱스 2)부터, A·B열은 비움. 헤더 2단(대분류 2행, 소분류 3행).
+     */
+    async exportToGongik() {
+        let targetRows = this.flatRows;
+        if (this.selectedKeys.size > 0) {
+            targetRows = this.flatRows.filter(r => this.selectedKeys.has(r.key));
+        }
+
+        if (targetRows.length === 0) {
+            if (window.showToast) window.showToast('내보낼 데이터가 없습니다.', 'warning');
+            return;
+        }
+
+        if (targetRows.length > 300) {
+            if (!confirm(`${targetRows.length}건을 내보냅니다. 공익직불제 일괄등록은 1회 300건 이하를 권장합니다. 계속하시겠습니까?`)) {
+                return;
+            }
+        }
+
+        try {
+            const wb = XLSX.utils.book_new();
+            const wsData = this.buildGongikWorksheetData(targetRows);
+            const ws = XLSX.utils.aoa_to_sheet(sanitizeExcelAoa(wsData));
+
+            ws['!cols'] = this.getGongikColumnWidths();
+            this.applyGongikHeaderStyles(ws, wsData);
+            this.applyGongikHeaderMerges(ws);
+
+            // 1행(안내문) 높이 — wrapText 멀티라인
+            ws['!rows'] = ws['!rows'] || [];
+            ws['!rows'][0] = { hpt: 150 };
+
+            XLSX.utils.book_append_sheet(wb, ws, '일괄등록양식');
+
+            const arrayBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+            const validations = this.buildGongikDataValidations(targetRows.length);
+            const patchedBuffer = await this.injectDataValidations(arrayBuffer, validations);
+
+            const fileName = `공익직불제_이행점검_${this.selectedYear}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            this.downloadBuffer(patchedBuffer, fileName);
+
+            if (window.showToast) {
+                window.showToast(`${targetRows.length}건 공익직불제 양식으로 내보냈습니다.`, 'success');
+            }
+        } catch (e) {
+            (window.logger?.error || console.error)('공익직불제 내보내기 실패:', e);
+            if (window.showToast) window.showToast('내보내기에 실패했습니다.', 'error');
+        }
+    }
+
+    /**
+     * 공익직불제 용도구분 코드 → 라벨 (흙토람 용도구분 라벨과 동일 기준)
+     */
+    getGongikUsageLabel(usageCode) {
+        const usageLabels = {
+            '0': '일반적인토양검정',
+            '1': '토양개량제 규산',
+            '2': '토양개량제 석회질',
+            '3': '녹비작물'
+        };
+        return usageLabels[usageCode] || '일반적인토양검정';
+    }
+
+    /**
+     * 공익직불제 시행전후 표기 (영문 BEFORE/AFTER).
+     * 용도구분 0(일반)이면 빈값. 시행전후 미선택(해당없음)도 빈값.
+     */
+    getGongikBeforeAfter(usageCode) {
+        if (usageCode === '0' || usageCode === '') return '';
+        const v = this.bulkBeforeAfterSelect?.value || '';
+        if (v === 'Y') return 'AFTER';
+        if (v === 'N') return 'BEFORE';
+        return '';
+    }
+
+    /**
+     * 공익직불제 경지구분 1차 매핑.
+     * row.log.landClass1 === '공익직불제' → '직불(일반)', 그 외 값은 원문 출력.
+     */
+    getGongikLandClass1(landClass1) {
+        const v = (landClass1 && String(landClass1).trim()) || '';
+        if (v === '공익직불제') return '직불(일반)';
+        return v;
+    }
+
+    /**
+     * 공익직불제 AOA(행 배열) 빌드.
+     * 40개 데이터 컬럼을 C열(인덱스 2)부터 배치. A·B(0,1)는 비움.
+     * 컬럼 절대 인덱스: C=2, D=3, ... AN=39.
+     */
+    buildGongikWorksheetData(rows) {
+        const TOTAL_COLS = 40;   // C(2)~AN(39) 데이터 38열 + 여유 패딩
+        const C = 2;             // 데이터 시작 절대 인덱스(C열)
+        const collector = this.collectorInput?.value || '';
+
+        const data = [];
+
+        // 1행(인덱스 0): 안내문 (C1부터 병합)
+        const row1 = new Array(TOTAL_COLS + C).fill('');
+        row1[C] = '* 아래 형식과 같이 입력되어야만 일괄입력을 할 수 있습니다.\n'
+            + '  - 경영체등록번호는 10자리 숫자로 입력하세요.\n'
+            + '  - 신청자 전화번호는 \'-\' 없이 입력하세요(예: 01023456789).\n'
+            + '  - 대상지면적의 단위는 ㎡(제곱미터)로 숫자만 입력하세요.\n'
+            + '  - 기준년도는 \'직불제 - 이행점검 적합기준 보기\' 메뉴의 \'이행점검명\'을 입력하세요.\n'
+            + '  - 원활한 일괄입력을 위하여 1회당 300건 이하의 자료 입력을 권장드립니다.';
+        data.push(row1);
+
+        // 2행(인덱스 1): 대분류 헤더
+        const row2 = new Array(TOTAL_COLS + C).fill('');
+        row2[C + 0] = '차수';                  // C
+        row2[C + 1] = '시료채취일자';          // D
+        row2[C + 2] = '토양검정일';            // E
+        row2[C + 3] = '분석의뢰일(접수일자)';  // F
+        row2[C + 4] = '용도구분';              // G (G~H 병합)
+        // H: 용도구분 시행전후
+        row2[C + 6] = '채취자명';              // I
+        row2[C + 7] = '시료번호';              // J
+        row2[C + 8] = '경영체등록번호';        // K
+        row2[C + 9] = '경작자명';              // L
+        row2[C + 10] = '대상지';               // M (M~S 병합: 시도/시군구/읍면동/리/일반·산/지번1/지번2)
+        // N~S: 대상지 소분류
+        row2[C + 17] = '상세주소';             // T
+        row2[C + 18] = '경지구분';             // U (U~V 병합)
+        // V: 경지구분 2차
+        row2[C + 20] = '경작자 주소';          // W
+        row2[C + 21] = '신청자 전화번호';      // X
+        row2[C + 22] = '대상지면적(㎡)';       // Y
+        row2[C + 23] = '작물명 또는 작물코드'; // Z
+        row2[C + 24] = '기준년도';             // AA
+        row2[C + 25] = '화학성분값';           // AB (AB~AN 병합: 점토함량~암모니아태질소)
+        // AC~AN: 화학성분값 소분류
+        data.push(row2);
+
+        // 3행(인덱스 2): 소분류 헤더
+        const row3 = new Array(TOTAL_COLS + C).fill('');
+        row3[C + 4] = '구분';                  // G
+        row3[C + 5] = '시행전후';              // H
+        row3[C + 10] = '시도';                 // M
+        row3[C + 11] = '시군구';               // N
+        row3[C + 12] = '읍면동';               // O
+        row3[C + 13] = '리';                   // P
+        row3[C + 14] = '일반·산';              // Q
+        row3[C + 15] = '지번 1';               // R
+        row3[C + 16] = '지번 2';               // S
+        row3[C + 18] = '1차';                  // U
+        row3[C + 19] = '2차';                  // V
+        row3[C + 25] = '점토함량';             // AB
+        row3[C + 26] = 'pH';                   // AC
+        row3[C + 27] = '유기물';               // AD
+        row3[C + 28] = '유효인산';             // AE
+        row3[C + 29] = '교환성칼륨';           // AF
+        row3[C + 30] = '교환성칼슘';           // AG
+        row3[C + 31] = '교환성마그네슘';       // AH
+        row3[C + 32] = '유효규산';             // AI
+        row3[C + 33] = '전기전도도';           // AJ
+        row3[C + 34] = '석회소요량';           // AK
+        row3[C + 35] = '질산태질소';           // AL
+        row3[C + 36] = '양이온치환용량';       // AM
+        row3[C + 37] = '암모니아태질소';       // AN
+        data.push(row3);
+
+        // 4행(인덱스 3): 빈 구분 행 (데이터는 5행=인덱스4부터)
+        data.push(new Array(TOTAL_COLS + C).fill(''));
+
+        // 5행~: 데이터
+        for (const row of rows) {
+            const result = this.testResults[row.key] || {};
+
+            const lotAddr = row.isSubLot && row.subLot
+                ? (row.subLot.lotAddress || row.parcel?.lotAddress || '')
+                : (row.parcel?.lotAddress || '');
+
+            let isMountain = false;
+            if (row.isSubLot && row.subLot) {
+                isMountain = row.subLot.isMountain || false;
+            } else if (row.parcel) {
+                isMountain = row.parcel.isMountain || false;
+            }
+
+            const lotParsed = this.parseLotAddress(lotAddr);
+            if (isMountain) lotParsed.isMountain = true;
+
+            const category = row.parcel?.category || row.log.subCategory || '';
+            const purpose = row.parcel?.purpose || row.log.purpose || '';
+            const usageCode = this.getUsageCode(purpose, result.usageCode, this.bulkUsageCodeSelect?.value);
+
+            // 면적: 평이면 ㎡로 변환 (흙토람 export 로직과 동일)
+            let areaM2 = row.crop?.area || '';
+            if (areaM2 && row.crop?.unit === 'pyeong') {
+                const parsed = parseFloat(areaM2);
+                if (!isNaN(parsed)) areaM2 = Math.round(parsed * PYEONG_TO_SQM);
+            }
+
+            const dataRow = new Array(TOTAL_COLS + C).fill('');
+            dataRow[C + 0] = row.log.gongikOrder || '1';                               // C 차수(1차/2차) — 행별 값
+            dataRow[C + 1] = row.log.date || '';                                       // D 시료채취일자
+            dataRow[C + 2] = result.testDate || '';                                    // E 토양검정일
+            dataRow[C + 3] = row.log.date || '';                                       // F 분석의뢰일(접수일자)
+            dataRow[C + 4] = this.getGongikUsageLabel(usageCode);                      // G 용도구분-구분
+            dataRow[C + 5] = this.getGongikBeforeAfter(usageCode);                     // H 시행전후
+            dataRow[C + 6] = collector || row.log.name || '';                          // I 채취자명
+            dataRow[C + 7] = row.baseReceptionNumber || String(row.log.receptionNumber || '').replace(/-\d+$/, '') || ''; // J 시료번호
+            dataRow[C + 8] = row.log.businessRegNo || '';                              // K 경영체등록번호
+            dataRow[C + 9] = row.log.name || '';                                       // L 경작자명
+            dataRow[C + 10] = lotParsed.sido;                                          // M 시도
+            dataRow[C + 11] = lotParsed.sigungu;                                       // N 시군구
+            dataRow[C + 12] = lotParsed.eupmyeondong;                                  // O 읍면동
+            dataRow[C + 13] = lotParsed.ri;                                            // P 리
+            dataRow[C + 14] = lotParsed.isMountain ? '산' : '일반';                    // Q 일반·산
+            dataRow[C + 15] = lotParsed.jibun1;                                        // R 지번1
+            dataRow[C + 16] = lotParsed.jibun2;                                        // S 지번2
+            dataRow[C + 17] = row.parcel?.note || '';                                  // T 상세주소
+            dataRow[C + 18] = this.getGongikLandClass1(row.log.landClass1);            // U 경지구분 1차
+            dataRow[C + 19] = this.getCategoryCode(category);                          // V 경지구분 2차
+            dataRow[C + 20] = row.log.addressRoad || row.log.address || '';            // W 경작자 주소
+            dataRow[C + 21] = (row.log.phoneNumber || '').replace(/-/g, '');           // 신청자 전화번호
+            dataRow[C + 22] = areaM2;                                                  // 대상지면적
+            dataRow[C + 23] = row.crop?.name || row.crop?.code || '';                  // 작물명 또는 작물코드
+            dataRow[C + 24] = row.log.gongikBaseYear || '';                            // 기준년도 — 행별 값
+            dataRow[C + 25] = result.clay || '';                                       // 점토함량
+            dataRow[C + 26] = result.pH || '';                                         // pH
+            dataRow[C + 27] = result.organicMatter || '';                              // 유기물
+            dataRow[C + 28] = result.availableP || '';                                 // 유효인산
+            dataRow[C + 29] = result.exK || '';                                        // 교환성칼륨
+            dataRow[C + 30] = result.exCa || '';                                       // 교환성칼슘
+            dataRow[C + 31] = result.exMg || '';                                       // 교환성마그네슘
+            dataRow[C + 32] = result.silica || '';                                     // 유효규산
+            dataRow[C + 33] = result.ec || '';                                         // 전기전도도
+            dataRow[C + 34] = result.limeReq || '';                                    // 석회소요량
+            dataRow[C + 35] = result.NO3N || '';                                       // 질산태질소
+            dataRow[C + 36] = result.cec || '';                                        // 양이온치환용량
+            dataRow[C + 37] = result.NH4N || '';                                       // 암모니아태질소
+
+            data.push(dataRow);
+        }
+
+        return data;
+    }
+
+    getGongikColumnWidths() {
+        // A,B(빈열) + 40개 데이터열
+        const widths = [{ wch: 4 }, { wch: 4 }];
+        const dataWidths = [
+            6,   // C 차수
+            14,  // D 시료채취일자
+            14,  // E 토양검정일
+            18,  // F 분석의뢰일
+            18,  // G 용도구분-구분
+            10,  // H 시행전후
+            10,  // I 채취자명
+            10,  // J 시료번호
+            16,  // K 경영체등록번호
+            10,  // L 경작자명
+            12,  // M 시도
+            10,  // N 시군구
+            10,  // O 읍면동
+            8,   // P 리
+            8,   // Q 일반·산
+            8,   // R 지번1
+            8,   // S 지번2
+            16,  // T 상세주소
+            12,  // U 경지구분 1차
+            10,  // V 경지구분 2차
+            24,  // W 경작자 주소
+            16,  // X 신청자 전화번호
+            12,  // Y 대상지면적
+            18,  // Z 작물명/코드
+            14,  // AA 기준년도
+            10,  // AB 점토함량
+            6,   // AC pH
+            8,   // AD 유기물
+            10,  // AE 유효인산
+            12,  // AF 교환성칼륨
+            12,  // AG 교환성칼슘
+            12,  // AH 교환성마그네슘
+            10,  // AI 유효규산
+            12,  // AJ 전기전도도
+            12,  // AK 석회소요량
+            12,  // AL 질산태질소
+            12,  // AM 양이온치환용량
+            12,  // AN 암모니아태질소
+        ];
+        for (const w of dataWidths) widths.push({ wch: w });
+        return widths;
+    }
+
+    /**
+     * 공익직불제 헤더 스타일.
+     * 2행(대분류)·3행(소분류) 회색 배경 + 테두리, 5행~ 데이터 테두리.
+     * 데이터 영역은 C(2) ~ AN(39).
+     */
+    applyGongikHeaderStyles(ws, wsData) {
+        const DATA_START = 2;   // C
+        const DATA_END = 40;    // exclusive (C..AN = 인덱스 2..39 → end 40)
+        const rowCount = wsData.length;
+
+        const headerBase = {
+            fill: { fgColor: { rgb: 'C0C0C0' } },
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+            border: {
+                top: { style: 'thin', color: { rgb: '808080' } },
+                bottom: { style: 'thin', color: { rgb: '808080' } },
+                left: { style: 'thin', color: { rgb: '808080' } },
+                right: { style: 'thin', color: { rgb: '808080' } }
+            }
+        };
+        const row2Style = { ...headerBase, font: { bold: true, sz: 10 } };
+        const row3Style = { ...headerBase, font: { bold: true, sz: 9 } };
+        const dataStyle = {
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+            border: {
+                top: { style: 'thin', color: { rgb: '808080' } },
+                bottom: { style: 'thin', color: { rgb: '808080' } },
+                left: { style: 'thin', color: { rgb: '808080' } },
+                right: { style: 'thin', color: { rgb: '808080' } }
+            }
+        };
+
+        for (let c = DATA_START; c < DATA_END; c++) {
+            const col = XLSX.utils.encode_col(c);
+
+            // 2행(엑셀 행2 = 인덱스 1)
+            const cell2 = col + '2';
+            if (!ws[cell2]) ws[cell2] = { v: '', t: 's' };
+            ws[cell2].s = row2Style;
+
+            // 3행(엑셀 행3 = 인덱스 2)
+            const cell3 = col + '3';
+            if (!ws[cell3]) ws[cell3] = { v: '', t: 's' };
+            ws[cell3].s = row3Style;
+
+            // 5행~ 데이터 (인덱스 4부터)
+            for (let r = 4; r < rowCount; r++) {
+                const addr = col + (r + 1);
+                if (!ws[addr]) ws[addr] = { v: '', t: 's' };
+                ws[addr].s = dataStyle;
+            }
+        }
+
+        // 1행 안내문 셀 스타일
+        const cellC1 = ws['C1'];
+        if (cellC1) {
+            cellC1.s = {
+                alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+                font: { sz: 11, name: '맑은 고딕' }
+            };
+        }
+    }
+
+    /**
+     * 공익직불제 헤더 병합 (2단 구조).
+     * 절대 인덱스 기준: C=2 ... AN=39.
+     */
+    applyGongikHeaderMerges(ws) {
+        const C = 2;
+        const merges = [
+            // 1행: 안내문 C1 ~ AN1 병합
+            { s: { r: 0, c: C }, e: { r: 0, c: C + 37 } },
+
+            // 2행-3행 세로 병합 (단독 컬럼)
+            { s: { r: 1, c: C + 0 }, e: { r: 2, c: C + 0 } },   // 차수
+            { s: { r: 1, c: C + 1 }, e: { r: 2, c: C + 1 } },   // 시료채취일자
+            { s: { r: 1, c: C + 2 }, e: { r: 2, c: C + 2 } },   // 토양검정일
+            { s: { r: 1, c: C + 3 }, e: { r: 2, c: C + 3 } },   // 분석의뢰일
+            { s: { r: 1, c: C + 6 }, e: { r: 2, c: C + 6 } },   // 채취자명
+            { s: { r: 1, c: C + 7 }, e: { r: 2, c: C + 7 } },   // 시료번호
+            { s: { r: 1, c: C + 8 }, e: { r: 2, c: C + 8 } },   // 경영체등록번호
+            { s: { r: 1, c: C + 9 }, e: { r: 2, c: C + 9 } },   // 경작자명
+            { s: { r: 1, c: C + 17 }, e: { r: 2, c: C + 17 } }, // 상세주소
+            { s: { r: 1, c: C + 20 }, e: { r: 2, c: C + 20 } }, // 경작자 주소
+            { s: { r: 1, c: C + 21 }, e: { r: 2, c: C + 21 } }, // 신청자 전화번호
+            { s: { r: 1, c: C + 22 }, e: { r: 2, c: C + 22 } }, // 대상지면적
+            { s: { r: 1, c: C + 23 }, e: { r: 2, c: C + 23 } }, // 작물명/코드
+            { s: { r: 1, c: C + 24 }, e: { r: 2, c: C + 24 } }, // 기준년도
+
+            // 2행 가로 병합 (그룹 헤더)
+            { s: { r: 1, c: C + 4 }, e: { r: 1, c: C + 5 } },    // 용도구분 (구분/시행전후)
+            { s: { r: 1, c: C + 10 }, e: { r: 1, c: C + 16 } },  // 대상지 (시도~지번2)
+            { s: { r: 1, c: C + 18 }, e: { r: 1, c: C + 19 } },  // 경지구분 (1차/2차)
+            { s: { r: 1, c: C + 25 }, e: { r: 1, c: C + 37 } },  // 화학성분값
+        ];
+        ws['!merges'] = (ws['!merges'] || []).concat(merges);
+    }
+
+    /**
+     * 공익직불제 데이터 유효성(드롭다운) 규칙.
+     * 절대열 기준: G=용도구분 구분(C+4), H=시행전후(C+5), Q=일반·산(C+14).
+     */
+    buildGongikDataValidations(dataRowCount) {
+        if (dataRowCount <= 0) return [];
+        const startRow = 5;
+        const endRow = 4 + dataRowCount;
+        const colG = XLSX.utils.encode_col(2 + 4);   // 용도구분 구분
+        const colH = XLSX.utils.encode_col(2 + 5);   // 시행전후
+        const colQ = XLSX.utils.encode_col(2 + 14);  // 일반·산
+        return [
+            {
+                sqref: `${colG}${startRow}:${colG}${endRow}`,
+                options: ['일반적인토양검정', '토양개량제 규산', '토양개량제 석회질', '녹비작물']
+            },
+            {
+                sqref: `${colH}${startRow}:${colH}${endRow}`,
+                options: ['BEFORE', 'AFTER']
+            },
+            {
+                sqref: `${colQ}${startRow}:${colQ}${endRow}`,
+                options: ['일반', '산']
+            }
+        ];
     }
 
 }

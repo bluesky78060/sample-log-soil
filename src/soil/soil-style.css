@@ -1272,6 +1272,15 @@ tr.farm-separator:hover {
 .data-table .col-landclass1 { left: 365px; min-width: 70px; }
 .data-table .col-name       { left: 435px; min-width: 70px; border-right: 2px solid #e2d9c8; }
 
+/* 공익직불제 전용 컬럼 — 경지구분=공익직불제 탭일 때만 표시 */
+.data-table .gongik-col { display: none; }
+.data-table.gongik-on .gongik-col { display: table-cell; }
+.data-table .col-bizreg { min-width: 130px; }
+.data-table .col-order { min-width: 64px; }
+.data-table .col-baseyear { min-width: 150px; }
+.data-table .gongik-order-select,
+.data-table .gongik-baseyear-select { width: 100%; }
+
 /* 고정 컬럼 행 배경 (tbody) */
 .data-table tbody td.sticky-col {
     background: white;

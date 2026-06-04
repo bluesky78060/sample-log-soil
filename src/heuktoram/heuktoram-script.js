@@ -1885,7 +1885,8 @@ class HeuktoramManager {
      * 용도구분 0(일반)이면 빈값. 시행전후 미선택(해당없음)도 빈값.
      */
     getGongikBeforeAfter(usageCode) {
-        if (usageCode === '0' || usageCode === '') return '';
+        // 공익직불제 양식 규칙: 용도구분=일반적인토양검정(0)이면 시행 후(AFTER)로 입력
+        if (usageCode === '0' || usageCode === '') return 'AFTER';
         const v = this.bulkBeforeAfterSelect?.value || '';
         if (v === 'Y') return 'AFTER';
         if (v === 'N') return 'BEFORE';

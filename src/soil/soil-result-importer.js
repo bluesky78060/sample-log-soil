@@ -43,9 +43,10 @@
         { key: 'subCategory',     label: '구분',     auto: ['구분', '지목', 'category'] },
         { key: 'purpose',         label: '목적',     auto: ['목적', '용도', 'purpose'] },
         { key: 'note',            label: '비고',     auto: ['비고', '메모', '참고', 'note', 'remark'] },
-        // 공익직불제용 (선택)
-        { key: 'businessRegNo',   label: '경영체등록번호', optional: true, auto: ['경영체등록번호', '경영체', '등록번호', 'businessregno', 'bizno', 'businessno'] },
-        { key: 'basePnu',         label: 'BASEPNU',  optional: true, auto: ['basepnu', 'basepun', 'base_pnu', 'pnu', '필지고유번호', '직불신청pnu'] },
+        // 공익직불제용 (선택) — gongik:true 인 항목은 경지구분1차='공익직불제'일 때 강조
+        { key: 'businessRegNo',   label: '경영체등록번호', optional: true, gongik: true, auto: ['경영체등록번호', '경영체', '등록번호', 'businessregno', 'bizno', 'businessno'] },
+        { key: 'addressRoad',     label: '농가주소(경작자)', optional: true, gongik: true, auto: ['농가주소', '경작자주소', '거주지주소', '도로명주소', '농가', 'farmeraddr', 'addressroad'] },
+        { key: 'date',            label: '접수일자', optional: true, gongik: true, auto: ['접수일자', '접수일', '분석의뢰일', '일자', 'date'] },
     ];
 
     // ============================================================
@@ -84,7 +85,7 @@
 .sri-overlay{position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;
   background:rgba(15,23,42,.55);backdrop-filter:blur(3px);padding:24px 14px;overflow-y:auto}
 .sri-overlay[hidden]{display:none}
-.sri-dialog{font-family:'Noto Sans KR','Inter',system-ui,sans-serif;width:100%;max-width:780px;margin:auto;
+.sri-dialog{font-family:'Noto Sans KR','Inter',system-ui,sans-serif;width:100%;max-width:1040px;margin:auto;
   background:#fff;border-radius:18px;box-shadow:0 30px 90px rgba(15,23,42,.32);overflow:hidden;
   border:1px solid #e2e8f0;display:flex;flex-direction:column;max-height:calc(100vh - 48px)}
 .sri-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 24px;
@@ -143,8 +144,14 @@
 .sri-automap{border:1.5px solid #22c55e;background:#fff;color:#16a34a;padding:8px 16px;border-radius:10px;
   font-weight:600;cursor:pointer;font-size:.84rem;font-family:inherit;transition:all .2s;margin-left:auto}
 .sri-automap:hover{background:#22c55e;color:#fff}
-.sri-mapgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+.sri-mapgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px}
 .sri-maprow{display:flex;align-items:center;gap:8px}
+/* 공익직불제 강조 (경지구분1차='공익직불제'일 때) */
+.sri-mapgrid.gongik-active .sri-maprow--gongik{background:#ecfdf5;border:1.5px solid #22c55e;
+  border-radius:10px;padding:8px 10px}
+.sri-maprow--gongik .sri-gbadge{display:none;margin-left:6px;font-size:.66rem;font-weight:700;color:#fff;
+  background:#22c55e;border-radius:8px;padding:1px 6px;white-space:nowrap}
+.sri-mapgrid.gongik-active .sri-maprow--gongik .sri-gbadge{display:inline-flex;align-items:center}
 .sri-maplabel{flex:0 0 78px;font-size:.83rem;color:#334155;font-weight:500}
 .sri-maplabel .sri-opt{color:#94a3b8;font-weight:400;font-size:.74rem}
 .sri-maparrow{color:#94a3b8;flex:0 0 auto}
@@ -198,6 +205,9 @@
   font-weight:600;cursor:pointer;font-size:.88rem;font-family:inherit;transition:all .2s}
 .sri-btn-dlerr:hover{background:#fee2e2;border-color:#f87171}
 .sri-btn-dlerr[hidden]{display:none}
+@media (max-width:880px){
+  .sri-mapgrid{grid-template-columns:1fr 1fr}
+}
 @media (max-width:640px){
   .sri-mapgrid{grid-template-columns:1fr}
   .sri-body{padding:18px 16px}
@@ -233,6 +243,7 @@
 [data-theme="dark"] .sri-btn-cancel{background:#292524;color:#d6d3d1;border-color:#57534e}
 [data-theme="dark"] .sri-btn-dlerr{background:#2d1515;border-color:#7f1d1d;color:#fca5a5}
 [data-theme="dark"] .sri-btn-dlerr:hover{background:#3f1a1a;border-color:#ef4444}
+[data-theme="dark"] .sri-mapgrid.gongik-active .sri-maprow--gongik{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.5)}
 `;
         document.head.appendChild(style);
     }
@@ -490,6 +501,7 @@
             // 경지구분 1차 / 옵션
             this._els.bulkLandClass?.addEventListener('change', () => {
                 this._state.bulkLandClass = this._els.bulkLandClass.value || LAND_CLASS1_DEFAULT;
+                this._syncGongikHighlight();
                 this._recompute(); this._renderPreview();
             });
             this._els.autoNumber?.addEventListener('change', () => {
@@ -716,10 +728,11 @@
             const frag = document.createDocumentFragment();
             for (const f of TARGET_FIELDS) {
                 const row = document.createElement('div');
-                row.className = 'sri-maprow';
+                row.className = 'sri-maprow' + (f.gongik ? ' sri-maprow--gongik' : '');
                 const label = document.createElement('span');
                 label.className = 'sri-maplabel';
-                label.innerHTML = `${escapeHtml(f.label)}${f.optional ? '<span class="sri-opt"> (선택)</span>' : ''}`;
+                label.innerHTML = `${escapeHtml(f.label)}${f.optional ? '<span class="sri-opt"> (선택)</span>' : ''}` +
+                    (f.gongik ? '<span class="sri-gbadge">공익직불제</span>' : '');
                 const arrow = document.createElement('span');
                 arrow.className = 'sri-maparrow';
                 arrow.textContent = '→';
@@ -743,6 +756,15 @@
                 frag.appendChild(row);
             }
             grid.appendChild(frag);
+            this._syncGongikHighlight();
+        }
+
+        /** 경지구분1차='공익직불제'면 매핑 그리드에 gongik-active 토글 */
+        _syncGongikHighlight() {
+            const grid = this._els?.mapGrid;
+            if (!grid) return;
+            const active = (this._state.bulkLandClass || LAND_CLASS1_DEFAULT) === '공익직불제';
+            grid.classList.toggle('gongik-active', active);
         }
 
         _autoMap(silent) {
@@ -862,7 +884,8 @@
                     purpose: get('purpose'),
                     note: get('note'),
                     businessRegNo: get('businessRegNo'),
-                    basePnu: get('basePnu'),
+                    addressRoad: get('addressRoad'),
+                    date: get('date'),
                     landClass1,
                 };
 

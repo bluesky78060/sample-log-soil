@@ -3345,7 +3345,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                 separatorTr.className = 'farm-separator';
                 const separatorTd = document.createElement('td');
                 // 19 = 기본 표시 컬럼 수, 22 = + 공익직불제 컬럼 3개(경영체등록번호·차수·기준년도)
-                separatorTd.colSpan = gongikOn ? 22 : 19;
+                // 19=기본, 공익직불제 ON: +3(경영체·차수·기준년도) −4(목적·수령방법·비고·발송일자)=18
+                separatorTd.colSpan = gongikOn ? 18 : 19;
                 separatorTr.appendChild(separatorTd);
                 fragment.appendChild(separatorTr);
             }
@@ -3408,7 +3409,7 @@ class SoilSampleManager extends window.BaseSampleManager {
 
             // 목적
             const tdPurpose = document.createElement('td');
-            tdPurpose.className = 'col-purpose sticky-col';
+            tdPurpose.className = 'col-purpose sticky-col gongik-hide';
             tdPurpose.textContent = row._parcelPurpose || row.purpose || '-';
             tr.appendChild(tdPurpose);
 
@@ -3496,12 +3497,13 @@ class SoilSampleManager extends window.BaseSampleManager {
 
             // 수령방법
             const tdMethod = document.createElement('td');
+            tdMethod.className = 'col-method gongik-hide';
             tdMethod.textContent = methodText;
             tr.appendChild(tdMethod);
 
             // 비고
             const tdNote = document.createElement('td');
-            tdNote.className = 'col-note';
+            tdNote.className = 'col-note gongik-hide';
             tdNote.title = combinedNote;
             const noteDiv = document.createElement('div');
             noteDiv.className = 'note-cell';
@@ -3511,7 +3513,7 @@ class SoilSampleManager extends window.BaseSampleManager {
 
             // 우편일자
             const tdMailDate = document.createElement('td');
-            tdMailDate.className = 'col-mail-date';
+            tdMailDate.className = 'col-mail-date gongik-hide';
             tdMailDate.textContent = row.mailDate || '-';
             tr.appendChild(tdMailDate);
 

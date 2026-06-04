@@ -78,40 +78,114 @@
             .toLowerCase();
     }
 
-    /**
-     * 필드 f 와 정규화된 헤더 nh 의 자동매핑 적합도 점수.
-     *  - 0          : 매칭 없음
-     *  - 1000+len   : 완전 일치(헤더 == 키워드) — 가장 신뢰도 높음
-     *  - 500+len    : 헤더가 키워드로 시작/끝남 (접두/접미 일치)
-     *  - 100+len*4  : 키워드가 헤더에 포함 (부분 포함) — 긴 키워드일수록 가산
-     *  - 80+len*3   : 헤더가 키워드에 포함 (헤더가 더 짧은 약식 표기)
-     * 같은 필드의 여러 키워드 중 최고 점수를 채택한다.
-     *
-     * 점수 구간 불변식(이 순서가 깨지면 오매칭 발생): 키워드 길이를 L이라 할 때
-     *   완전일치(1000+L)  >  접두/접미(500+L)  >  부분포함(100+4L)  >  역포함(80+3L)
-     * 구간이 역전되지 않도록 현실적 키워드 길이(≤ ~30) 범위에서 상수 간격을 둔다.
-     * 부분포함은 nk≥2, 역포함은 nh≥3(2글자 헤더가 긴 키워드에 우연히 묻히는 과매칭 방지).
-     */
-    function scoreFieldHeader(f, nh) {
-        if (!nh) return 0;
-        let best = 0;
+    // ── 자동매핑 점수 상수 ───────────────────────────────────────
+    // 구간 베이스 간격(≥200)이 가산항(키워드/헤더 길이, 현실상 ≤ ~12)보다 훨씬 커서
+    // 길이에 관계없이 EXACT > AFFIX > INCLUDE > RINCLUDE 불변식이 항상 성립한다.
+    const SCORE_EXACT    = 1000; // 완전 일치 (헤더 == 키워드)
+    const SCORE_AFFIX    = 500;  // 접두/접미 일치 (헤더가 키워드로 시작/끝남)
+    const SCORE_INCLUDE  = 300;  // 부분 포함 (키워드 ⊂ 헤더)
+    const SCORE_RINCLUDE = 100;  // 역포함 (헤더 ⊂ 키워드, 약식 표기)
+    // 영문/숫자 전용 키워드 판별 — 2글자(no/id/hp 등)는 완전일치 전용으로 제한해
+    // 우연한 부분일치 과매칭을 막는다(한글은 글자당 정보량이 커서 2글자도 허용).
+    const ASCII_KEYWORD = /^[a-z0-9]+$/;
+
+    // 키워드 정규화 사전계산: TARGET_FIELDS 각 필드에 _autoNorm = [{nk, ascii}] 부착.
+    // 매 _autoMap 호출마다 normalizeHeader(키워드)를 반복 계산하지 않도록 1회만 수행.
+    TARGET_FIELDS.forEach((f) => {
+        const seen = new Set();
+        f._autoNorm = [];
         for (const kw of f.auto) {
             const nk = normalizeHeader(kw);
-            if (!nk) continue;
+            if (!nk || seen.has(nk)) continue;
+            seen.add(nk);
+            f._autoNorm.push({ nk, ascii: ASCII_KEYWORD.test(nk) });
+        }
+    });
+
+    /**
+     * 정규화 헤더 nh 와 필드의 사전계산 키워드(autoNorms = [{nk, ascii}])의 적합도 점수.
+     *  - 0                  : 매칭 없음
+     *  - SCORE_EXACT+len    : 완전 일치 (가장 신뢰도 높음)
+     *  - SCORE_AFFIX+len    : 헤더가 키워드로 시작/끝남
+     *  - SCORE_INCLUDE+len  : 키워드가 헤더에 포함
+     *  - SCORE_RINCLUDE+len : 헤더가 키워드에 포함 (헤더가 더 짧은 약식)
+     * 같은 필드의 여러 키워드 중 최고 점수를 채택한다.
+     *
+     * 영문 2글자 키워드는 완전일치 외 매칭(접두접미/부분/역포함)에서 제외(minMatch=3)해
+     * 'no'·'id' 등이 무관한 헤더에 우연히 끼어드는 과매칭을 방지한다.
+     */
+    function scoreFieldHeader(autoNorms, nh) {
+        if (!nh) return 0;
+        let best = 0;
+        for (const { nk, ascii } of autoNorms) {
+            const minMatch = ascii ? 3 : 2;
             let s = 0;
             if (nh === nk) {
-                s = 1000 + nk.length;
-            } else if (nk.length >= 2 && (nh.startsWith(nk) || nh.endsWith(nk))) {
-                s = 500 + nk.length;
-            } else if (nk.length >= 2 && nh.includes(nk)) {
-                s = 100 + nk.length * 4;
+                s = SCORE_EXACT + nk.length;
+            } else if (nk.length >= minMatch && (nh.startsWith(nk) || nh.endsWith(nk))) {
+                s = SCORE_AFFIX + nk.length;
+            } else if (nk.length >= minMatch && nh.includes(nk)) {
+                s = SCORE_INCLUDE + nk.length;
             } else if (nk.length >= 3 && nh.length >= 3 && nk.includes(nh)) {
-                // 헤더가 키워드보다 짧은 약식(예: 헤더 '경영체' ⊂ 키워드 '경영체번호')
-                s = 80 + nh.length * 3;
+                // 헤더가 키워드보다 짧은 약식(예: 헤더 '경영체' ⊂ 키워드 '경영체번호').
+                // 약식은 한글/영문 구분 없이 3글자 이상만 허용(minMatch 미적용, 의도적 고정).
+                // 가산항은 헤더 길이(nh.length) — 더 긴 약식일수록 신뢰도가 높으므로 차등.
+                s = SCORE_RINCLUDE + nh.length;
             }
             if (s > best) best = s;
         }
         return best;
+    }
+
+    /**
+     * 헤더 배열 → { fieldKey: colIdx } 자동 매핑 (순수 함수, DOM 비의존 · 단위 테스트 대상).
+     * 모든 (필드 × 컬럼) 쌍을 점수화한 뒤 [점수 ↓ → FIELD_ORDER → colIdx ↑] 순으로
+     * 정렬해 필드·컬럼을 각각 1회씩 greedy 할당한다. 전역 최적에 가까운 결정적 매칭.
+     */
+    function computeAutoMapping(headers) {
+        const normHeaders = (headers || []).map((h) => normalizeHeader(h));
+        const candidates = [];
+        for (const f of TARGET_FIELDS) {
+            normHeaders.forEach((nh, colIdx) => {
+                if (!nh) return;
+                const score = scoreFieldHeader(f._autoNorm, nh);
+                if (score > 0) candidates.push({ fieldKey: f.key, colIdx, score });
+            });
+        }
+        candidates.sort((a, b) =>
+            b.score - a.score ||
+            FIELD_ORDER.get(a.fieldKey) - FIELD_ORDER.get(b.fieldKey) ||
+            a.colIdx - b.colIdx
+        );
+        const mapping = {};
+        const usedCols = new Set();
+        for (const c of candidates) {
+            if (mapping[c.fieldKey] != null || usedCols.has(c.colIdx)) continue;
+            mapping[c.fieldKey] = c.colIdx;
+            usedCols.add(c.colIdx);
+        }
+        return mapping;
+    }
+
+    /**
+     * 교차 필드 동일 키워드 점검(개발 보조). 두 필드 이상에 같은 정규화 키워드가
+     * 등록되면 동점이 FIELD_ORDER로만 갈리므로, 의도치 않은 중복을 콘솔 경고로 노출한다.
+     * @returns {string[]} 중복 키워드 설명 목록 (없으면 빈 배열)
+     */
+    function auditDuplicateKeywords() {
+        const seen = new Map();
+        for (const f of TARGET_FIELDS) {
+            for (const { nk } of f._autoNorm) {
+                if (!seen.has(nk)) seen.set(nk, []);
+                seen.get(nk).push(f.key);
+            }
+        }
+        const dups = [];
+        for (const [nk, keys] of seen) {
+            if (keys.length > 1) dups.push(`${nk} → [${keys.join(', ')}]`);
+        }
+        if (dups.length) logWarn('[자동매핑] 교차 필드 중복 키워드(우선순위 FIELD_ORDER 적용):', dups.join(' / '));
+        return dups;
     }
 
     function escapeHtml(s) {
@@ -831,39 +905,8 @@
                 if (!silent) toast('먼저 데이터를 입력/업로드하세요.', 'warning');
                 return;
             }
-
-            // 스코어 기반 전역 최적 매칭:
-            //   모든 (필드 × 컬럼) 쌍의 적합도를 점수화한 뒤, 점수 내림차순으로
-            //   "필드·컬럼 각각 1회씩" greedy 할당한다. 이렇게 하면 헤더 '농가주소'가
-            //   짧은 키워드 '주소'(지번주소)보다 긴 키워드 '농가주소'(농가주소 필드)에
-            //   우선 매칭되어, 순서 기반 greedy의 오매칭을 방지한다.
-            const normHeaders = headers.map(h => normalizeHeader(h));
-            const candidates = [];   // { fieldKey, colIdx, score }
-
-            TARGET_FIELDS.forEach((f) => {
-                normHeaders.forEach((nh, colIdx) => {
-                    if (!nh) return;
-                    const score = scoreFieldHeader(f, nh);
-                    if (score > 0) candidates.push({ fieldKey: f.key, colIdx, score });
-                });
-            });
-
-            // 점수 높은 순 → 동점이면 TARGET_FIELDS 정의 순서(앞 필드 우선)
-            //   → 그래도 동점이면 낮은 colIdx 우선(중복 헤더 시 결정적 선택)
-            candidates.sort((a, b) =>
-                b.score - a.score ||
-                FIELD_ORDER.get(a.fieldKey) - FIELD_ORDER.get(b.fieldKey) ||
-                a.colIdx - b.colIdx
-            );
-
-            const mapping = {};
-            const usedCols = new Set();
-            for (const c of candidates) {
-                if (mapping[c.fieldKey] != null || usedCols.has(c.colIdx)) continue;
-                mapping[c.fieldKey] = c.colIdx;
-                usedCols.add(c.colIdx);
-            }
-
+            // 순수 매핑 로직은 computeAutoMapping()으로 분리(단위 테스트 대상).
+            const mapping = computeAutoMapping(headers);
             this._state.fieldMapping = mapping;
             this._renderMapping();
             this._recompute(); this._renderPreview();
@@ -1191,6 +1234,12 @@
 
     const instance = new SoilResultImporter();
     window.SoilResultImporter = instance;
+
+    // 단위 테스트용 순수 매핑 로직 노출 (DOM 비의존) — 외부 호출은 권장하지 않음
+    instance._fns = { normalizeHeader, scoreFieldHeader, computeAutoMapping, auditDuplicateKeywords };
+
+    // 로드 시 1회: 교차 필드 중복 키워드가 있으면 콘솔 경고(개발 보조)
+    auditDuplicateKeywords();
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', attachOpenButton);

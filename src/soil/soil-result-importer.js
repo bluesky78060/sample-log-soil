@@ -33,27 +33,85 @@
 
     // 매핑 대상 접수 필드 (순서 = 매핑 UI 표시 순서)
     // key: record 필드명, label: UI 표시명, auto: 자동 매핑용 헤더 키워드(정규화)
+    //   - 각 기술센터마다 컬럼명이 제각각이므로 동의어를 폭넓게 등록한다.
+    //   - 매칭은 _autoMap()의 스코어 기반 전역 최적화로 처리(긴/정확 키워드 우선).
     const TARGET_FIELDS = [
-        { key: 'receptionNumber', label: '접수번호', optional: true, auto: ['접수번호', '번호', '연번', 'no'] },
-        { key: 'name',            label: '성명',     auto: ['성명', '이름', '의뢰인', '농가명', '신청인', 'name'] },
-        { key: 'phoneNumber',     label: '연락처',   auto: ['연락처', '전화', '휴대폰', '핸드폰', 'phone', 'tel', 'hp'] },
-        { key: 'lotAddress',      label: '지번주소', auto: ['지번주소', '주소', '소재지', '필지', 'address', '지번'] },
-        { key: 'cropsDisplay',    label: '작물',     auto: ['작물', '재배작물', '품목', 'crop'] },
-        { key: 'area',            label: '면적',     auto: ['면적', '재배면적', '㎡', 'area'] },
-        { key: 'subCategory',     label: '구분',     auto: ['구분', '지목', 'category'] },
-        { key: 'purpose',         label: '목적',     auto: ['목적', '용도', 'purpose'] },
-        { key: 'note',            label: '비고',     auto: ['비고', '메모', '참고', 'note', 'remark'] },
+        { key: 'receptionNumber', label: '접수번호', optional: true,
+          auto: ['접수번호', '접수no', '접수번호no', '번호', '연번', '순번', '일련번호', '관리번호', '정렬번호', 'no', 'num', 'seq', 'index', 'id'] },
+        { key: 'name',            label: '성명',
+          auto: ['성명', '이름', '성함', '의뢰인', '의뢰자', '의뢰인명', '농가명', '농가', '경영체명', '농업인', '농업인명', '신청인', '신청자', '신청인명', '대표자', '대표자명', '경작자', '경작자명', '경작인', '민원인', '고객명', '고객', '토지소유자', '소유자', '소유자명', '재배자', 'name', 'farmer', 'applicant', 'owner'] },
+        { key: 'phoneNumber',     label: '연락처',
+          auto: ['연락처', '전화', '전화번호', '휴대폰', '휴대폰번호', '핸드폰', '핸드폰번호', '휴대전화', '휴대전화번호', '연락전화', '연락번호', '핸펀', 'phone', 'tel', 'telephone', 'hp', 'mobile', 'cell', 'cellphone', 'contact'] },
+        { key: 'lotAddress',      label: '지번주소',
+          auto: ['지번주소', '지번', '소재지', '소재지지번', '토지소재지', '필지', '필지주소', '시료채취지', '채취지', '채취지주소', '경작지', '경작지주소', '농지', '농지주소', '토지주소', '포장주소', '포장위치', '시료위치', '주소', 'address', 'addr', 'jibun', 'lot', 'parcel'] },
+        { key: 'cropsDisplay',    label: '작물',
+          auto: ['작물', '작물명', '재배작물', '재배작목', '작목', '작목명', '품목', '품목명', '재배품목', '경작작물', 'crop', 'crops', 'item'] },
+        { key: 'area',            label: '면적',
+          auto: ['면적', '재배면적', '경작면적', '필지면적', '농지면적', '포장면적', '시료면적', '제곱미터', '평방미터', 'area', 'size'] },
+        { key: 'subCategory',     label: '구분',
+          auto: ['구분', '지목', '토지구분', '전답구분', '논밭구분', '시료구분', '경지지목', 'category', 'type', 'gubun'] },
+        { key: 'purpose',         label: '목적',
+          auto: ['목적', '용도', '사용용도', '분석목적', '검정목적', '신청목적', '의뢰목적', '시료목적', 'purpose', 'usage', 'use'] },
+        { key: 'note',            label: '비고',
+          auto: ['비고', '비고란', '메모', '참고', '참고사항', '특이사항', '기타', '기타사항', '코멘트', 'note', 'notes', 'remark', 'remarks', 'memo', 'comment', 'comments', 'etc'] },
         // 공익직불제용 (선택) — gongik:true 인 항목은 경지구분1차='공익직불제'일 때 강조
-        { key: 'businessRegNo',   label: '경영체등록번호', optional: true, gongik: true, auto: ['경영체등록번호', '경영체', '등록번호', 'businessregno', 'bizno', 'businessno'] },
-        { key: 'addressRoad',     label: '농가주소(경작자)', optional: true, gongik: true, auto: ['농가주소', '경작자주소', '거주지주소', '도로명주소', '농가', 'farmeraddr', 'addressroad'] },
-        { key: 'date',            label: '접수일자', optional: true, gongik: true, auto: ['접수일자', '접수일', '분석의뢰일', '일자', 'date'] },
+        { key: 'businessRegNo',   label: '경영체등록번호', optional: true, gongik: true,
+          auto: ['경영체등록번호', '농업경영체등록번호', '농업경영체', '경영체', '경영체번호', '경영체등록', '등록번호', '경영등록번호', 'businessregno', 'bizregno', 'bizno', 'businessno', 'farmbizno'] },
+        { key: 'addressRoad',     label: '농가주소(경작자)', optional: true, gongik: true,
+          // '농가' 단독은 성명(name)과 의미 충돌하므로 제외, '농가주소' 등 명시 키워드만 사용
+          auto: ['농가주소', '농업인주소', '경영체주소', '경작자주소', '거주지주소', '거주지', '도로명주소', '도로명', '주소도로명', '신청인주소', '의뢰인주소', '대표자주소', 'farmeraddr', 'addressroad', 'roadaddr', 'roadaddress'] },
+        { key: 'date',            label: '접수일자', optional: true, gongik: true,
+          auto: ['접수일자', '접수일', '접수날짜', '조사일자', '조사일', '분석의뢰일', '의뢰일', '의뢰일자', '신청일', '신청일자', '채취일', '채취일자', '시료채취일', '등록일', '등록일자', '일자', '날짜', 'date', 'regdate', 'recvdate'] },
     ];
+
+    // 자동매핑 동점 처리용: TARGET_FIELDS 정의 순서 (앞 필드 우선)
+    const FIELD_ORDER = new Map(TARGET_FIELDS.map((f, i) => [f.key, i]));
 
     // ============================================================
     // 헬퍼
     // ============================================================
     function normalizeHeader(text) {
-        return String(text || '').replace(/[\s\r\n()㎡]/g, '').toLowerCase();
+        // 공백(\s, 개행 포함)·괄호·㎡ 외에 흔한 구분기호(-, _, /, ., ·, :, ;, |, *, #, ㎥)도
+        // 제거해 '전화 번호', '전화-번호', '주소(도로명)' 같은 변형을 한 형태로 수렴시킨다.
+        return String(text || '')
+            .replace(/[\s()[\]{}㎡㎥\-_/.,·:;|*#]/g, '')
+            .toLowerCase();
+    }
+
+    /**
+     * 필드 f 와 정규화된 헤더 nh 의 자동매핑 적합도 점수.
+     *  - 0          : 매칭 없음
+     *  - 1000+len   : 완전 일치(헤더 == 키워드) — 가장 신뢰도 높음
+     *  - 500+len    : 헤더가 키워드로 시작/끝남 (접두/접미 일치)
+     *  - 100+len*4  : 키워드가 헤더에 포함 (부분 포함) — 긴 키워드일수록 가산
+     *  - 80+len*3   : 헤더가 키워드에 포함 (헤더가 더 짧은 약식 표기)
+     * 같은 필드의 여러 키워드 중 최고 점수를 채택한다.
+     *
+     * 점수 구간 불변식(이 순서가 깨지면 오매칭 발생): 키워드 길이를 L이라 할 때
+     *   완전일치(1000+L)  >  접두/접미(500+L)  >  부분포함(100+4L)  >  역포함(80+3L)
+     * 구간이 역전되지 않도록 현실적 키워드 길이(≤ ~30) 범위에서 상수 간격을 둔다.
+     * 부분포함은 nk≥2, 역포함은 nh≥3(2글자 헤더가 긴 키워드에 우연히 묻히는 과매칭 방지).
+     */
+    function scoreFieldHeader(f, nh) {
+        if (!nh) return 0;
+        let best = 0;
+        for (const kw of f.auto) {
+            const nk = normalizeHeader(kw);
+            if (!nk) continue;
+            let s = 0;
+            if (nh === nk) {
+                s = 1000 + nk.length;
+            } else if (nk.length >= 2 && (nh.startsWith(nk) || nh.endsWith(nk))) {
+                s = 500 + nk.length;
+            } else if (nk.length >= 2 && nh.includes(nk)) {
+                s = 100 + nk.length * 4;
+            } else if (nk.length >= 3 && nh.length >= 3 && nk.includes(nh)) {
+                // 헤더가 키워드보다 짧은 약식(예: 헤더 '경영체' ⊂ 키워드 '경영체번호')
+                s = 80 + nh.length * 3;
+            }
+            if (s > best) best = s;
+        }
+        return best;
     }
 
     function escapeHtml(s) {
@@ -773,26 +831,39 @@
                 if (!silent) toast('먼저 데이터를 입력/업로드하세요.', 'warning');
                 return;
             }
+
+            // 스코어 기반 전역 최적 매칭:
+            //   모든 (필드 × 컬럼) 쌍의 적합도를 점수화한 뒤, 점수 내림차순으로
+            //   "필드·컬럼 각각 1회씩" greedy 할당한다. 이렇게 하면 헤더 '농가주소'가
+            //   짧은 키워드 '주소'(지번주소)보다 긴 키워드 '농가주소'(농가주소 필드)에
+            //   우선 매칭되어, 순서 기반 greedy의 오매칭을 방지한다.
+            const normHeaders = headers.map(h => normalizeHeader(h));
+            const candidates = [];   // { fieldKey, colIdx, score }
+
+            TARGET_FIELDS.forEach((f) => {
+                normHeaders.forEach((nh, colIdx) => {
+                    if (!nh) return;
+                    const score = scoreFieldHeader(f, nh);
+                    if (score > 0) candidates.push({ fieldKey: f.key, colIdx, score });
+                });
+            });
+
+            // 점수 높은 순 → 동점이면 TARGET_FIELDS 정의 순서(앞 필드 우선)
+            //   → 그래도 동점이면 낮은 colIdx 우선(중복 헤더 시 결정적 선택)
+            candidates.sort((a, b) =>
+                b.score - a.score ||
+                FIELD_ORDER.get(a.fieldKey) - FIELD_ORDER.get(b.fieldKey) ||
+                a.colIdx - b.colIdx
+            );
+
             const mapping = {};
             const usedCols = new Set();
-            for (const f of TARGET_FIELDS) {
-                let foundIdx = -1;
-                // 1) 정확 일치 우선
-                headers.forEach((h, i) => {
-                    if (foundIdx >= 0 || usedCols.has(i)) return;
-                    const norm = normalizeHeader(h);
-                    if (norm && f.auto.some(k => norm === normalizeHeader(k))) foundIdx = i;
-                });
-                // 2) 부분 포함 (3자 이상 키워드만)
-                if (foundIdx < 0) {
-                    headers.forEach((h, i) => {
-                        if (foundIdx >= 0 || usedCols.has(i)) return;
-                        const norm = normalizeHeader(h);
-                        if (norm && f.auto.some(k => { const nk = normalizeHeader(k); return nk.length >= 2 && norm.includes(nk); })) foundIdx = i;
-                    });
-                }
-                if (foundIdx >= 0) { mapping[f.key] = foundIdx; usedCols.add(foundIdx); }
+            for (const c of candidates) {
+                if (mapping[c.fieldKey] != null || usedCols.has(c.colIdx)) continue;
+                mapping[c.fieldKey] = c.colIdx;
+                usedCols.add(c.colIdx);
             }
+
             this._state.fieldMapping = mapping;
             this._renderMapping();
             this._recompute(); this._renderPreview();

@@ -1796,8 +1796,6 @@ class SoilSampleManager extends window.BaseSampleManager {
             let existingLogIdx = 0;
             validParcels.forEach((parcel, index) => {
                 const num = baseNumber + index;
-                const parcelSubCategory = parcel.category || commonData.subCategory;
-                const parcelPurpose = parcel.purpose || commonData.purpose;
                 const validCrops = parcel.crops.filter(c => c.name.trim());
                 const useSubNumbers = validCrops.length > 1;
 
@@ -1808,69 +1806,20 @@ class SoilSampleManager extends window.BaseSampleManager {
                         const baseNum = isFillNumber ? `F${num}` : String(num);
                         const receptionNumber = cropIndex === 0 ? baseNum : `${baseNum}-${cropIndex}`;
                         const existingLog = oldGroupLogs[existingLogIdx++];
-                        newLogs.push({
-                            id: existingLog?.id || crypto.randomUUID(),
-                            receptionNumber,
-                            ...commonData,
-                            subCategory: parcelSubCategory,
-                            purpose: parcelPurpose,
-                            groupId,
-                            parcelIndex: index + 1,
-                            cropIndex: cropIndex + 1,
+                        newLogs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
+                            receptionNumber, commonData, groupId, index,
                             totalParcels: validParcels.length,
-                            createdAt: existingLog?.createdAt || new Date().toISOString(),
-                            isComplete: existingLog?.isComplete || false,
-                            businessRegNo: existingLog?.businessRegNo || '',
-                            gongikOrder: existingLog?.gongikOrder || '1',
-                            gongikBaseYear: existingLog?.gongikBaseYear || '',
-                            basePnu: existingLog?.basePnu || '',
-                            parcels: [{
-                                id: crypto.randomUUID(),
-                                lotAddress: parcel.lotAddress,
-                                isMountain: parcel.isMountain || false,
-                                subLots: [],
-                                crops: [{ ...crop }],
-                                category: parcel.category || '',
-                                purpose: parcel.purpose || '',
-                                note: parcel.note || ''
-                            }],
-                            lotAddress: parcel.lotAddress,
-                            area: (parseFloat(crop.area) || 0).toString(),
-                            cropsDisplay: crop.name || '-'
-                        });
+                            crop, cropIndex, isGroupEdit: true, existingLog
+                        }));
                     });
                 } else {
                     const receptionNumber = isFillNumber ? `F${num}` : String(num);
                     const existingLog = oldGroupLogs[existingLogIdx++];
-                    newLogs.push({
-                        id: existingLog?.id || crypto.randomUUID(),
-                        receptionNumber,
-                        ...commonData,
-                        subCategory: parcelSubCategory,
-                        purpose: parcelPurpose,
-                        groupId,
-                        parcelIndex: index + 1,
+                    newLogs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
+                        receptionNumber, commonData, groupId, index,
                         totalParcels: validParcels.length,
-                        createdAt: existingLog?.createdAt || new Date().toISOString(),
-                        isComplete: existingLog?.isComplete || false,
-                        businessRegNo: existingLog?.businessRegNo || '',
-                        gongikOrder: existingLog?.gongikOrder || '1',
-                        gongikBaseYear: existingLog?.gongikBaseYear || '',
-                        basePnu: existingLog?.basePnu || '',
-                        parcels: [{
-                            id: crypto.randomUUID(),
-                            lotAddress: parcel.lotAddress,
-                            isMountain: parcel.isMountain || false,
-                            subLots: [...parcel.subLots],
-                            crops: parcel.crops.map(c => ({ ...c })),
-                            category: parcel.category || '',
-                            purpose: parcel.purpose || '',
-                            note: parcel.note || ''
-                        }],
-                        lotAddress: parcel.lotAddress,
-                        area: parcel.crops.reduce((sum, c) => sum + (parseFloat(c.area) || 0), 0).toString(),
-                        cropsDisplay: parcel.crops.map(c => c.name).join(', ') || '-'
-                    });
+                        isGroupEdit: true, existingLog
+                    }));
                 }
             });
 
@@ -2018,8 +1967,6 @@ class SoilSampleManager extends window.BaseSampleManager {
         const newLogs = [];
         validParcels.forEach((parcel, index) => {
             const num = baseNumber + index;
-            const parcelSubCategory = parcel.category || commonData.subCategory;
-            const parcelPurpose = parcel.purpose || commonData.purpose;
             const validCrops = parcel.crops.filter(c => c.name.trim());
             const useSubNumbers = validCrops.length > 1;
 
@@ -2030,57 +1977,20 @@ class SoilSampleManager extends window.BaseSampleManager {
                 validCrops.forEach((crop, cropIndex) => {
                     const baseNum = isFillNumber ? `F${num}` : String(num);
                     const receptionNumber = cropIndex === 0 ? baseNum : `${baseNum}-${cropIndex}`;
-                    newLogs.push({
-                        id: crypto.randomUUID(),
-                        receptionNumber,
-                        ...commonData,
-                        subCategory: parcelSubCategory,
-                        purpose: parcelPurpose,
-                        groupId,
-                        parcelIndex: index + 1,
-                        cropIndex: cropIndex + 1,
+                    newLogs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
+                        receptionNumber, commonData, groupId, index,
                         totalParcels: validParcels.length,
-                        parcels: [{
-                            id: crypto.randomUUID(),
-                            lotAddress: parcel.lotAddress,
-                            isMountain: parcel.isMountain || false,
-                            subLots: [],
-                            crops: [{ ...crop }],
-                            category: parcel.category || '',
-                            purpose: parcel.purpose || '',
-                            note: parcel.note || ''
-                        }],
-                        lotAddress: parcel.lotAddress,
-                        area: (parseFloat(crop.area) || 0).toString(),
-                        cropsDisplay: crop.name || '-'
-                    });
+                        crop, cropIndex, isGroupEdit: false
+                    }));
                 });
             } else {
                 // 작물 1개: 기존처럼 단순 번호
                 const receptionNumber = isFillNumber ? `F${num}` : String(num);
-                newLogs.push({
-                    id: crypto.randomUUID(),
-                    receptionNumber,
-                    ...commonData,
-                    subCategory: parcelSubCategory,
-                    purpose: parcelPurpose,
-                    groupId,
-                    parcelIndex: index + 1,
+                newLogs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
+                    receptionNumber, commonData, groupId, index,
                     totalParcels: validParcels.length,
-                    parcels: [{
-                        id: crypto.randomUUID(),
-                        lotAddress: parcel.lotAddress,
-                        isMountain: parcel.isMountain || false,
-                        subLots: [...parcel.subLots],
-                        crops: parcel.crops.map(c => ({ ...c })),
-                        category: parcel.category || '',
-                        purpose: parcel.purpose || '',
-                        note: parcel.note || ''
-                    }],
-                    lotAddress: parcel.lotAddress,
-                    area: parcel.crops.reduce((sum, c) => sum + (parseFloat(c.area) || 0), 0).toString(),
-                    cropsDisplay: parcel.crops.map(c => c.name).join(', ') || '-'
-                });
+                    isGroupEdit: false
+                }));
             }
         });
 

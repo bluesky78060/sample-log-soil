@@ -35,6 +35,8 @@ import '../cropData.js';
 
 // 채번 순수 로직 (soil-script.js 전 — window.ReceptionNumber 준비)
 import './reception-number.js';
+// 레코드 빌더 순수 로직 (soil-script.js 전 — window.SoilLogRecord 준비)
+import './soil-log-record.js';
 
 // Main script
 import './soil-script.js';

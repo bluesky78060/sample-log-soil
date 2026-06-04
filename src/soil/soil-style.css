@@ -1277,6 +1277,13 @@ tr.farm-separator:hover {
 .data-table.gongik-on .gongik-col { display: table-cell; }
 .data-table .col-bizreg { min-width: 130px; }
 
+/* 공익직불제 차수·기준년도 일괄 적용 바 */
+.gongik-bulk-bar { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;
+    padding: 4px 8px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; }
+.gongik-bulk-bar .gbb-label { font-size: 0.78rem; font-weight: 700; color: #15803d; }
+.gongik-bulk-bar select { padding: 4px 8px; border: 1px solid #d5e0d8; border-radius: 8px; font-size: 0.8rem; background: #fff; }
+.gongik-bulk-bar #gongikBulkApplyBtn { padding: 5px 12px; font-size: 0.8rem; }
+
 /* 공익직불제 탭: 불필요 컬럼 숨김(목적·수령방법·비고·발송일자) */
 .data-table.gongik-on .gongik-hide { display: none; }
 /* 목적(스티키) 숨김에 따라 후속 스티키 컬럼 오프셋 70px 당김 */

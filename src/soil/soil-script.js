@@ -620,6 +620,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         // 공익직불제 탭 선택 시 경영체등록번호·BASEPNU 컬럼 표시
         const gongikOn = this.currentSearchFilter?.landClass1 === '공익직불제';
         document.getElementById('logTable')?.classList.toggle('gongik-on', gongikOn);
+        this._syncGongikBulkBar();
 
         this.updateRecordCount();
 
@@ -655,6 +656,31 @@ class SoilSampleManager extends window.BaseSampleManager {
         if (this.currentPage < 1) this.currentPage = 1;
 
         this.renderCurrentPage();
+    }
+
+    /** 공익직불제 탭일 때만 차수·기준년도 일괄 적용 바 표시 */
+    _syncGongikBulkBar() {
+        const bar = document.getElementById('gongikBulkBar');
+        if (bar) bar.style.display = (this.currentSearchFilter?.landClass1 === '공익직불제') ? '' : 'none';
+    }
+
+    /** 공익직불제 전체 레코드에 차수·기준년도 일괄 적용 */
+    applyGongikBulk() {
+        const order = document.getElementById('gongikBulkOrder')?.value || '1';
+        const baseYear = document.getElementById('gongikBulkBaseYear')?.value || '';
+        const targets = this.sampleLogs.filter(l => (l.landClass1 || LAND_CLASS1_DEFAULT) === '공익직불제');
+        if (targets.length === 0) {
+            this.showToast('공익직불제 레코드가 없습니다.', 'warning');
+            return;
+        }
+        const orderLabel = order === '2' ? '2차' : '1차';
+        if (!confirm(`${this.selectedYear}년 공익직불제 ${targets.length}건(현재 필터 무관 전체)에 차수=${orderLabel}, 기준년도=${baseYear || '(없음)'}을(를) 일괄 적용합니다. 계속하시겠습니까?`)) return;
+        const now = new Date().toISOString();
+        targets.forEach(l => { l.gongikOrder = order; l.gongikBaseYear = baseYear; l.updatedAt = now; });
+        this.saveLogs();
+        this.firebaseSaveRecords(targets); // Firebase 동기화
+        this.filterAndRenderLogs();
+        this.showToast(`공익직불제 ${targets.length}건에 일괄 적용했습니다.`, 'success');
     }
 
     // ========================================
@@ -4008,6 +4034,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                         else log.gongikBaseYear = val;
                         log.updatedAt = new Date().toISOString();
                         this.saveLogs();
+                        this.firebaseSaveRecords(log); // Firebase 동기화
                         // 같은 log가 여러 행(필지)으로 펼쳐진 경우 형제 select 값 동기화
                         const cls = isOrder ? 'gongik-order-select' : 'gongik-baseyear-select';
                         this.tableBody.querySelectorAll(`.${cls}[data-id="${id}"]`).forEach(sel => {
@@ -4101,6 +4128,15 @@ class SoilSampleManager extends window.BaseSampleManager {
                 this.filterAndRenderLogs();
             });
         }
+
+        // 공익직불제 일괄 적용 바: 기준년도 옵션 채우기 + 적용 버튼
+        const gbBaseYear = document.getElementById('gongikBulkBaseYear');
+        if (gbBaseYear) {
+            gbBaseYear.innerHTML = '<option value="">기준년도(선택)</option>'
+                + GONGIK_BASE_YEAR_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('');
+        }
+        const gbApplyBtn = document.getElementById('gongikBulkApplyBtn');
+        if (gbApplyBtn) gbApplyBtn.addEventListener('click', () => this.applyGongikBulk());
 
         if (openSearchModalBtn) {
             openSearchModalBtn.addEventListener('click', () => {

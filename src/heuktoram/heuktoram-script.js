@@ -1979,10 +1979,7 @@ class HeuktoramManager {
         row3[C + 37] = '암모니아태질소';       // AN
         data.push(row3);
 
-        // 4행(인덱스 3): 빈 구분 행 (데이터는 5행=인덱스4부터)
-        data.push(new Array(TOTAL_COLS + C).fill(''));
-
-        // 5행~: 데이터
+        // 4행(인덱스 3)~: 데이터 (헤더 3행 바로 다음부터)
         for (const row of rows) {
             const result = this.testResults[row.key] || {};
 
@@ -2058,8 +2055,8 @@ class HeuktoramManager {
     }
 
     getGongikColumnWidths() {
-        // A,B(빈열) + 40개 데이터열
-        const widths = [{ wch: 4 }, { wch: 4 }];
+        // A,B(빈열) 숨김 + 40개 데이터열
+        const widths = [{ hidden: true }, { hidden: true }];
         const dataWidths = [
             6,   // C 차수
             14,  // D 시료채취일자
@@ -2149,8 +2146,8 @@ class HeuktoramManager {
             if (!ws[cell3]) ws[cell3] = { v: '', t: 's' };
             ws[cell3].s = row3Style;
 
-            // 5행~ 데이터 (인덱스 4부터)
-            for (let r = 4; r < rowCount; r++) {
+            // 4행~ 데이터 (인덱스 3부터)
+            for (let r = 3; r < rowCount; r++) {
                 const addr = col + (r + 1);
                 if (!ws[addr]) ws[addr] = { v: '', t: 's' };
                 ws[addr].s = dataStyle;
@@ -2208,8 +2205,8 @@ class HeuktoramManager {
      */
     buildGongikDataValidations(dataRowCount) {
         if (dataRowCount <= 0) return [];
-        const startRow = 5;
-        const endRow = 4 + dataRowCount;
+        const startRow = 4;
+        const endRow = 3 + dataRowCount;
         const colG = XLSX.utils.encode_col(2 + 4);   // 용도구분 구분
         const colH = XLSX.utils.encode_col(2 + 5);   // 시행전후
         const colQ = XLSX.utils.encode_col(2 + 14);  // 일반·산

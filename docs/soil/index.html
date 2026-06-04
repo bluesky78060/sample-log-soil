@@ -38,7 +38,7 @@
             color: #86efac !important;
         }
     </style>
-  <script type="module" crossorigin src="../assets/soil-CO-j5VMC.js"></script>
+  <script type="module" crossorigin src="../assets/soil-DM2uxKuC.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/theme-D1BqTDsX.js">
   <link rel="modulepreload" crossorigin href="../assets/tooltip-BC-3VtJm.js">
   <link rel="modulepreload" crossorigin href="../assets/xlsx-CY41JvjH.js">
@@ -46,7 +46,7 @@
   <link rel="modulepreload" crossorigin href="../assets/toast-CYVUzQgW.js">
   <link rel="modulepreload" crossorigin href="../assets/storage-manager-D5rVvuGK.js">
   <link rel="stylesheet" crossorigin href="../assets/tooltip-CCmcblpp.css">
-  <link rel="stylesheet" crossorigin href="../assets/soil-KTCOYkOg.css">
+  <link rel="stylesheet" crossorigin href="../assets/soil-CUd27Hbs.css">
   <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
 </head>
 
@@ -378,6 +378,15 @@
                         <option value="공익직불제">공익직불제</option>
                     </select>
                     <span class="record-count" id="recordCount">0건</span>
+                    <div id="gongikBulkBar" class="gongik-bulk-bar" style="display:none;">
+                        <span class="gbb-label">공익직불제 일괄</span>
+                        <select id="gongikBulkOrder" class="appearance-none" title="차수">
+                            <option value="1">1차</option>
+                            <option value="2">2차</option>
+                        </select>
+                        <select id="gongikBulkBaseYear" class="appearance-none" title="기준년도"></select>
+                        <button type="button" id="gongikBulkApplyBtn" class="btn-search">일괄 적용</button>
+                    </div>
                 </div>
                 <div class="header-right">
                     <div class="view-toggle">

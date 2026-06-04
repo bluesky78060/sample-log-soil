@@ -33,6 +33,9 @@ import '../shared/excel-import-manager.js';
 import '../cropData.js';
 // 정적 시·군 데이터(bonghwaData.js) 제거 - 자동완성은 juso API만 사용
 
+// 채번 순수 로직 (soil-script.js 전 — window.ReceptionNumber 준비)
+import './reception-number.js';
+
 // Main script
 import './soil-script.js';
 

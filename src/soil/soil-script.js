@@ -712,20 +712,8 @@ class SoilSampleManager extends window.BaseSampleManager {
      */
     generateNextReceptionNumber(landClass1) {
         const targetClass = landClass1 || this.getCurrentLandClass1();
-        let maxNumber = 0;
-        this.sampleLogs.forEach(log => {
-            if (log.receptionNumber && log.subCategory !== '성토') {
-                if ((log.landClass1 || LAND_CLASS1_DEFAULT) !== targetClass) return;
-                const baseNumber = log.receptionNumber.split('-')[0];
-                if (baseNumber.startsWith('F')) return;
-                const num = parseInt(baseNumber, 10);
-                if (!isNaN(num) && num > maxNumber) {
-                    maxNumber = num;
-                }
-            }
-        });
-        const nextNumber = maxNumber + 1;
-        this.log('다음 접수번호 생성:', nextNumber, '(경지구분1차:', targetClass, ', 기존 최대:', maxNumber, ')');
+        const nextNumber = window.ReceptionNumber.computeNextNumber(this.sampleLogs, targetClass);
+        this.log('다음 접수번호 생성:', nextNumber, '(경지구분1차:', targetClass, ')');
         return String(nextNumber);
     }
 
@@ -737,20 +725,8 @@ class SoilSampleManager extends window.BaseSampleManager {
      */
     generateNextFillReceptionNumber(landClass1) {
         const targetClass = landClass1 || this.getCurrentLandClass1();
-        let maxNumber = 0;
-        this.sampleLogs.forEach(log => {
-            if (log.receptionNumber && log.subCategory === '성토') {
-                if ((log.landClass1 || LAND_CLASS1_DEFAULT) !== targetClass) return;
-                const baseNumber = log.receptionNumber.split('-')[0];
-                const numStr = baseNumber.replace('F', '');
-                const num = parseInt(numStr, 10);
-                if (!isNaN(num) && num > maxNumber) {
-                    maxNumber = num;
-                }
-            }
-        });
-        const nextNumber = maxNumber + 1;
-        this.log('다음 성토 접수번호 생성: F' + nextNumber, '(경지구분1차:', targetClass, ', 기존 최대:', maxNumber, ')');
+        const nextNumber = window.ReceptionNumber.computeNextNumber(this.sampleLogs, targetClass, { fill: true });
+        this.log('다음 성토 접수번호 생성: F' + nextNumber, '(경지구분1차:', targetClass, ')');
         return `F${nextNumber}`;
     }
 
@@ -772,16 +748,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         const logs = (String(targetYear) === String(this.selectedYear))
             ? this.sampleLogs
             : SampleUtils.safeParseJSON(this.getStorageKey(targetYear), []);
-        let maxNumber = 0;
-        logs.forEach(log => {
-            if (!log.receptionNumber || log.subCategory === '성토') return;
-            if ((log.landClass1 || LAND_CLASS1_DEFAULT) !== targetClass) return;
-            const baseNumber = (log.receptionNumber || '').split('-')[0];
-            if (baseNumber.startsWith('F')) return;
-            const num = parseInt(baseNumber, 10);
-            if (!isNaN(num) && num > maxNumber) maxNumber = num;
-        });
-        return maxNumber + 1;
+        return window.ReceptionNumber.computeNextNumber(logs, targetClass);
     }
 
     /**

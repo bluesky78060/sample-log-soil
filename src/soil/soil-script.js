@@ -63,7 +63,7 @@ class SoilSampleManager extends window.BaseSampleManager {
             lot: '',
             purpose: '',
             completed: 'incomplete',
-            landClass1: ''
+            landClass1: '농가의뢰'
         };
         this.isFullView = false;
         this.autoSaveFileHandle = null;
@@ -3421,6 +3421,22 @@ class SoilSampleManager extends window.BaseSampleManager {
             tdNumber.textContent = row._displayNumber;
             tr.appendChild(tdNumber);
 
+            // 공익직불제 전용: 차수 편집 셀 (접수번호 다음, gongik-on일 때만 표시)
+            const tdOrder = document.createElement('td');
+            tdOrder.className = 'col-order gongik-col sticky-col';
+            const orderSelect = document.createElement('select');
+            orderSelect.className = 'gongik-order-select';
+            orderSelect.dataset.id = row.id;
+            [['1', '1차'], ['2', '2차']].forEach(([val, label]) => {
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = label;
+                orderSelect.appendChild(opt);
+            });
+            orderSelect.value = row.gongikOrder || '1';
+            tdOrder.appendChild(orderSelect);
+            tr.appendChild(tdOrder);
+
             // 날짜
             const tdDate = document.createElement('td');
             tdDate.className = 'col-date sticky-col';
@@ -3453,6 +3469,12 @@ class SoilSampleManager extends window.BaseSampleManager {
             tdName.textContent = row.name;
             tdName.title = `"${row.name}" 클릭하면 같은 이름+전화번호 일괄 선택`;
             tr.appendChild(tdName);
+
+            // 공익직불제 전용: 경영체등록번호 (성명 다음, gongik-on일 때만 표시)
+            const tdBizReg = document.createElement('td');
+            tdBizReg.className = 'col-bizreg gongik-col';
+            tdBizReg.textContent = row.businessRegNo || '-';
+            tr.appendChild(tdBizReg);
 
             // 우편번호
             const tdZipcode = document.createElement('td');
@@ -3542,28 +3564,6 @@ class SoilSampleManager extends window.BaseSampleManager {
             tdMailDate.className = 'col-mail-date gongik-hide';
             tdMailDate.textContent = row.mailDate || '-';
             tr.appendChild(tdMailDate);
-
-            // 공익직불제 전용: 경영체등록번호 · BASEPNU (gongik-on일 때만 표시)
-            const tdBizReg = document.createElement('td');
-            tdBizReg.className = 'col-bizreg gongik-col';
-            tdBizReg.textContent = row.businessRegNo || '-';
-            tr.appendChild(tdBizReg);
-
-            // 공익직불제 전용: 차수 편집 셀
-            const tdOrder = document.createElement('td');
-            tdOrder.className = 'col-order gongik-col';
-            const orderSelect = document.createElement('select');
-            orderSelect.className = 'gongik-order-select';
-            orderSelect.dataset.id = row.id;
-            [['1', '1차'], ['2', '2차']].forEach(([val, label]) => {
-                const opt = document.createElement('option');
-                opt.value = val;
-                opt.textContent = label;
-                orderSelect.appendChild(opt);
-            });
-            orderSelect.value = row.gongikOrder || '1';
-            tdOrder.appendChild(orderSelect);
-            tr.appendChild(tdOrder);
 
             // 공익직불제 전용: 기준년도 편집 셀
             const tdBaseYear = document.createElement('td');

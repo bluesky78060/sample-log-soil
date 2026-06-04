@@ -1286,9 +1286,13 @@ tr.farm-separator:hover {
 
 /* 공익직불제 탭: 불필요 컬럼 숨김(목적·수령방법·비고·발송일자) */
 .data-table.gongik-on .gongik-hide { display: none; }
-/* 목적(스티키) 숨김에 따라 후속 스티키 컬럼 오프셋 70px 당김 */
-.data-table.gongik-on .col-landclass1 { left: 295px; }
-.data-table.gongik-on .col-name { left: 365px; }
+/* 공익직불제 ON: 차수(접수번호 다음) 삽입 + 목적 숨김 → 스티키 오프셋 재계산
+   checkbox0·complete40·num85(65)·차수150(64)·date214(90)·category304(55)·[목적숨김]·landclass1 359(70)·name429(70) */
+.data-table.gongik-on .col-order { left: 150px; }
+.data-table.gongik-on .col-date { left: 214px; }
+.data-table.gongik-on .col-category { left: 304px; }
+.data-table.gongik-on .col-landclass1 { left: 359px; }
+.data-table.gongik-on .col-name { left: 429px; }
 .data-table .col-order { min-width: 64px; }
 .data-table .col-baseyear { min-width: 150px; }
 .data-table .gongik-order-select,

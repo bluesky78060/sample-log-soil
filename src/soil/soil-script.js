@@ -3454,16 +3454,11 @@ class SoilSampleManager extends window.BaseSampleManager {
             tdAddress.className = 'col-address';
             tdAddress.textContent = displayAddress;
             if (addressOnly && addressOnly !== '-') {
-                const SIDO_EXPAND = {
-                    '경기': '경기도', '강원': '강원도',
-                    '충북': '충청북도', '충남': '충청남도',
-                    '전북': '전라북도', '전남': '전라남도',
-                    '경북': '경상북도', '경남': '경상남도',
-                    '제주': '제주특별자치도'
-                };
+                // 시도 약어→전체명 매핑은 address-parser SSOT(window.SIDO_SHORT_MAP) 재사용
+                const sidoMap = window.SIDO_SHORT_MAP || {};
                 const copyAddress = addressOnly.replace(
-                    /^(경기|강원|충북|충남|전북|전남|경북|경남|제주)(\s)/,
-                    (_, sido, sp) => (SIDO_EXPAND[sido] || sido) + sp
+                    /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(\s)/,
+                    (_, sido, sp) => (sidoMap[sido] || sido) + sp
                 );
                 tdAddress.style.cursor = 'pointer';
                 tdAddress.title = '클릭하여 주소 복사';
@@ -4825,16 +4820,9 @@ class SoilSampleManager extends window.BaseSampleManager {
         // 탐지는 constants.js의 완전한 SIDO_PATTERN 재사용(특별자치도 표기 포함). 누락 시 폴백 정규식.
         const SIDO_RE = window.SIDO_PATTERN
             || /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|경기도|강원도|강원특별자치도|충청북도|충청남도|전라북도|전북특별자치도|전라남도|경상북도|경상남도|제주도|제주특별자치도)\s*/;
-        // 선두 약어 시·도 → 정식명 매핑 (정식명/장음 표기는 뒤 글자가 공백이 아니어서 매칭되지 않음 → no-op)
-        const SHORT_SIDO_EXPAND = {
-            '서울': '서울특별시', '부산': '부산광역시', '대구': '대구광역시',
-            '인천': '인천광역시', '광주': '광주광역시', '대전': '대전광역시',
-            '울산': '울산광역시', '세종': '세종특별자치시',
-            '경기': '경기도', '강원': '강원특별자치도',
-            '충북': '충청북도', '충남': '충청남도',
-            '전북': '전북특별자치도', '전남': '전라남도',
-            '경북': '경상북도', '경남': '경상남도', '제주': '제주특별자치도'
-        };
+        // 선두 약어 시·도 → 정식명 매핑은 address-parser SSOT(window.SIDO_SHORT_MAP) 재사용
+        // (정식명/장음 표기는 뒤 글자가 공백이 아니어서 매칭되지 않음 → no-op)
+        const SHORT_SIDO_EXPAND = window.SIDO_SHORT_MAP || {};
         const SHORT_SIDO_RE = /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(\s)/;
         let fullAddress;
         if (SIDO_RE.test(lotAddress)) {

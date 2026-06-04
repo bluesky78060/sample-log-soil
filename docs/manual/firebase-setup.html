@@ -1105,6 +1105,70 @@ service cloud.firestore {
         </div>
 
         <!-- ============================================ -->
+        <!-- App Check (선택적 보안 강화) -->
+        <!-- ============================================ -->
+        <div class="section" id="section-appcheck">
+            <div class="section-header">
+                <div class="section-number" style="background:linear-gradient(135deg,#16a34a,#3b82f6);">🛡️</div>
+                <h2>App Check로 보안 강화 (선택)</h2>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>💡 꼭 필요한가요?</strong>
+                이 앱은 Firebase 설정값이 프로그램에 포함되지 않고 <span class="file-name">firebase-auth.json</span> 키 파일로만 연결되는 구조라, 외부에서 함부로 접근하기 어렵습니다. App Check는 여기에 <strong>"등록된 앱에서 온 요청만 허용"</strong>하는 방어층을 더하는 <strong>선택 기능</strong>입니다. 공유망에서 사용하거나 더 엄격한 보안이 필요할 때 권장합니다. (키 파일을 내부에서만 관리한다면 생략해도 됩니다.)
+            </div>
+
+            <div class="step">
+                <div class="step-title">Step 1: App Check 앱 등록 (reCAPTCHA)</div>
+                <ol>
+                    <li>Firebase 콘솔 왼쪽 메뉴에서 <span class="keyword">"App Check"</span> 클릭</li>
+                    <li><span class="keyword">"앱"</span> 탭에서 등록할 웹 앱을 선택</li>
+                    <li>증명 제공업체로 <span class="keyword">"reCAPTCHA"</span> 선택 <span style="color:#64748b;">(무료 · 내부용으로 충분. Enterprise는 유료이며 과합니다)</span></li>
+                    <li>reCAPTCHA v3 <strong>사이트 키</strong>를 발급받아 저장해 둡니다</li>
+                    <li>웹 버전을 GitHub Pages 등으로 배포한다면, reCAPTCHA 설정에 <strong>배포 도메인</strong>도 등록하세요</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <div class="step-title">Step 2: 앱 코드에 App Check 활성화</div>
+                <p>App Check SDK(<span class="file-name">firebase-appcheck-compat.js</span>)를 불러온 뒤, Firebase 초기화(<span class="keyword">initializeApp</span>) 직후에 활성화합니다:</p>
+                <div class="code-block">
+// firebase.initializeApp(...) 직후
+const appCheck = firebase.appCheck();
+appCheck.activate('여기에_reCAPTCHA_사이트_키', true); // 토큰 자동 갱신
+                </div>
+            </div>
+
+            <div class="alert alert-warning">
+                <strong>⚠️ 데스크톱(Electron) 앱은 주의하세요</strong>
+                reCAPTCHA는 웹 브라우저 전용이라, <strong>설치형 데스크톱 앱에서는 App Check 토큰 발급이 안 될 수 있습니다.</strong> 데스크톱에서는 아래처럼 <strong>디버그 토큰</strong>을 등록해야 합니다:
+                <div class="code-block" style="margin-top:0.5rem;">
+// 데스크톱/개발 환경: 앱 시작 전에 한 번
+self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+// → 실행 후 개발자도구(F12) 콘솔에 출력되는 토큰을
+//   Firebase 콘솔 → App Check → 해당 앱 → '디버그 토큰 관리'에 등록
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">Step 3: 모니터링 → 강제 적용 (순서가 중요)</div>
+                <ol>
+                    <li>Firebase 콘솔 → App Check → <span class="keyword">"API"</span> 탭 → <span class="keyword">"Cloud Firestore"</span> 선택</li>
+                    <li>먼저 <span class="keyword">"모니터링"</span> 모드로 켜고, 며칠간 정상/거부 요청 통계를 관찰</li>
+                    <li>데스크톱·웹 모두 정상 동작이 확인되면 그때 <span class="keyword">"강제 적용"</span>으로 전환</li>
+                </ol>
+                <div class="alert alert-warning" style="margin-top:0.5rem;">
+                    <strong>강제 적용을 먼저 켜지 마세요.</strong> 토큰 설정이 끝나지 않은 상태에서 강제하면, 앱이 데이터에 접근하지 못하고 동기화가 멈춥니다.
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>📌 정리</strong>
+                App Check는 <strong>키 파일 보안에 더하는 선택적 강화</strong>입니다. 켜기로 했다면 ① reCAPTCHA 등록 → ② 코드 활성화(+데스크톱 디버그 토큰) → ③ 모니터링 후 강제 순서를 지키세요.
+            </div>
+        </div>
+
+        <!-- ============================================ -->
         <!-- FAQ -->
         <!-- ============================================ -->
         <div class="section" id="section-faq">

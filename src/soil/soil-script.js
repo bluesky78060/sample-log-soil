@@ -934,15 +934,31 @@ class SoilSampleManager extends window.BaseSampleManager {
         const card = document.createElement('div');
         card.className = 'parcel-card';
         card.id = parcel.id;
+        card.innerHTML = sanitizeHTML(this._buildParcelCardHTML(parcel, index));
 
+        if (!this.parcelsContainer) {
+            (window.logger?.error || console.error)('parcelsContainer를 찾을 수 없습니다!');
+            return;
+        }
+
+        this.parcelsContainer.appendChild(card);
+
+        // 이벤트 바인딩
+        this.bindDirectCropAutocomplete(parcel.id);
+        this.bindLotAddressAutocomplete(parcel.id);
+        this.bindSubLotAutocomplete(parcel.id);
+        this.bindAreaUnitConversion(parcel.id);
+        this.bindParcelSelects(parcel.id);
+    }
+
+    // 필지 카드 마크업 문자열을 생성한다 (sanitizeHTML 적용 전 원본)
+    _buildParcelCardHTML(parcel, parcelNumber) {
         const firstCrop = parcel.crops[0] || { name: '', area: '' };
-        const parcelNumber = index;
-
         const safeLotAddress = escapeHTML(parcel.lotAddress);
         const safeCropName = escapeHTML(firstCrop.name);
         const parcelCategory = parcel.category || '';
         const parcelPurpose = parcel.purpose || '';
-        card.innerHTML = sanitizeHTML(`
+        return `
             <div class="parcel-card-header">
                 <h4>필지 ${parcelNumber}</h4>
                 <div class="parcel-header-selects">
@@ -1055,21 +1071,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                     ${this.renderParcelSummary(parcel)}
                 </div>
             </div>
-        `);
-
-        if (!this.parcelsContainer) {
-            (window.logger?.error || console.error)('parcelsContainer를 찾을 수 없습니다!');
-            return;
-        }
-
-        this.parcelsContainer.appendChild(card);
-
-        // 이벤트 바인딩
-        this.bindDirectCropAutocomplete(parcel.id);
-        this.bindLotAddressAutocomplete(parcel.id);
-        this.bindSubLotAutocomplete(parcel.id);
-        this.bindAreaUnitConversion(parcel.id);
-        this.bindParcelSelects(parcel.id);
+        `;
     }
 
     _renderAdditionalCrops(parcel) {
@@ -3244,240 +3246,248 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         pageRows.forEach((row) => {
             if (prevName !== null && row.name !== prevName) {
-                const separatorTr = document.createElement('tr');
-                separatorTr.className = 'farm-separator';
-                const separatorTd = document.createElement('td');
-                // 19 = 기본 표시 컬럼 수, 22 = + 공익직불제 컬럼 3개(경영체등록번호·차수·기준년도)
-                // 19=기본, 공익직불제 ON: +3(경영체·차수·기준년도) −4(목적·수령방법·비고·발송일자)=18
-                separatorTd.colSpan = gongikOn ? 18 : 19;
-                separatorTr.appendChild(separatorTd);
-                fragment.appendChild(separatorTr);
+                fragment.appendChild(this._buildFarmSeparatorRow(gongikOn));
             }
             prevName = row.name;
-
-            const isComplete = row.isComplete || false;
-            const tr = document.createElement('tr');
-            tr.className = isComplete ? 'row-completed' : '';
-            const methodText = row.receptionMethod || '-';
-
-            const addressFull = [row.addressRoad || row.address, row.addressDetail].filter(Boolean).join(' ') || '';
-            const zipMatch = addressFull.match(/^\((\d{5})\)\s*/);
-            const zipcode = zipMatch ? zipMatch[1] : '';
-            const addressOnly = zipMatch ? addressFull.replace(zipMatch[0], '') : addressFull;
-            const displayAddress = addressOnly && addressOnly !== '-' && typeof SIDO_PATTERN !== 'undefined' && SIDO_PATTERN.test(addressOnly)
-                ? addressOnly.replace(SIDO_PATTERN, '') : (addressOnly || '-');
-
-            const combinedNote = row.note?.trim() || '-';
-
-            tr.dataset.id = row.id;
-
-            // 체크박스
-            const tdCheckbox = document.createElement('td');
-            tdCheckbox.className = 'col-checkbox sticky-col';
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'row-checkbox';
-            checkbox.dataset.id = row.id;
-            tdCheckbox.appendChild(checkbox);
-            tr.appendChild(tdCheckbox);
-
-            // 완료 버튼
-            const tdComplete = document.createElement('td');
-            tdComplete.className = 'col-complete sticky-col';
-            const btnComplete = document.createElement('button');
-            btnComplete.className = `btn-complete ${isComplete ? 'completed' : ''}`;
-            btnComplete.dataset.id = row.id;
-            btnComplete.title = isComplete ? '완료 취소' : '완료';
-            btnComplete.textContent = isComplete ? '✔' : '';
-            tdComplete.appendChild(btnComplete);
-            tr.appendChild(tdComplete);
-
-            // 접수번호
-            const tdNumber = document.createElement('td');
-            tdNumber.className = 'col-num sticky-col';
-            tdNumber.textContent = row._displayNumber;
-            tr.appendChild(tdNumber);
-
-            // 공익직불제 전용: 차수 편집 셀 (접수번호 다음, gongik-on일 때만 표시)
-            const tdOrder = document.createElement('td');
-            tdOrder.className = 'col-order gongik-col sticky-col';
-            const orderSelect = document.createElement('select');
-            orderSelect.className = 'gongik-order-select';
-            orderSelect.dataset.id = row.id;
-            [['1', '1차'], ['2', '2차']].forEach(([val, label]) => {
-                const opt = document.createElement('option');
-                opt.value = val;
-                opt.textContent = label;
-                orderSelect.appendChild(opt);
-            });
-            orderSelect.value = row.gongikOrder || '1';
-            tdOrder.appendChild(orderSelect);
-            tr.appendChild(tdOrder);
-
-            // 날짜
-            const tdDate = document.createElement('td');
-            tdDate.className = 'col-date sticky-col';
-            tdDate.textContent = row.date;
-            tr.appendChild(tdDate);
-
-            // 하위 카테고리
-            const tdSubCategory = document.createElement('td');
-            tdSubCategory.className = 'col-category sticky-col';
-            tdSubCategory.textContent = row.subCategory || '-';
-            tr.appendChild(tdSubCategory);
-
-            // 목적
-            const tdPurpose = document.createElement('td');
-            tdPurpose.className = 'col-purpose sticky-col gongik-hide';
-            tdPurpose.textContent = row._parcelPurpose || row.purpose || '-';
-            tr.appendChild(tdPurpose);
-
-            // 경지구분 1차
-            const tdLandClass1 = document.createElement('td');
-            tdLandClass1.className = 'col-landclass1 sticky-col';
-            tdLandClass1.textContent = row.landClass1 || LAND_CLASS1_DEFAULT;
-            tr.appendChild(tdLandClass1);
-
-            // 성명 (클릭 시 같은 이름 일괄 선택)
-            const tdName = document.createElement('td');
-            tdName.className = 'col-name sticky-col';
-            tdName.dataset.name = row.name;
-            tdName.dataset.farmerKey = `${row.name}|${row.phoneNumber || ''}`;
-            tdName.textContent = row.name;
-            tdName.title = `"${row.name}" 클릭하면 같은 이름+전화번호 일괄 선택`;
-            tr.appendChild(tdName);
-
-            // 공익직불제 전용: 경영체등록번호 (성명 다음, gongik-on일 때만 표시)
-            const tdBizReg = document.createElement('td');
-            tdBizReg.className = 'col-bizreg gongik-col';
-            tdBizReg.textContent = row.businessRegNo || '-';
-            tr.appendChild(tdBizReg);
-
-            // 우편번호
-            const tdZipcode = document.createElement('td');
-            tdZipcode.className = 'col-zipcode';
-            tdZipcode.textContent = zipcode || '-';
-            tr.appendChild(tdZipcode);
-
-            // 주소 (클릭 시 시도 포함 전체 주소 복사)
-            const tdAddress = document.createElement('td');
-            tdAddress.className = 'col-address';
-            tdAddress.textContent = displayAddress;
-            if (addressOnly && addressOnly !== '-') {
-                // 시도 약어→전체명 매핑은 address-parser SSOT(window.SIDO_SHORT_MAP) 재사용
-                const sidoMap = window.SIDO_SHORT_MAP || {};
-                const copyAddress = addressOnly.replace(
-                    /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(\s)/,
-                    (_, sido, sp) => (sidoMap[sido] || sido) + sp
-                );
-                tdAddress.style.cursor = 'pointer';
-                tdAddress.title = '클릭하여 주소 복사';
-                tdAddress.addEventListener('click', () => {
-                    navigator.clipboard.writeText(copyAddress).then(() => {
-                        this.showToast('주소가 복사되었습니다.', 'success');
-                    }).catch(() => {
-                        this.showToast('주소 복사에 실패했습니다.', 'error');
-                    });
-                });
-            }
-            tr.appendChild(tdAddress);
-
-            // 필지 주소
-            const tdLotAddress = document.createElement('td');
-            tdLotAddress.className = 'col-lot-address';
-            tdLotAddress.textContent = row._lotAddress;
-            if (row.addressVerified === false) {
-                tdLotAddress.classList.add('address-invalid');
-                tdLotAddress.title = '지번 주소가 VWORLD에서 확인되지 않았습니다';
-            }
-            tr.appendChild(tdLotAddress);
-
-            // 기타주소
-            const tdParcelNote = document.createElement('td');
-            const parcelNoteText = row.parcels && row.parcels[0] ? (row.parcels[0].note || '-') : '-';
-            tdParcelNote.textContent = parcelNoteText;
-            tr.appendChild(tdParcelNote);
-
-            // 작물
-            const tdCrops = document.createElement('td');
-            tdCrops.className = 'text-truncate';
-            tdCrops.setAttribute('data-tooltip', row._cropsDisplay);
-            tdCrops.textContent = row._cropsDisplay;
-            tr.appendChild(tdCrops);
-
-            // 면적
-            const tdArea = document.createElement('td');
-            tdArea.textContent = row._areaDisplay;
-            tr.appendChild(tdArea);
-
-            // 전화번호
-            const tdPhone = document.createElement('td');
-            tdPhone.textContent = row.phoneNumber || '-';
-            tr.appendChild(tdPhone);
-
-            // 수령방법
-            const tdMethod = document.createElement('td');
-            tdMethod.className = 'col-method gongik-hide';
-            tdMethod.textContent = methodText;
-            tr.appendChild(tdMethod);
-
-            // 비고
-            const tdNote = document.createElement('td');
-            tdNote.className = 'col-note gongik-hide';
-            tdNote.title = combinedNote;
-            const noteDiv = document.createElement('div');
-            noteDiv.className = 'note-cell';
-            noteDiv.textContent = combinedNote;
-            tdNote.appendChild(noteDiv);
-            tr.appendChild(tdNote);
-
-            // 우편일자
-            const tdMailDate = document.createElement('td');
-            tdMailDate.className = 'col-mail-date gongik-hide';
-            tdMailDate.textContent = row.mailDate || '-';
-            tr.appendChild(tdMailDate);
-
-            // 공익직불제 전용: 기준년도 편집 셀
-            const tdBaseYear = document.createElement('td');
-            tdBaseYear.className = 'col-baseyear gongik-col';
-            const baseYearSelect = document.createElement('select');
-            baseYearSelect.className = 'gongik-baseyear-select';
-            baseYearSelect.dataset.id = row.id;
-            const emptyOpt = document.createElement('option');
-            emptyOpt.value = '';
-            emptyOpt.textContent = '(선택)';
-            baseYearSelect.appendChild(emptyOpt);
-            GONGIK_BASE_YEAR_OPTIONS.forEach((val) => {
-                const opt = document.createElement('option');
-                opt.value = val;
-                opt.textContent = val;
-                baseYearSelect.appendChild(opt);
-            });
-            baseYearSelect.value = row.gongikBaseYear || '';
-            tdBaseYear.appendChild(baseYearSelect);
-            tr.appendChild(tdBaseYear);
-
-            // 액션 버튼
-            const tdAction = document.createElement('td');
-            const actionsDiv = document.createElement('div');
-            actionsDiv.className = 'table-actions';
-            const btnEdit = document.createElement('button');
-            btnEdit.className = 'btn-edit';
-            btnEdit.dataset.id = row.id;
-            btnEdit.textContent = '수정';
-            const btnDelete = document.createElement('button');
-            btnDelete.className = 'btn-delete';
-            btnDelete.dataset.id = row.id;
-            btnDelete.textContent = '삭제';
-            actionsDiv.appendChild(btnEdit);
-            actionsDiv.appendChild(btnDelete);
-            tdAction.appendChild(actionsDiv);
-            tr.appendChild(tdAction);
-            fragment.appendChild(tr);
+            fragment.appendChild(this._buildLogTableRow(row));
         });
 
         this.tableBody.appendChild(fragment);
         this.updatePaginationUI();
+    }
+
+    // 농가(성명) 경계에 삽입하는 구분선 행 — colSpan은 모드별 표시 컬럼 수에 맞춘다
+    _buildFarmSeparatorRow(gongikOn) {
+        const separatorTr = document.createElement('tr');
+        separatorTr.className = 'farm-separator';
+        const separatorTd = document.createElement('td');
+        // 19=기본, 공익직불제 ON: +3(경영체·차수·기준년도) −4(목적·수령방법·비고·발송일자)=18
+        separatorTd.colSpan = gongikOn ? 18 : 19;
+        separatorTr.appendChild(separatorTd);
+        return separatorTr;
+    }
+
+    // 로그 한 건을 표 행(<tr>)으로 생성한다 (셀 구성·주소 복사 핸들러 포함)
+    _buildLogTableRow(row) {
+        const isComplete = row.isComplete || false;
+        const tr = document.createElement('tr');
+        tr.className = isComplete ? 'row-completed' : '';
+        const methodText = row.receptionMethod || '-';
+
+        const addressFull = [row.addressRoad || row.address, row.addressDetail].filter(Boolean).join(' ') || '';
+        const zipMatch = addressFull.match(/^\((\d{5})\)\s*/);
+        const zipcode = zipMatch ? zipMatch[1] : '';
+        const addressOnly = zipMatch ? addressFull.replace(zipMatch[0], '') : addressFull;
+        const displayAddress = addressOnly && addressOnly !== '-' && typeof SIDO_PATTERN !== 'undefined' && SIDO_PATTERN.test(addressOnly)
+            ? addressOnly.replace(SIDO_PATTERN, '') : (addressOnly || '-');
+
+        const combinedNote = row.note?.trim() || '-';
+
+        tr.dataset.id = row.id;
+
+        // 체크박스
+        const tdCheckbox = document.createElement('td');
+        tdCheckbox.className = 'col-checkbox sticky-col';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'row-checkbox';
+        checkbox.dataset.id = row.id;
+        tdCheckbox.appendChild(checkbox);
+        tr.appendChild(tdCheckbox);
+
+        // 완료 버튼
+        const tdComplete = document.createElement('td');
+        tdComplete.className = 'col-complete sticky-col';
+        const btnComplete = document.createElement('button');
+        btnComplete.className = `btn-complete ${isComplete ? 'completed' : ''}`;
+        btnComplete.dataset.id = row.id;
+        btnComplete.title = isComplete ? '완료 취소' : '완료';
+        btnComplete.textContent = isComplete ? '✔' : '';
+        tdComplete.appendChild(btnComplete);
+        tr.appendChild(tdComplete);
+
+        // 접수번호
+        const tdNumber = document.createElement('td');
+        tdNumber.className = 'col-num sticky-col';
+        tdNumber.textContent = row._displayNumber;
+        tr.appendChild(tdNumber);
+
+        // 공익직불제 전용: 차수 편집 셀 (접수번호 다음, gongik-on일 때만 표시)
+        const tdOrder = document.createElement('td');
+        tdOrder.className = 'col-order gongik-col sticky-col';
+        const orderSelect = document.createElement('select');
+        orderSelect.className = 'gongik-order-select';
+        orderSelect.dataset.id = row.id;
+        [['1', '1차'], ['2', '2차']].forEach(([val, label]) => {
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = label;
+            orderSelect.appendChild(opt);
+        });
+        orderSelect.value = row.gongikOrder || '1';
+        tdOrder.appendChild(orderSelect);
+        tr.appendChild(tdOrder);
+
+        // 날짜
+        const tdDate = document.createElement('td');
+        tdDate.className = 'col-date sticky-col';
+        tdDate.textContent = row.date;
+        tr.appendChild(tdDate);
+
+        // 하위 카테고리
+        const tdSubCategory = document.createElement('td');
+        tdSubCategory.className = 'col-category sticky-col';
+        tdSubCategory.textContent = row.subCategory || '-';
+        tr.appendChild(tdSubCategory);
+
+        // 목적
+        const tdPurpose = document.createElement('td');
+        tdPurpose.className = 'col-purpose sticky-col gongik-hide';
+        tdPurpose.textContent = row._parcelPurpose || row.purpose || '-';
+        tr.appendChild(tdPurpose);
+
+        // 경지구분 1차
+        const tdLandClass1 = document.createElement('td');
+        tdLandClass1.className = 'col-landclass1 sticky-col';
+        tdLandClass1.textContent = row.landClass1 || LAND_CLASS1_DEFAULT;
+        tr.appendChild(tdLandClass1);
+
+        // 성명 (클릭 시 같은 이름 일괄 선택)
+        const tdName = document.createElement('td');
+        tdName.className = 'col-name sticky-col';
+        tdName.dataset.name = row.name;
+        tdName.dataset.farmerKey = `${row.name}|${row.phoneNumber || ''}`;
+        tdName.textContent = row.name;
+        tdName.title = `"${row.name}" 클릭하면 같은 이름+전화번호 일괄 선택`;
+        tr.appendChild(tdName);
+
+        // 공익직불제 전용: 경영체등록번호 (성명 다음, gongik-on일 때만 표시)
+        const tdBizReg = document.createElement('td');
+        tdBizReg.className = 'col-bizreg gongik-col';
+        tdBizReg.textContent = row.businessRegNo || '-';
+        tr.appendChild(tdBizReg);
+
+        // 우편번호
+        const tdZipcode = document.createElement('td');
+        tdZipcode.className = 'col-zipcode';
+        tdZipcode.textContent = zipcode || '-';
+        tr.appendChild(tdZipcode);
+
+        // 주소 (클릭 시 시도 포함 전체 주소 복사)
+        const tdAddress = document.createElement('td');
+        tdAddress.className = 'col-address';
+        tdAddress.textContent = displayAddress;
+        if (addressOnly && addressOnly !== '-') {
+            // 시도 약어→전체명 매핑은 address-parser SSOT(window.SIDO_SHORT_MAP) 재사용
+            const sidoMap = window.SIDO_SHORT_MAP || {};
+            const copyAddress = addressOnly.replace(
+                /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(\s)/,
+                (_, sido, sp) => (sidoMap[sido] || sido) + sp
+            );
+            tdAddress.style.cursor = 'pointer';
+            tdAddress.title = '클릭하여 주소 복사';
+            tdAddress.addEventListener('click', () => {
+                navigator.clipboard.writeText(copyAddress).then(() => {
+                    this.showToast('주소가 복사되었습니다.', 'success');
+                }).catch(() => {
+                    this.showToast('주소 복사에 실패했습니다.', 'error');
+                });
+            });
+        }
+        tr.appendChild(tdAddress);
+
+        // 필지 주소
+        const tdLotAddress = document.createElement('td');
+        tdLotAddress.className = 'col-lot-address';
+        tdLotAddress.textContent = row._lotAddress;
+        if (row.addressVerified === false) {
+            tdLotAddress.classList.add('address-invalid');
+            tdLotAddress.title = '지번 주소가 VWORLD에서 확인되지 않았습니다';
+        }
+        tr.appendChild(tdLotAddress);
+
+        // 기타주소
+        const tdParcelNote = document.createElement('td');
+        const parcelNoteText = row.parcels && row.parcels[0] ? (row.parcels[0].note || '-') : '-';
+        tdParcelNote.textContent = parcelNoteText;
+        tr.appendChild(tdParcelNote);
+
+        // 작물
+        const tdCrops = document.createElement('td');
+        tdCrops.className = 'text-truncate';
+        tdCrops.setAttribute('data-tooltip', row._cropsDisplay);
+        tdCrops.textContent = row._cropsDisplay;
+        tr.appendChild(tdCrops);
+
+        // 면적
+        const tdArea = document.createElement('td');
+        tdArea.textContent = row._areaDisplay;
+        tr.appendChild(tdArea);
+
+        // 전화번호
+        const tdPhone = document.createElement('td');
+        tdPhone.textContent = row.phoneNumber || '-';
+        tr.appendChild(tdPhone);
+
+        // 수령방법
+        const tdMethod = document.createElement('td');
+        tdMethod.className = 'col-method gongik-hide';
+        tdMethod.textContent = methodText;
+        tr.appendChild(tdMethod);
+
+        // 비고
+        const tdNote = document.createElement('td');
+        tdNote.className = 'col-note gongik-hide';
+        tdNote.title = combinedNote;
+        const noteDiv = document.createElement('div');
+        noteDiv.className = 'note-cell';
+        noteDiv.textContent = combinedNote;
+        tdNote.appendChild(noteDiv);
+        tr.appendChild(tdNote);
+
+        // 우편일자
+        const tdMailDate = document.createElement('td');
+        tdMailDate.className = 'col-mail-date gongik-hide';
+        tdMailDate.textContent = row.mailDate || '-';
+        tr.appendChild(tdMailDate);
+
+        // 공익직불제 전용: 기준년도 편집 셀
+        const tdBaseYear = document.createElement('td');
+        tdBaseYear.className = 'col-baseyear gongik-col';
+        const baseYearSelect = document.createElement('select');
+        baseYearSelect.className = 'gongik-baseyear-select';
+        baseYearSelect.dataset.id = row.id;
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = '(선택)';
+        baseYearSelect.appendChild(emptyOpt);
+        GONGIK_BASE_YEAR_OPTIONS.forEach((val) => {
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = val;
+            baseYearSelect.appendChild(opt);
+        });
+        baseYearSelect.value = row.gongikBaseYear || '';
+        tdBaseYear.appendChild(baseYearSelect);
+        tr.appendChild(tdBaseYear);
+
+        // 액션 버튼
+        const tdAction = document.createElement('td');
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'table-actions';
+        const btnEdit = document.createElement('button');
+        btnEdit.className = 'btn-edit';
+        btnEdit.dataset.id = row.id;
+        btnEdit.textContent = '수정';
+        const btnDelete = document.createElement('button');
+        btnDelete.className = 'btn-delete';
+        btnDelete.dataset.id = row.id;
+        btnDelete.textContent = '삭제';
+        actionsDiv.appendChild(btnEdit);
+        actionsDiv.appendChild(btnDelete);
+        tdAction.appendChild(actionsDiv);
+        tr.appendChild(tdAction);
+        return tr;
     }
 
     updatePaginationUI() {

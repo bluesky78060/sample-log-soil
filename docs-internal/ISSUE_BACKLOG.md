@@ -43,10 +43,11 @@
 - **위험도**: 🟠 중간. 흙토람/공익직불제 양식이 컬럼 인덱스(`row[10]` 등)에 민감 — 1칸 어긋나면 외부 사이트가 거부.
 - **접근법**: 먼저 **출력 골든 파일 테스트**(현재 엑셀 출력 스냅샷) 작성 → 컬럼 정의 상수맵 + 행 빌더로 분리 → 출력 동치 검증. 인덱스 매직넘버 제거 효과 큼.
 
-### B-3. 렌더링 함수 분해
-- **파일**: `src/soil/soil-script.js` — `renderCurrentPage`(199), `renderParcelCard`(136); `heuktoram-script.js` — `createTableRow`(107)
-- **위험도**: 🟠 중간. DOM 생성 + sticky 컬럼 offset + 이벤트 바인딩 얽힘.
-- **접근법**: 행/카드 생성 헬퍼 추출, E2E로 geometry·인터랙션 검증.
+### B-3. 렌더링 함수 분해 — ✅ 완료 (SLS-1-102 heuktoram, SLS-1-104 soil)
+- **파일**: `src/soil/soil-script.js` — ~~`renderCurrentPage`(199), `renderParcelCard`(136)~~; `heuktoram-script.js` — ~~`createTableRow`(107)~~
+- ~~위험도 🟠 중간~~ → **해결**. soil(SLS-1-104): `renderCurrentPage`→오케스트레이션만 유지 + `_buildFarmSeparatorRow`/`_buildLogTableRow` 추출, `renderParcelCard`→삽입·바인딩만 + `_buildParcelCardHTML` 추출. heuktoram(SLS-1-102): `createTableRow`→`_appendHeuktoramFixedCells`/`_appendHeuktoramResultCells`.
+- **검증**: E2E 골든 대조 — 분해 전/후 빌드의 innerHTML(일반·공익직불제·필지카드) 모두 `===` byte-identical. 이벤트 바인딩(주소복사·select·산버튼) 보존 확인. ESLint 0 errors, vitest 119/119.
+- **잔여**: 추출된 `_buildLogTableRow`(173)·`_buildParcelCardHTML`(121)은 100줄 초과지만 본질적 길이(컬럼·필드 수 비례, 정적 템플릿)로 추가 분해 net-negative 판정(리뷰어 동의).
 
 ---
 

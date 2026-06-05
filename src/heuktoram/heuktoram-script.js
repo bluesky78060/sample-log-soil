@@ -60,6 +60,85 @@ const SIGUNGU_TO_SIDO = {
 };
 
 // ========================================
+// 흙토람 일괄입력 양식 — 헤더 템플릿 (56열, 흙토람 서식.xlsx 기준)
+// 컬럼 인덱스→값 맵으로 헤더를 정의(매직 인덱스 가시화). buildWorksheetData가 재사용.
+// ========================================
+const HEUKTORAM_WS_COLS = 56;
+const HEUKTORAM_WS_TITLE = '토양검정 일괄입력 양식';
+const HEUKTORAM_WS_GUIDE = '아래 형식과 같이 입력되어야만 일괄입력을 할 수 있습니다. \n'
+    + '  - 필지구분은 "필지" 또는 "하위필지" 로 입력 (1,2,3,4 = 필지) (1-1, 2-1, 2-2 = 하위필지)\n'
+    + '  - 하위필지는 반드시 대표필지 아래에 연속으로 입력하고 채취년도,경지구분,시료번호,검정대상지 시도 및 시군구 주소를 대표필지와 일치\n'
+    + '  - 채취년도는 숫자(4자리)를 입력\n'
+    + '  - 경지구분은 1차와 2차를 나눠 입력\n'
+    + '  - 분석의뢰일(접수일자)는 숫자(4)-숫자(2)-숫자(2)로 정의하며 \'-\'로 구분하며, 필수 입력\n'
+    + '  - 검정 대상지는 시도, 시군구, 읍면동, 리를 나눠 입력\n'
+    + '  - 지번구분은 일반은 빈공백으로 산은 산이라고 명시하며 검정대상지번은 지번1과 지번2로 나눠 입력(지번2가 없을 경우 비워놓음)\n'
+    + '  - 주소매핑여부는 자동으로 체크 됩니다. 작성하지 마세요.\n'
+    + '  - 면적의 단위는 ㎡로, 숫자 형태로 입력\n'
+    + '  - 토양검정일은 숫자(4)-숫자(2)-숫자(2)로 정의하며 \'-\'로 구분\n'
+    + '  - 작물을 입력할 시에는 작물명 또는 숫자 5자리로 이루어진 작물코드 입력\n'
+    + '  - 용도구분은 코드를 [일반적인토양검정-0] 선택 시에는 시행(재배) 전후를 선택 하지 마세요.(추가 내용)\n'
+    + '  - 성토여부는 미해당, 해당으로 입력\n'
+    + '  - 경작자 주소(추가내용)는 선택사항이므로 생략하셔도 입력에는 문제가 없습니다.\n'
+    + '  - 신청인 전화번호는 \'-\' 없이 입력하세요(예:01023456789)\n'
+    + '  - 경영체등록번호/농업인번호를 조회하기 위해서는 개인(경작자명, 생년월일 모두 입력) / 법인(법인번호) 중 한 항목만 입력하세요. (해당 필드 필수입력 항목 아님)\n'
+    + '  - 생년월일은 숫자(8자리), 법인번호는 숫자(13자리)를 입력\n'
+    + '  - 생년월일, 법인번호 항목은 경영체등록번호/농업인번호 조회 목적으로만 사용함 (흙토람에 등록되지 않는 정보)\n\n'
+    + '원활한 일괄입력을 위하여 1회당 300건 이하의 자료 입력을 권장드립니다.';
+
+// 3행: 대분류 헤더 (A~AV = 48열, AY~BD = 코드 범례)
+const HEUKTORAM_WS_HEADER3 = {
+    0: '필지구분', 1: ' 채취년도', 2: '시료채취자', 3: '분석의뢰일(접수일자)',
+    4: ' 경지구분', 6: '용도구분', 8: '시료번호', 9: '대상지 주소',
+    13: '지번 구분', 14: '지번', 16: '주소매핑여부', 17: '기타주소',
+    18: '면적(㎡)', 19: '토양검정일', 20: '경작자', 21: '경작자 주소(이전주소기준)',
+    29: '개인 (Agrix 조회용)', 31: '법인 (Agrix 조회용)', 32: ' 작물명 또는\n작물코드',
+    33: '성토여부', 34: '점토함량', 35: ' pH', 36: ' 유기물', 37: '유효인산',
+    38: '교환성 칼륨', 39: '교환성 칼슘', 40: '교환성\n마그네슘', 41: '유효규산',
+    42: '전기전도도', 43: '석회소요량', 44: '질산태질소', 45: '양이온\n치환용량',
+    46: '암모니아태\n질소', 47: '신청인 전화번호', 48: '개인정보\n수집·이용 동의',
+    49: '개인정보\n제3자 제공동의',
+    // [50~55] 코드 범례 — 헤더(3행) 전용. 데이터 행(0~49)에는 존재하지 않음.
+    50: '일반적인토양검정-0', 51: '토양개량제 규산-1', 52: '토양개량제 석회질-2',
+    53: '녹비작물-3', 54: '전-N', 55: '후-Y'
+};
+
+// 4행: 소분류 헤더
+const HEUKTORAM_WS_HEADER4 = {
+    4: '1차', 5: '2차', 6: '코드', 7: '시행(재배)전후',
+    9: '시도', 10: '시군구', 11: '읍면동', 12: '리', 14: '지번1', 15: '지번2',
+    21: '시도', 22: '시군구', 23: '읍면동', 24: '도로명', 25: '본번', 26: '부번',
+    27: '동/층/호', 28: '(법정동, 공동주택명)', 29: '경작자명', 30: '생년월일', 31: '법인번호'
+};
+
+// 용도코드 → 라벨 (데이터 행 [6])
+const HEUKTORAM_WS_USAGE_LABELS = {
+    '0': '일반적인토양검정-0',
+    '1': '토양개량제 규산-1',
+    '2': '토양개량제 석회질-2',
+    '3': '녹비작물-3'
+};
+
+/**
+ * 56열 행 생성 + 컬럼 인덱스→값 맵 적용.
+ * 외부(흙토람) 양식이 컬럼 수에 민감하므로, 0~55 범위를 벗어난 키는 무시하고 경고한다.
+ */
+function makeWsRow(map) {
+    const r = new Array(HEUKTORAM_WS_COLS).fill('');
+    if (map) {
+        for (const k in map) {
+            const i = Number(k);
+            if (Number.isInteger(i) && i >= 0 && i < HEUKTORAM_WS_COLS) {
+                r[i] = map[k];
+            } else {
+                (window.logger?.warn || console.warn)(`[흙토람양식] 컬럼 인덱스 범위 초과 무시: ${k}`);
+            }
+        }
+    }
+    return r;
+}
+
+// ========================================
 // HeuktoramManager 클래스
 // ========================================
 
@@ -1401,210 +1480,113 @@ class HeuktoramManager {
     }
 
     buildWorksheetData(rows) {
-        const data = [];
         const collectYear = this.collectYearInput?.value || this.selectedYear;
         const collector = this.collectorInput?.value || '';
 
-        // 1행: 제목 (A1:AV1 병합)
-        const row1 = new Array(56).fill('');
-        row1[0] = '토양검정 일괄입력 양식';
-        data.push(row1);
-
-        // 2행: 안내문 (A2:AV2 병합) - 흙토람 서식.xlsx 원본과 동일
-        const row2 = new Array(56).fill('');
-        row2[0] = '아래 형식과 같이 입력되어야만 일괄입력을 할 수 있습니다. \n'
-            + '  - 필지구분은 "필지" 또는 "하위필지" 로 입력 (1,2,3,4 = 필지) (1-1, 2-1, 2-2 = 하위필지)\n'
-            + '  - 하위필지는 반드시 대표필지 아래에 연속으로 입력하고 채취년도,경지구분,시료번호,검정대상지 시도 및 시군구 주소를 대표필지와 일치\n'
-            + '  - 채취년도는 숫자(4자리)를 입력\n'
-            + '  - 경지구분은 1차와 2차를 나눠 입력\n'
-            + '  - 분석의뢰일(접수일자)는 숫자(4)-숫자(2)-숫자(2)로 정의하며 \'-\'로 구분하며, 필수 입력\n'
-            + '  - 검정 대상지는 시도, 시군구, 읍면동, 리를 나눠 입력\n'
-            + '  - 지번구분은 일반은 빈공백으로 산은 산이라고 명시하며 검정대상지번은 지번1과 지번2로 나눠 입력(지번2가 없을 경우 비워놓음)\n'
-            + '  - 주소매핑여부는 자동으로 체크 됩니다. 작성하지 마세요.\n'
-            + '  - 면적의 단위는 ㎡로, 숫자 형태로 입력\n'
-            + '  - 토양검정일은 숫자(4)-숫자(2)-숫자(2)로 정의하며 \'-\'로 구분\n'
-            + '  - 작물을 입력할 시에는 작물명 또는 숫자 5자리로 이루어진 작물코드 입력\n'
-            + '  - 용도구분은 코드를 [일반적인토양검정-0] 선택 시에는 시행(재배) 전후를 선택 하지 마세요.(추가 내용)\n'
-            + '  - 성토여부는 미해당, 해당으로 입력\n'
-            + '  - 경작자 주소(추가내용)는 선택사항이므로 생략하셔도 입력에는 문제가 없습니다.\n'
-            + '  - 신청인 전화번호는 \'-\' 없이 입력하세요(예:01023456789)\n'
-            + '  - 경영체등록번호/농업인번호를 조회하기 위해서는 개인(경작자명, 생년월일 모두 입력) / 법인(법인번호) 중 한 항목만 입력하세요. (해당 필드 필수입력 항목 아님)\n'
-            + '  - 생년월일은 숫자(8자리), 법인번호는 숫자(13자리)를 입력\n'
-            + '  - 생년월일, 법인번호 항목은 경영체등록번호/농업인번호 조회 목적으로만 사용함 (흙토람에 등록되지 않는 정보)\n\n'
-            + '원활한 일괄입력을 위하여 1회당 300건 이하의 자료 입력을 권장드립니다.';
-        data.push(row2);
-
-        // 3행: 대분류 헤더 (흙토람 서식.xlsx 기준 A~AV = 48열, AY~BD = 코드 범례)
-        const row3 = new Array(56).fill('');
-        row3[0] = '필지구분';
-        row3[1] = ' 채취년도';
-        row3[2] = '시료채취자';
-        row3[3] = '분석의뢰일(접수일자)';
-        row3[4] = ' 경지구분';   // 소분류: 1차, 2차
-        // [5]: 경지구분 2차 (가로 병합)
-        row3[6] = '용도구분';    // 소분류: 코드, 시행(재배)전후
-        // [7]: 용도구분 시행(재배)전후 (가로 병합)
-        row3[8] = '시료번호';
-        row3[9] = '대상지 주소'; // 소분류: 시도, 시군구, 읍면동, 리 (가로 병합)
-        // [10~12]: 가로 병합
-        row3[13] = '지번 구분';
-        row3[14] = '지번';       // 소분류: 지번1, 지번2 (가로 병합)
-        // [15]: 가로 병합
-        row3[16] = '주소매핑여부';
-        row3[17] = '기타주소';
-        row3[18] = '면적(㎡)';
-        row3[19] = '토양검정일';
-        row3[20] = '경작자';
-        row3[21] = '경작자 주소(이전주소기준)'; // 소분류 시도~법정동 (가로 병합 V3:AC3)
-        // [22~28]: 가로 병합
-        row3[29] = '개인 (Agrix 조회용)'; // 소분류 경작자명, 생년월일 (AD3:AE3 가로 병합)
-        // [30]: 가로 병합
-        row3[31] = '법인 (Agrix 조회용)'; // 소분류: 법인번호
-        row3[32] = ' 작물명 또는\n작물코드';
-        row3[33] = '성토여부';
-        row3[34] = '점토함량';
-        row3[35] = ' pH';
-        row3[36] = ' 유기물';
-        row3[37] = '유효인산';
-        row3[38] = '교환성 칼륨';
-        row3[39] = '교환성 칼슘';
-        row3[40] = '교환성\n마그네슘';
-        row3[41] = '유효규산';
-        row3[42] = '전기전도도';
-        row3[43] = '석회소요량';
-        row3[44] = '질산태질소';
-        row3[45] = '양이온\n치환용량';
-        row3[46] = '암모니아태\n질소';
-        row3[47] = '신청인 전화번호';
-        row3[48] = '개인정보\n수집·이용 동의';
-        row3[49] = '개인정보\n제3자 제공동의';
-        // 코드 범례 (AY=50 ~ BD=55) — 흙토람 서식 원본과 동일
-        row3[50] = '일반적인토양검정-0';
-        row3[51] = '토양개량제 규산-1';
-        row3[52] = '토양개량제 석회질-2';
-        row3[53] = '녹비작물-3';
-        row3[54] = '전-N';
-        row3[55] = '후-Y';
-        data.push(row3);
-
-        // 4행: 소분류 헤더
-        const row4 = new Array(56).fill('');
-        row4[4] = '1차';
-        row4[5] = '2차';
-        row4[6] = '코드';
-        row4[7] = '시행(재배)전후';
-        row4[9] = '시도';
-        row4[10] = '시군구';
-        row4[11] = '읍면동';
-        row4[12] = '리';
-        row4[14] = '지번1';
-        row4[15] = '지번2';
-        row4[21] = '시도';
-        row4[22] = '시군구';
-        row4[23] = '읍면동';
-        row4[24] = '도로명';
-        row4[25] = '본번';
-        row4[26] = '부번';
-        row4[27] = '동/층/호';
-        row4[28] = '(법정동, 공동주택명)';
-        row4[29] = '경작자명';
-        row4[30] = '생년월일';
-        row4[31] = '법인번호';
-        data.push(row4);
+        // 헤더 4행(제목·안내문·대분류·소분류)은 정적 템플릿 상수에서 생성
+        const data = [
+            makeWsRow({ 0: HEUKTORAM_WS_TITLE }),
+            makeWsRow({ 0: HEUKTORAM_WS_GUIDE }),
+            makeWsRow(HEUKTORAM_WS_HEADER3),
+            makeWsRow(HEUKTORAM_WS_HEADER4),
+        ];
 
         // 5행부터 데이터
         for (const row of rows) {
-            const result = this.testResults[row.key] || {};
-            const lotAddr = row.isSubLot && row.subLot
-                ? (row.subLot.lotAddress || row.parcel?.lotAddress || '')
-                : (row.parcel?.lotAddress || '');
+            data.push(this._buildHeuktoramDataRow(row, collectYear, collector));
+        }
+        return data;
+    }
 
-            // isMountain 판정: subLot에도 있을 수 있고, parcel에도 있을 수 있음
-            let isMountain = false;
-            if (row.isSubLot && row.subLot) {
-                isMountain = row.subLot.isMountain || false;
-            } else if (row.parcel) {
-                isMountain = row.parcel.isMountain || false;
-            }
+    /**
+     * 흙토람 양식 데이터 행 1건 생성 (열 0~49).
+     * @param {Object} row - { key, isSubLot, parcel, subLot, log, crop, baseReceptionNumber }
+     * @param {string} collectYear
+     * @param {string} collector
+     * @returns {Array} 50열 데이터 행
+     */
+    _buildHeuktoramDataRow(row, collectYear, collector) {
+        const result = this.testResults[row.key] || {};
+        const lotAddr = row.isSubLot && row.subLot
+            ? (row.subLot.lotAddress || row.parcel?.lotAddress || '')
+            : (row.parcel?.lotAddress || '');
 
-            const lotParsed = this.parseLotAddress(lotAddr);
-            // parcel-level isMountain이 있으면 사용
-            if (isMountain) lotParsed.isMountain = true;
-
-            const personAddr = this.parsePersonAddress(row.log.addressRoad || row.log.address || '', row.log.addressDetail || '');
-            const category = row.parcel?.category || row.log.subCategory || '';
-            const purpose = row.parcel?.purpose || row.log.purpose || '';
-            const usageCode = this.getUsageCode(purpose, result.usageCode, this.bulkUsageCodeSelect?.value);
-            const soiling = (result.soiling === '해당' || category === '성토') ? '해당' : '미해당';
-
-            const dataRow = new Array(50).fill('');
-            dataRow[0] = row.isSubLot ? '하위필지' : '필지';
-            dataRow[1] = collectYear;
-            dataRow[2] = collector || row.log.name || '';
-            dataRow[3] = row.log.date || '';
-            dataRow[4] = (row.log.landClass1 && String(row.log.landClass1).trim()) || '농가의뢰';
-            dataRow[5] = this.getCategoryCode(category);
-            const usageLabels = {
-                '0': '일반적인토양검정-0',
-                '1': '토양개량제 규산-1',
-                '2': '토양개량제 석회질-2',
-                '3': '녹비작물-3'
-            };
-            dataRow[6] = usageLabels[usageCode] || '일반적인토양검정-0';
-            dataRow[7] = this.getBeforeAfter(usageCode);
-            dataRow[8] = row.baseReceptionNumber || String(row.log.receptionNumber || '').replace(/-\d+$/, '') || '';
-            dataRow[9] = lotParsed.sido;
-            dataRow[10] = lotParsed.sigungu;
-            dataRow[11] = lotParsed.eupmyeondong;
-            dataRow[12] = lotParsed.ri;
-            dataRow[13] = lotParsed.isMountain ? '산' : '';
-            dataRow[14] = lotParsed.jibun1;
-            dataRow[15] = lotParsed.jibun2;
-            dataRow[16] = ''; // 주소매핑여부
-            dataRow[17] = row.parcel?.note || ''; // 기타주소
-            // 면적: 평 단위면 ㎡로 변환
-            let areaM2 = row.crop?.area || '';
-            if (areaM2 && row.crop?.unit === 'pyeong') {
-                const parsed = parseFloat(areaM2);
-                if (!isNaN(parsed)) areaM2 = Math.round(parsed * PYEONG_TO_SQM);
-            }
-            dataRow[18] = areaM2;
-            dataRow[19] = result.testDate || '';
-            dataRow[20] = row.log.name || '';
-            dataRow[21] = personAddr.sido;
-            dataRow[22] = personAddr.sigungu;
-            dataRow[23] = personAddr.eupmyeondong;
-            dataRow[24] = personAddr.roadName;
-            dataRow[25] = personAddr.mainNum;
-            dataRow[26] = personAddr.subNum;
-            dataRow[27] = personAddr.dongFloorHo;
-            dataRow[28] = personAddr.note;
-            dataRow[29] = ''; // Agrix 경작자명 (비움)
-            dataRow[30] = ''; // 생년월일
-            dataRow[31] = ''; // 법인번호
-            dataRow[32] = row.crop?.name || row.crop?.code || '';
-            dataRow[33] = soiling;
-            dataRow[34] = result.clay || '';
-            dataRow[35] = result.pH || '';
-            dataRow[36] = result.organicMatter || '';
-            dataRow[37] = result.availableP || '';
-            dataRow[38] = result.exK || '';
-            dataRow[39] = result.exCa || '';
-            dataRow[40] = result.exMg || '';
-            dataRow[41] = result.silica || '';
-            dataRow[42] = result.ec || '';
-            dataRow[43] = result.limeReq || '';
-            dataRow[44] = result.NO3N || '';
-            dataRow[45] = result.cec || '';
-            dataRow[46] = result.NH4N || '';
-            dataRow[47] = (row.log.phoneNumber || '').replace(/-/g, '');
-            dataRow[48] = 'Y'; // 개인정보 수집·이용 동의
-            dataRow[49] = 'Y'; // 개인정보 제3자 제공동의
-
-            data.push(dataRow);
+        // isMountain 판정: subLot에도 있을 수 있고, parcel에도 있을 수 있음
+        let isMountain = false;
+        if (row.isSubLot && row.subLot) {
+            isMountain = row.subLot.isMountain || false;
+        } else if (row.parcel) {
+            isMountain = row.parcel.isMountain || false;
         }
 
-        return data;
+        const lotParsed = this.parseLotAddress(lotAddr);
+        if (isMountain) lotParsed.isMountain = true;
+
+        const personAddr = this.parsePersonAddress(row.log.addressRoad || row.log.address || '', row.log.addressDetail || '');
+        const category = row.parcel?.category || row.log.subCategory || '';
+        const purpose = row.parcel?.purpose || row.log.purpose || '';
+        const usageCode = this.getUsageCode(purpose, result.usageCode, this.bulkUsageCodeSelect?.value);
+        const soiling = (result.soiling === '해당' || category === '성토') ? '해당' : '미해당';
+
+        // 면적: 평 단위면 ㎡로 변환
+        let areaM2 = row.crop?.area || '';
+        if (areaM2 && row.crop?.unit === 'pyeong') {
+            const parsed = parseFloat(areaM2);
+            if (!isNaN(parsed)) areaM2 = Math.round(parsed * PYEONG_TO_SQM);
+        }
+
+        const dataRow = new Array(50).fill('');
+        dataRow[0] = row.isSubLot ? '하위필지' : '필지';
+        dataRow[1] = collectYear;
+        dataRow[2] = collector || row.log.name || '';
+        dataRow[3] = row.log.date || '';
+        dataRow[4] = (row.log.landClass1 && String(row.log.landClass1).trim()) || '농가의뢰';
+        dataRow[5] = this.getCategoryCode(category);
+        dataRow[6] = HEUKTORAM_WS_USAGE_LABELS[usageCode] || '일반적인토양검정-0';
+        dataRow[7] = this.getBeforeAfter(usageCode);
+        dataRow[8] = row.baseReceptionNumber || String(row.log.receptionNumber || '').replace(/-\d+$/, '') || '';
+        dataRow[9] = lotParsed.sido;
+        dataRow[10] = lotParsed.sigungu;
+        dataRow[11] = lotParsed.eupmyeondong;
+        dataRow[12] = lotParsed.ri;
+        dataRow[13] = lotParsed.isMountain ? '산' : '';
+        dataRow[14] = lotParsed.jibun1;
+        dataRow[15] = lotParsed.jibun2;
+        dataRow[16] = ''; // 주소매핑여부
+        dataRow[17] = row.parcel?.note || ''; // 기타주소
+        dataRow[18] = areaM2;
+        dataRow[19] = result.testDate || '';
+        dataRow[20] = row.log.name || '';
+        dataRow[21] = personAddr.sido;
+        dataRow[22] = personAddr.sigungu;
+        dataRow[23] = personAddr.eupmyeondong;
+        dataRow[24] = personAddr.roadName;
+        dataRow[25] = personAddr.mainNum;
+        dataRow[26] = personAddr.subNum;
+        dataRow[27] = personAddr.dongFloorHo;
+        dataRow[28] = personAddr.note;
+        dataRow[29] = ''; // Agrix 경작자명 (비움)
+        dataRow[30] = ''; // 생년월일
+        dataRow[31] = ''; // 법인번호
+        dataRow[32] = row.crop?.name || row.crop?.code || '';
+        dataRow[33] = soiling;
+        dataRow[34] = result.clay || '';
+        dataRow[35] = result.pH || '';
+        dataRow[36] = result.organicMatter || '';
+        dataRow[37] = result.availableP || '';
+        dataRow[38] = result.exK || '';
+        dataRow[39] = result.exCa || '';
+        dataRow[40] = result.exMg || '';
+        dataRow[41] = result.silica || '';
+        dataRow[42] = result.ec || '';
+        dataRow[43] = result.limeReq || '';
+        dataRow[44] = result.NO3N || '';
+        dataRow[45] = result.cec || '';
+        dataRow[46] = result.NH4N || '';
+        dataRow[47] = (row.log.phoneNumber || '').replace(/-/g, '');
+        dataRow[48] = 'Y'; // 개인정보 수집·이용 동의
+        dataRow[49] = 'Y'; // 개인정보 제3자 제공동의
+        return dataRow;
     }
 
     getColumnWidths() {

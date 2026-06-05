@@ -28,6 +28,12 @@
     margin-left: 0.25rem;
 }
 
+/* 뒤로가기·로고는 폭이 부족해도 찌그러지지 않도록 고정(헤더 좌측 요소 붕괴 방지) */
+.heuktoram-navbar .back-btn,
+.heuktoram-navbar .navbar-brand {
+    flex-shrink: 0;
+}
+
 /* 뒤로가기 버튼 */
 .heuktoram-page .back-btn {
     display: flex;

@@ -62,10 +62,10 @@
 - **파일**: `eslint.config.mjs`
 - `src/index.js`·`src/preload.js`·`*.config.js`는 CommonJS인데 `sourceType: 'module'` 일괄 적용 중. 별도 블록으로 `sourceType: 'commonjs'` + `globals.node` 분리하면 정확(현재는 동작하나 환경 매핑 부정확). `Buffer`/`__dirname`을 브라우저 파일에서 오용 시 잡도록 격리 가능.
 
-### B-6. 동기화 잔여 후속 (SLS-1-91 리뷰 SUGGESTION)
-- `storage-manager.js`(338줄) 미사용 CRUD 데드코드 제거 (실제 동기화는 BaseSampleManager 경유, storage-manager CRUD는 호출 0건).
-- `loadYearData`의 smartMerge 결선(wiring) 통합 테스트 추가.
-- `BaseSampleManager.smartMerge` 폴백에 "삭제 의미론 미지원 — 로드 순서 의존" 주석.
+### B-6. 동기화 잔여 후속 (SLS-1-91 리뷰 SUGGESTION) — ✅ 완료 (SLS-1-105)
+- ~~`storage-manager.js`(338줄) 미사용 CRUD 데드코드 제거~~ → **완료**: save/saveItem/load/delete/subscribe/sync/getMode/generateId/MODES 제거(외부 호출 0건 검증), 리스너 없는 `storage-sync-requested` dispatch 체인 제거. 보존: init/migrate/getStatus/isCloudEnabled(settings·main-init 사용). 338→117줄.
+- ~~`loadYearData`의 smartMerge 결선 통합 테스트~~ → **완료**: base-manager.test.js에 4건 추가(오프라인 보존·삭제전파·localStorage 저장·빈응답 안전가드). 119→123 테스트.
+- ~~`BaseSampleManager.smartMerge` 폴백 주석~~ → **완료**: union merge·삭제 미지원·updatedAt 무비교 로컬우선·순서의존 명시.
 
 ---
 

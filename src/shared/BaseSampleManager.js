@@ -422,6 +422,11 @@ class BaseSampleManager {
             return Array.isArray(result) ? result : (result?.data || []);
         }
         // 폴백: id 기준 union merge (로컬 우선 — Firebase만 반환하면 로컬 변경 유실)
+        // ⚠️ 삭제 의미론 미지원: 이 폴백은 로컬+Firebase의 합집합만 만든다.
+        //    SyncUtils.smartMerge와 달리 "클라우드에서 삭제된(syncedAt 있는) 레코드를
+        //    로컬에서도 제거"하지 못한다. 또한 양쪽 존재 시 updatedAt 비교 없이 무조건
+        //    로컬을 우선하므로 클라우드 최신본이 무시될 수 있다. SyncUtils 로드 실패라는
+        //    예외 경로에서만 동작하는 안전망이며, 결과는 [...firebase, ...local] 순서에 의존한다.
         const map = new Map();
         const noId = [];
         [...(firebaseData || []), ...(localData || [])].forEach(item => {

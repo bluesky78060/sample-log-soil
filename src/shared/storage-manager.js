@@ -1,21 +1,21 @@
 /**
  * @fileoverview 통합 스토리지 매니저
- * @description localStorage와 Firestore를 통합 관리하는 모듈
+ * @description Firebase 초기화 + 마이그레이션 + 동기화 상태 제공 모듈
  *
  * 동작 방식:
- * 1. Firebase 설정이 있으면 → Firestore + localStorage 동시 저장 (동기화)
- * 2. Firebase 설정이 없으면 → localStorage만 사용 (기존 방식)
+ * 1. Firebase 설정이 있으면 → CLOUD_SYNC 모드 (Firestore 활성화)
+ * 2. Firebase 설정이 없으면 → LOCAL_ONLY 모드 (localStorage만 사용)
  *
- * 오프라인 지원:
- * - Firestore IndexedDB 캐시로 오프라인에서도 읽기/쓰기 가능
- * - 온라인 복귀 시 자동 동기화
+ * ⚠️ 데이터 CRUD는 이 모듈이 아니라 BaseSampleManager(loadYearData/saveToStorage)와
+ *    firestore-db.js를 통해 수행한다. 과거 이 모듈에 있던 save/saveItem/load/delete/
+ *    subscribe 등 CRUD API는 호출처가 없어 제거됨(SLS-1-105). 남은 책임은
+ *    초기화(init)·클라우드 마이그레이션(migrate)·동기화 상태 조회(getStatus)뿐이다.
  */
 
 // 스토리지 모드
 const STORAGE_MODE = {
     LOCAL_ONLY: 'local',      // localStorage만 사용
-    CLOUD_SYNC: 'cloud',      // Firestore + localStorage 동기화
-    CLOUD_ONLY: 'cloudOnly'   // Firestore만 사용 (권장하지 않음)
+    CLOUD_SYNC: 'cloud'       // Firestore + localStorage 동기화
 };
 
 // 현재 모드
@@ -27,18 +27,17 @@ const DEBUG_STORAGE = false;
 /** 조건부 로깅 */
 const logStorage = (...args) => DEBUG_STORAGE && console.log('[Storage]', ...args);
 
-// 동기화 상태
+// 동기화 상태 (getStatus로 노출 — main-init.js의 상태 UI가 소비)
 let syncStatus = {
     lastSyncTime: null,
     pendingChanges: 0,
     isOnline: navigator.onLine
 };
 
-// 온라인/오프라인 이벤트 리스너
+// 온라인/오프라인 상태 추적 (isOnline은 getSyncStatus가 사용)
 window.addEventListener('online', () => {
     syncStatus.isOnline = true;
-    logStorage('네트워크 연결됨 - 동기화 시작');
-    triggerSync();
+    logStorage('네트워크 연결됨');
 });
 
 window.addEventListener('offline', () => {
@@ -73,184 +72,6 @@ async function initStorageManager() {
 }
 
 /**
- * 데이터 저장
- * @param {string} sampleType - 시료 타입 (soil, water, compost, heavyMetal, pesticide)
- * @param {number} year - 연도
- * @param {string} localStorageKey - localStorage 키
- * @param {Array} data - 저장할 데이터 배열
- * @returns {Promise<boolean>} 성공 여부
- */
-async function saveData(sampleType, year, localStorageKey, data) {
-    try {
-        // 1. localStorage에 항상 저장 (백업 및 오프라인 지원)
-        localStorage.setItem(localStorageKey, JSON.stringify(data));
-        logStorage(`localStorage 저장: ${localStorageKey}`);
-
-        // 2. 클라우드 동기화 모드면 Firestore에도 저장
-        if (currentMode === STORAGE_MODE.CLOUD_SYNC && window.firestoreDb?.isEnabled()) {
-            const documentsWithId = data.map(item => ({
-                ...item,
-                id: item.id || generateId()
-            }));
-
-            await window.firestoreDb.batchSave(sampleType, year, documentsWithId);
-            syncStatus.lastSyncTime = new Date();
-        }
-
-        return true;
-    } catch (error) {
-        (window.logger?.error || console.error)('데이터 저장 실패:', error);
-        return false;
-    }
-}
-
-/**
- * 단일 항목 저장
- * @param {string} sampleType - 시료 타입
- * @param {number} year - 연도
- * @param {string} localStorageKey - localStorage 키
- * @param {Object} item - 저장할 항목
- * @returns {Promise<boolean>} 성공 여부
- */
-async function saveItem(sampleType, year, localStorageKey, item) {
-    try {
-        // localStorage에서 기존 데이터 로드
-        let existingData;
-        try {
-            existingData = JSON.parse(localStorage.getItem(localStorageKey) || '[]');
-        } catch (parseError) {
-            window.logger?.warn('[storage-manager] JSON.parse 실패 (saveItem), 빈 배열로 폴백:', parseError);
-            existingData = [];
-        }
-
-        // ID 확인/생성
-        const itemWithId = {
-            ...item,
-            id: item.id || generateId()
-        };
-
-        // 기존 항목 업데이트 또는 새 항목 추가
-        const index = existingData.findIndex(d => d.id === itemWithId.id);
-        if (index >= 0) {
-            existingData[index] = itemWithId;
-        } else {
-            existingData.push(itemWithId);
-        }
-
-        // localStorage 저장
-        localStorage.setItem(localStorageKey, JSON.stringify(existingData));
-
-        // Firestore 저장
-        if (currentMode === STORAGE_MODE.CLOUD_SYNC && window.firestoreDb?.isEnabled()) {
-            await window.firestoreDb.save(sampleType, year, itemWithId.id, itemWithId);
-            syncStatus.lastSyncTime = new Date();
-        }
-
-        return true;
-    } catch (error) {
-        (window.logger?.error || console.error)('항목 저장 실패:', error);
-        return false;
-    }
-}
-
-/**
- * 데이터 로드
- * @param {string} sampleType - 시료 타입
- * @param {number} year - 연도
- * @param {string} localStorageKey - localStorage 키
- * @returns {Promise<Array>} 데이터 배열
- */
-async function loadData(sampleType, year, localStorageKey) {
-    try {
-        // 클라우드 동기화 모드이고 온라인이면 Firestore에서 로드
-        if (currentMode === STORAGE_MODE.CLOUD_SYNC && window.firestoreDb?.isEnabled()) {
-            const cloudData = await window.firestoreDb.getAll(sampleType, year);
-
-            if (cloudData.length > 0) {
-                // 클라우드 데이터로 localStorage 업데이트
-                localStorage.setItem(localStorageKey, JSON.stringify(cloudData));
-                syncStatus.lastSyncTime = new Date();
-                return cloudData;
-            }
-        }
-
-        // localStorage에서 로드 (오프라인 또는 클라우드 데이터 없음)
-        const localData = localStorage.getItem(localStorageKey);
-        return localData ? JSON.parse(localData) : [];
-    } catch (error) {
-        (window.logger?.error || console.error)('데이터 로드 실패:', error);
-        // 에러 시 localStorage 폴백 — 손상된 JSON으로 인한 예외 재발 방지
-        try {
-            const localData = localStorage.getItem(localStorageKey);
-            return localData ? JSON.parse(localData) : [];
-        } catch (parseError) {
-            (window.logger?.error || console.error)('localStorage 폴백 파싱 실패:', parseError);
-            return [];
-        }
-    }
-}
-
-/**
- * 항목 삭제
- * @param {string} sampleType - 시료 타입
- * @param {number} year - 연도
- * @param {string} localStorageKey - localStorage 키
- * @param {string} itemId - 삭제할 항목 ID
- * @returns {Promise<boolean>} 성공 여부
- */
-async function deleteItem(sampleType, year, localStorageKey, itemId) {
-    try {
-        // localStorage에서 삭제
-        let existingData;
-        try {
-            existingData = JSON.parse(localStorage.getItem(localStorageKey) || '[]');
-        } catch (parseError) {
-            window.logger?.warn('[storage-manager] JSON.parse 실패 (deleteItem), 빈 배열로 폴백:', parseError);
-            existingData = [];
-        }
-        const filteredData = existingData.filter(item => item.id !== itemId);
-        localStorage.setItem(localStorageKey, JSON.stringify(filteredData));
-
-        // Firestore에서 삭제
-        if (currentMode === STORAGE_MODE.CLOUD_SYNC && window.firestoreDb?.isEnabled()) {
-            await window.firestoreDb.delete(sampleType, year, itemId);
-            syncStatus.lastSyncTime = new Date();
-        }
-
-        return true;
-    } catch (error) {
-        (window.logger?.error || console.error)('항목 삭제 실패:', error);
-        return false;
-    }
-}
-
-/**
- * 실시간 동기화 구독
- * @param {string} sampleType - 시료 타입
- * @param {number} year - 연도
- * @param {string} localStorageKey - localStorage 키
- * @param {Function} onUpdate - 업데이트 콜백
- * @returns {Function|null} 구독 해제 함수
- */
-function subscribeToUpdates(sampleType, year, localStorageKey, onUpdate) {
-    if (currentMode !== STORAGE_MODE.CLOUD_SYNC || !window.firestoreDb?.isEnabled()) {
-        return null;
-    }
-
-    return window.firestoreDb.subscribe(sampleType, year, (documents, fromCache) => {
-        // localStorage 업데이트
-        localStorage.setItem(localStorageKey, JSON.stringify(documents));
-
-        // 콜백 호출
-        onUpdate(documents, fromCache);
-
-        if (!fromCache) {
-            syncStatus.lastSyncTime = new Date();
-        }
-    });
-}
-
-/**
  * localStorage에서 Firestore로 마이그레이션
  * @param {string} sampleType - 시료 타입
  * @param {number} year - 연도
@@ -263,40 +84,6 @@ async function migrateToCloud(sampleType, year, localStorageKey) {
     }
 
     return await window.firestoreDb.migrate(sampleType, year, localStorageKey);
-}
-
-/**
- * 수동 동기화 트리거
- */
-async function triggerSync() {
-    if (currentMode !== STORAGE_MODE.CLOUD_SYNC || !syncStatus.isOnline) {
-        return;
-    }
-
-    // 이벤트 발생으로 각 페이지에서 동기화 처리
-    window.dispatchEvent(new CustomEvent('storage-sync-requested'));
-}
-
-/**
- * 고유 ID 생성
- * @returns {string} 고유 ID
- */
-function generateId() {
-    if (typeof window !== 'undefined' && window.SampleUtils?.generateUUID) {
-        return window.SampleUtils.generateUUID();
-    }
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return crypto.randomUUID();
-    }
-    return Date.now().toString(36) + Array.from(crypto.getRandomValues(new Uint8Array(6)), b => b.toString(36)).join('').substring(0, 9);
-}
-
-/**
- * 현재 스토리지 모드 반환
- * @returns {string} 현재 모드
- */
-function getStorageMode() {
-    return currentMode;
 }
 
 /**
@@ -323,16 +110,7 @@ function isCloudSyncEnabled() {
 // 전역으로 내보내기
 window.storageManager = {
     init: initStorageManager,
-    save: saveData,
-    saveItem: saveItem,
-    load: loadData,
-    delete: deleteItem,
-    subscribe: subscribeToUpdates,
     migrate: migrateToCloud,
-    sync: triggerSync,
-    getMode: getStorageMode,
     getStatus: getSyncStatus,
-    isCloudEnabled: isCloudSyncEnabled,
-    generateId: generateId,
-    MODES: STORAGE_MODE
+    isCloudEnabled: isCloudSyncEnabled
 };

@@ -3611,8 +3611,23 @@ class SoilSampleManager extends window.BaseSampleManager {
     // ========================================
 
     setupTypeSpecificEvents() {
-        const self = this;
+        // 그룹별 바인딩 메서드를 원래 순서대로 호출한다.
+        // ⚠️ 일부 메서드는 초기화 부작용(AddressManager 인스턴스화·addParcel·드롭다운 채우기·
+        //    initExcelImporter)을 포함하므로 호출 순서를 바꾸면 안 된다(SLS-1-106 zero-move 분해).
+        this._initFormControls();
+        this._bindParcelContainerEvents();
+        this._bindCropAreaModalEvents();
+        this._bindTableEvents();
+        this._bindViewToggle();
+        this._bindSearchModal();
+        this._bindBulkActions();
+        this._bindStatisticsAndLegacyModals();
+        this._bindExportImportAndIO();
+        this._bindViewerAndResultModals();
+        this._bindNavAndPagination();
+    }
 
+    _initFormControls() {
         // 시료 타입 네비게이션 선택
         const sampleTypeBtns = document.querySelectorAll('.type-btn');
         sampleTypeBtns.forEach(btn => {
@@ -3680,6 +3695,9 @@ class SoilSampleManager extends window.BaseSampleManager {
             this.addParcelBtn.addEventListener('click', () => this.addParcel());
         }
 
+    }
+
+    _bindParcelContainerEvents() {
         // 필지 컨테이너 이벤트 위임
         if (this.parcelsContainer) {
             this.parcelsContainer.addEventListener('click', (e) => {
@@ -3795,6 +3813,9 @@ class SoilSampleManager extends window.BaseSampleManager {
             });
         }
 
+    }
+
+    _bindCropAreaModalEvents() {
         // 작물 모달 이벤트
         if (this.closeCropAreaModalBtn) this.closeCropAreaModalBtn.addEventListener('click', () => this.closeCropAreaModalFn());
         if (this.cancelCropAreaBtn) this.cancelCropAreaBtn.addEventListener('click', () => this.closeCropAreaModalFn());
@@ -3808,6 +3829,9 @@ class SoilSampleManager extends window.BaseSampleManager {
         });
         if (this.confirmCropAreaBtn) this.confirmCropAreaBtn.addEventListener('click', () => this.confirmCropArea());
 
+    }
+
+    _bindTableEvents() {
         // 테이블 이벤트 위임
         if (this.tableBody) {
             this.tableBody.addEventListener('click', (e) => {
@@ -3950,6 +3974,9 @@ class SoilSampleManager extends window.BaseSampleManager {
         // 전역 등록
         window.getSelectedIds = () => this.getSelectedIds();
 
+    }
+
+    _bindViewToggle() {
         // 전체 보기/기본 보기 토글
         const viewToggleBtn = document.getElementById('viewToggleBtn');
         if (viewToggleBtn) {
@@ -3971,6 +3998,9 @@ class SoilSampleManager extends window.BaseSampleManager {
             });
         }
 
+    }
+
+    _bindSearchModal() {
         // 검색 모달
         const openSearchModalBtn = document.getElementById('openSearchModalBtn');
         const closeSearchModalBtn = document.getElementById('closeSearchModal');
@@ -4091,6 +4121,9 @@ class SoilSampleManager extends window.BaseSampleManager {
             }
         });
 
+    }
+
+    _bindBulkActions() {
         // 라벨 인쇄
         const btnLabelPrint = document.getElementById('btnLabelPrint');
         if (btnLabelPrint) {
@@ -4237,6 +4270,9 @@ class SoilSampleManager extends window.BaseSampleManager {
             });
         }
 
+    }
+
+    _bindStatisticsAndLegacyModals() {
         // 통계
         const btnStatistics = document.getElementById('btnStatistics');
         const closeStatisticsModal = document.getElementById('closeStatisticsModal');
@@ -4278,6 +4314,9 @@ class SoilSampleManager extends window.BaseSampleManager {
             });
         }
 
+    }
+
+    _bindExportImportAndIO() {
         // 엑셀 내보내기
         const exportBtn = document.getElementById('exportBtn');
         if (exportBtn) exportBtn.addEventListener('click', () => {
@@ -4355,6 +4394,9 @@ class SoilSampleManager extends window.BaseSampleManager {
         // 엑셀 가져오기
         this.initExcelImporter();
 
+    }
+
+    _bindViewerAndResultModals() {
         // 전체화면 뷰어
         const openViewerBtn = document.getElementById('openViewerBtn');
         if (openViewerBtn) {
@@ -4397,6 +4439,9 @@ class SoilSampleManager extends window.BaseSampleManager {
             if (overlay) overlay.addEventListener('click', () => this.closeRegionSelectionModal());
         }
 
+    }
+
+    _bindNavAndPagination() {
         // 네비게이션 바 버튼
         if (this.navResetBtn) this.navResetBtn.addEventListener('click', () => this.resetFormKeepReceptionInfo());
         if (this.navSubmitBtn) this.navSubmitBtn.addEventListener('click', () => this.form.requestSubmit());

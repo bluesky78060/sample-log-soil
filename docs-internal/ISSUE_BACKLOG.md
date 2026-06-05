@@ -26,13 +26,12 @@
 
 ---
 
-## 🔴 남은 과제 — 고위험 (별도 세션·충분한 E2E 필수)
-
-### B-1. `setupTypeSpecificEvents`(686줄) 분해
+## 🔴 B-1. `setupTypeSpecificEvents`(686줄) 분해 — ✅ 1단계 완료 (SLS-1-106)
 - **파일**: `src/soil/soil-script.js`
-- **위험도**: 🔴 최고. 네비·주소검색·필지·통계·라벨·엑셀 등 10+ 책임이 이벤트 위임으로 얽힘. `const self = this` 클로저, 동적 바인딩.
-- **위험 요인**: 분해 시 이벤트 하나만 누락돼도 특정 버튼이 조용히 먹통. 단위 테스트 불가.
-- **접근법**: 카테고리별 `bindNavigationEvents()`/`bindParcelEvents()`/`bindStatisticsEvents()` 등으로 분리하되, **모든 버튼·입력 인터랙션을 E2E로 전수 점검**. 한 번에 하나씩.
+- **1단계(오케스트레이터화) 완료**: **zero-move seam 분해** — 코드 무이동, 그룹 경계에 메서드 경계만 주입해 11개 `_bind*` 메서드 + 얇은 오케스트레이터로 분리. 죽은 `const self` 제거. 686→오케스트레이터 ~15줄, 잔존 최대 128줄.
+  - 11개: `_initFormControls`/`_bindParcelContainerEvents`/`_bindCropAreaModalEvents`/`_bindTableEvents`/`_bindViewToggle`/`_bindSearchModal`/`_bindBulkActions`/`_bindStatisticsAndLegacyModals`/`_bindExportImportAndIO`/`_bindViewerAndResultModals`/`_bindNavAndPagination`
+  - **검증**: 중괄호 196/196, addEventListener diff 0(67개 보존), 클로저 격리, 순서·부작용 보존. E2E 전11그룹 인터랙션 동작. ESLint 0 errors, vitest 123/123. 리뷰 0 issues.
+- **2단계(선택, 미착수)**: 무거운 4개 그룹(`_bindParcelContainerEvents` 109·`_bindTableEvents` 123·`_bindSearchModal` 107·`_bindBulkActions` 128)의 **인라인 비즈니스 로직을 순수 헬퍼로 추출**(완료버튼 그룹연동·일괄완료 연관번호 계산 등 → `_computeRelatedLogs` 류). 단위 테스트 가능해지는 부가 이득. ROI 중간, 별도 진행.
 
 ---
 

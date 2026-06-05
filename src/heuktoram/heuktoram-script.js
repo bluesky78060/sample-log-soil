@@ -666,12 +666,17 @@ class HeuktoramManager {
 
     createTableRow(row, rowIdx) {
         const tr = document.createElement('tr');
-        const result = this.testResults[row.key] || {};
-
         tr.setAttribute('data-log-id', row.log.id);
         if (row.isSubLot) tr.classList.add('sublot-row');
         if (row.log.isComplete) tr.classList.add('row-completed');
 
+        this._appendHeuktoramFixedCells(tr, row);
+        this._appendHeuktoramResultCells(tr, row, rowIdx);
+        return tr;
+    }
+
+    /** 고정 정보 셀(체크박스·접수번호·성명·주소·작물·경지구분·용도·면적·접수일자)을 tr에 추가 */
+    _appendHeuktoramFixedCells(tr, row) {
         const isChecked = this.selectedKeys.has(row.key);
 
         // 체크박스
@@ -748,6 +753,11 @@ class HeuktoramManager {
         tdDate.className = 'col-date sticky-col';
         tdDate.textContent = row.log.date || '';
         tr.appendChild(tdDate);
+    }
+
+    /** 편집 가능한 검정 결과 셀들(contentEditable)을 tr에 추가 */
+    _appendHeuktoramResultCells(tr, row, rowIdx) {
+        const result = this.testResults[row.key] || {};
 
         // 경지구분/작물에 따라 필수 입력 필드 결정
         const requiredFields = this.getRequiredFields(
@@ -798,8 +808,6 @@ class HeuktoramManager {
 
             tr.appendChild(td);
         }
-
-        return tr;
     }
 
     moveFocus(rowIdx, colIdx, direction = 1) {

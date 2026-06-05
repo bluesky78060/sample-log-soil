@@ -3842,16 +3842,9 @@ class SoilSampleManager extends window.BaseSampleManager {
                     if (log) {
                         const newCompletedStatus = !log.isComplete;
                         const receptionNumber = log.receptionNumber || '';
-                        // 본필지+하위필지 연동: 첫 번째 '-' 앞 숫자로 그룹핑
-                        // 503, 503-1, 503-2 → 모두 baseNumber '503'으로 같은 그룹
-                        // 성토(F접두사)와 일반 시료는 번호가 같아도 별개 그룹으로 분리
-                        const isFill = receptionNumber.startsWith('F');
-                        const baseNumber = receptionNumber.replace(/^F/, '').split('-')[0];
-                        const relatedLogs = this.sampleLogs.filter(l => {
-                            const logRec = l.receptionNumber || '';
-                            const logBase = logRec.replace(/^F/, '').split('-')[0];
-                            return logBase === baseNumber && baseNumber !== '' && logRec.startsWith('F') === isFill;
-                        });
+                        // 본필지+하위필지 연동: 같은 본번(F접두/일반 분리) 그룹 전체를 함께 토글.
+                        // 503, 503-1, 503-2 → 같은 그룹 / 503 ↔ F503 → 별개 그룹 (ReceptionGroup SSOT)
+                        const relatedLogs = window.ReceptionGroup.findRelatedLogs(this.sampleLogs, receptionNumber);
                         relatedLogs.forEach(relatedLog => {
                             relatedLog.isComplete = newCompletedStatus;
                             relatedLog.updatedAt = new Date().toISOString();
@@ -4147,24 +4140,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                 const selectedIds = this.getSelectedIds();
                 if (selectedIds.length === 0) { alert('완료 처리할 항목을 선택해주세요.'); return; }
 
-                // 연관 접수번호(같은 base 번호) 포함한 실제 처리 대상 사전 계산
-                // 성토(F접두사)와 일반 시료는 분리하여 그룹핑
-                const selectedGroups = selectedIds.map(id => {
-                    const log = this.sampleLogs.find(l => String(l.id) === id);
-                    const rec = log?.receptionNumber || '';
-                    return { base: rec.replace(/^F/, '').split('-')[0], isFill: rec.startsWith('F') };
-                }).filter(g => g.base);
-                const targetIds = new Set(
-                    this.sampleLogs
-                        .filter(log => {
-                            if (selectedIds.includes(String(log.id))) return true;
-                            const rec = log.receptionNumber || '';
-                            const base = rec.replace(/^F/, '').split('-')[0];
-                            const isFill = rec.startsWith('F');
-                            return base && selectedGroups.some(g => g.base === base && g.isFill === isFill);
-                        })
-                        .map(log => String(log.id))
-                );
+                // 연관 접수번호(같은 본번 + 성토여부) 포함한 실제 처리 대상 사전 계산 (ReceptionGroup SSOT)
+                const targetIds = window.ReceptionGroup.computeBulkTargetIds(this.sampleLogs, selectedIds);
                 // 선택 대상이 모두 완료 상태면 → 일괄 해제, 아니면 → 일괄 완료
                 const allComplete = [...targetIds].every(id => {
                     const log = this.sampleLogs.find(l => String(l.id) === id);

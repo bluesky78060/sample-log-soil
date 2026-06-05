@@ -31,7 +31,8 @@
 - **1단계(오케스트레이터화) 완료**: **zero-move seam 분해** — 코드 무이동, 그룹 경계에 메서드 경계만 주입해 11개 `_bind*` 메서드 + 얇은 오케스트레이터로 분리. 죽은 `const self` 제거. 686→오케스트레이터 ~15줄, 잔존 최대 128줄.
   - 11개: `_initFormControls`/`_bindParcelContainerEvents`/`_bindCropAreaModalEvents`/`_bindTableEvents`/`_bindViewToggle`/`_bindSearchModal`/`_bindBulkActions`/`_bindStatisticsAndLegacyModals`/`_bindExportImportAndIO`/`_bindViewerAndResultModals`/`_bindNavAndPagination`
   - **검증**: 중괄호 196/196, addEventListener diff 0(67개 보존), 클로저 격리, 순서·부작용 보존. E2E 전11그룹 인터랙션 동작. ESLint 0 errors, vitest 123/123. 리뷰 0 issues.
-- **2단계(선택, 미착수)**: 무거운 4개 그룹(`_bindParcelContainerEvents` 109·`_bindTableEvents` 123·`_bindSearchModal` 107·`_bindBulkActions` 128)의 **인라인 비즈니스 로직을 순수 헬퍼로 추출**(완료버튼 그룹연동·일괄완료 연관번호 계산 등 → `_computeRelatedLogs` 류). 단위 테스트 가능해지는 부가 이득. ROI 중간, 별도 진행.
+- **2단계 — ✅ 완료 (SLS-1-107)**: 완료 그룹핑 중복 로직(테이블 완료 + 일괄 완료)을 **`reception-group.js` 순수 모듈**로 추출. `parseReceptionGroup`/`isSameGroup`/`findRelatedLogs`/`computeBulkTargetIds` + `window.ReceptionGroup`. 단위 테스트 31개(동치성 가드 포함), E2E 그룹핑 동작 보존. `_bindTableEvents` 123→117, `_bindBulkActions` 128→113.
+  - **잔여(저ROI)**: `_bindParcelContainerEvents`(109)·잔여 메서드 100줄 초과분은 대부분 DOM 조작·저장 흐름이라 추출 가치 낮음. 추가 분해는 보류 권장.
 
 ---
 

@@ -62,12 +62,12 @@ cat >&2 <<'WARN'
 
 먼저 AI PM 티켓을 발행하세요:
 1. mcp__ai-pm__get_project_status로 에픽 확인
-2. mcp__ai-pm__create_task(epic_id="b0b0e282-9c1d-41ad-986d-3d347077e6a5", title="...")
-3. echo "SAMPL-X-Y" > .claude/active-ticket  (또는 bash .claude/hooks/set-ticket.sh SAMPL-X-Y)
+2. mcp__ai-pm__create_task(epic_id="4d7bdd33-38c5-4c17-9cfc-c3c37b664549", title="...")
+3. echo "SLS-X-Y" > .claude/active-ticket  (또는 bash .claude/hooks/set-ticket.sh SLS-X-Y)
 4. mcp__ai-pm__smart_workflow(task_id, 'start_work')
 5. 그 후 코드 수정 진행
 
-프로젝트: sample-log-soil (ID: ca36c527-a379-47e9-bdda-938d57fa916c)
-General 에픽: b0b0e282-9c1d-41ad-986d-3d347077e6a5
+프로젝트: sample-log-soil (ID: 0a5f80f1-ede5-4b09-89b2-0001d6b89426)
+General 에픽: 4d7bdd33-38c5-4c17-9cfc-c3c37b664549
 WARN
 exit 2

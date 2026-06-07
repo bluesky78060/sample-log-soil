@@ -1,7 +1,7 @@
 #!/bin/bash
 # set-ticket.sh — 활성 티켓 설정/해제 헬퍼
 # Usage:
-#   bash .claude/hooks/set-ticket.sh SAMPL-1-23   # 티켓 활성화
+#   bash .claude/hooks/set-ticket.sh SLS-1-23   # 티켓 활성화
 #   bash .claude/hooks/set-ticket.sh clear        # 티켓 해제
 #   bash .claude/hooks/set-ticket.sh              # 현재 티켓 조회
 

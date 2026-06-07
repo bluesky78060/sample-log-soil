@@ -12,9 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 모든 코드 변경은 **AI PM System MCP** 티켓 발행 후 진행. 전역 워크플로우는 `~/.claude/rules/ai-pm-ticket.md` 참조.
 
-- **프로젝트 ID**: `ca36c527-a379-47e9-bdda-938d57fa916c`
-- **프로젝트 코드**: `SAMPL` (메인 프로젝트와 공유)
-- **General 에픽 ID**: `b0b0e282-9c1d-41ad-986d-3d347077e6a5`
+- **프로젝트 ID**: `0a5f80f1-ede5-4b09-89b2-0001d6b89426`
+- **프로젝트 코드**: `SLS`
+- **General 에픽 ID**: `4d7bdd33-38c5-4c17-9cfc-c3c37b664549`
 - **API URL**: `https://ai-pm-system.onrender.com`
 
 `create_task` 시 `epic_id` 누락 금지. `approve_review` notes는 CRITICAL/MAJOR/MINOR/SUGGESTION 카운트 + 판정 형식.
@@ -32,14 +32,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **활성 티켓 헬퍼**:
 ```bash
-bash .claude/hooks/set-ticket.sh SAMPL-X-Y   # 활성화
+bash .claude/hooks/set-ticket.sh SLS-X-Y   # 활성화
 bash .claude/hooks/set-ticket.sh             # 조회
 bash .claude/hooks/set-ticket.sh clear       # 해제
 ```
 
 표준 워크플로우:
-1. `mcp__ai-pm__create_task(epic_id="b0b0e282-...", title="...")` → ticket_code 받음
-2. `bash .claude/hooks/set-ticket.sh SAMPL-X-Y` (티켓 활성화)
+1. `mcp__ai-pm__create_task(epic_id="4d7bdd33-...", title="...")` → ticket_code 받음
+2. `bash .claude/hooks/set-ticket.sh SLS-X-Y` (티켓 활성화)
 3. `mcp__ai-pm__smart_workflow(task_id, 'start_work')`
 4. 코드 수정 (Edit/Write 통과)
 5. 빌드/테스트 → `submit_test`

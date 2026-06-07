@@ -29,6 +29,26 @@ const LAND_CLASS1_OPTIONS = ['개량제', '전략', '직불', '자체', '기타'
 const LAND_CLASS1_DEFAULT = '농가의뢰';
 
 /**
+ * 통계 모달 경지구분별 차트의 라벨·색상 매핑.
+ * LAND_CLASS1_OPTIONS 변경 시 함께 갱신할 것. 매핑 외 값은 category-other 폴백.
+ * @type {Object.<string, {label: string, class: string}>}
+ */
+const LAND_CLASS1_STATS_MAPPING = {
+    '농가의뢰': { label: '🧑‍🌾 농가의뢰', class: 'purpose-general' },
+    '공익직불제': { label: '🏛️ 공익직불제', class: 'purpose-gap' },
+    '대표필지': { label: '📍 대표필지', class: 'category-facility' },
+    '개량제': { label: '🧪 개량제', class: 'category-fill' },
+    '전략': { label: '🎯 전략', class: 'category-fruit' },
+    '직불': { label: '💰 직불', class: 'purpose-lowcarbon' },
+    '자체': { label: '🏢 자체', class: 'landclass-self' },
+    '친환경': { label: '🌿 친환경', class: 'purpose-nopesticide' },
+    '유기농': { label: '♻️ 유기농', class: 'purpose-organic' },
+    '무농약': { label: '🍃 무농약', class: 'category-field' },
+    'GAP': { label: '✅ GAP', class: 'landclass-gapcert' },
+    '기타': { label: '📦 기타', class: 'category-other' }
+};
+
+/**
  * 공익직불제 기준년도(이행점검명) 선택지 (임시값, 추후 교체 가능)
  * @type {string[]}
  */
@@ -2585,7 +2605,17 @@ class SoilSampleManager extends window.BaseSampleManager {
             byReceptionMethod[method].count++;
         });
 
-        return { total, completed, pending, bySubCategory, byPurpose, byMonth, byQuarter, byReceptionMethod };
+        const byLandClass = {};
+        // 경지구분 간 비교가 목적이므로 탭 필터와 무관하게 전체 시료 기준 집계 (수령 방법별과 동일)
+        this.sampleLogs.forEach(log => {
+            const landClass = log.landClass1 || LAND_CLASS1_DEFAULT;
+            if (!byLandClass[landClass]) {
+                byLandClass[landClass] = { count: 0, ...LAND_CLASS1_STATS_MAPPING[landClass] || { label: landClass, class: 'category-other' } };
+            }
+            byLandClass[landClass].count++;
+        });
+
+        return { total, completed, pending, bySubCategory, byPurpose, byMonth, byQuarter, byReceptionMethod, byLandClass };
     }
 
     openStatisticsModal() {
@@ -2607,6 +2637,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.renderMonthlyChart('statsByMonth', stats.byMonth);
         this.renderQuarterlySummary('statsQuarterly', stats.byQuarter);
         this.renderMethodCards('statsByReceptionMethod', stats.byReceptionMethod);
+        this.renderHorizontalBarChart('statsByLandClass', stats.byLandClass);
         const monthRange = document.getElementById('statsMonthRange');
         if (monthRange) monthRange.textContent = `${new Date().getFullYear()}년 1월 ~ 12월`;
         this.statisticsModal.classList.remove('hidden');

@@ -3122,6 +3122,10 @@ input[type="number"] {
 .stat-bar.purpose-globalgap { background: linear-gradient(90deg, #06b6d4, #0891b2); }
 .stat-bar.purpose-other { background: linear-gradient(90deg, #9ca3af, #6b7280); }
 
+/* 경지구분별 (통계 모달) — 같은 차트 내 색상 중복 회피용 전용 색 */
+.stat-bar.landclass-self { background: linear-gradient(90deg, #6366f1, #4f46e5); }
+.stat-bar.landclass-gapcert { background: linear-gradient(90deg, #ec4899, #db2777); }
+
 .stat-bar.month { background: linear-gradient(90deg, #7C9082, #5A6B60); }
 
 .stat-bar.method-mail { background: linear-gradient(90deg, #f97316, #ea580c); }

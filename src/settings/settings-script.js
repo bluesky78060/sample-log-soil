@@ -954,3 +954,221 @@ queueMicrotask(() => checkAuthFileStatus());
         }
     }
 })();
+
+// ========================================
+// 연도별 데이터 삭제 (보관 기한 3년)
+// ========================================
+const YEAR_PURGE_RETENTION = 3;          // 보관 연수
+const YEAR_PURGE_MIN_YEAR = 2020;        // 조회 시작 연도 (마이그레이션 로직과 동일 기준)
+const YEAR_PURGE_PREFIX = 'soilSampleLogs';
+const YEAR_PURGE_SAMPLE_TYPE = 'soil';
+
+/** 삭제 대상 임계 연도(이 연도 이하가 삭제 대상). 예: 2026년 → 2023 */
+function getYearPurgeThreshold() {
+    return new Date().getFullYear() - YEAR_PURGE_RETENTION;
+}
+
+/** 연도별 보유 현황 수집(건수 0인 연도는 제외) */
+function collectYearInventory() {
+    const currentYear = new Date().getFullYear();
+    const threshold = getYearPurgeThreshold();
+    const rows = [];
+    for (let year = YEAR_PURGE_MIN_YEAR; year <= currentYear; year++) {
+        const raw = localStorage.getItem(`${YEAR_PURGE_PREFIX}_${year}`);
+        if (!raw) continue;
+        let count = 0;
+        try {
+            const parsed = JSON.parse(raw);
+            count = Array.isArray(parsed) ? parsed.length : 0;
+        } catch (e) {
+            console.error(`${YEAR_PURGE_PREFIX}_${year} 파싱 오류:`, e);
+        }
+        if (count > 0) {
+            rows.push({ year, count, deletable: year <= threshold, isCurrent: year === currentYear });
+        }
+    }
+    return rows;
+}
+
+/** 선택 합계 갱신 + 삭제 버튼 활성/비활성 */
+function updateYearPurgeSelection() {
+    const list = document.getElementById('yearPurgeList');
+    const btn = document.getElementById('purgeYearsBtn');
+    const summary = document.getElementById('yearPurgeSelectedSummary');
+    if (!list || !btn || !summary) return;
+
+    const checked = Array.from(list.querySelectorAll('input[type="checkbox"]:checked'));
+    const totalCount = checked.reduce((sum, cb) => sum + (parseInt(cb.dataset.count, 10) || 0), 0);
+    btn.disabled = checked.length === 0;
+    summary.textContent = checked.length === 0
+        ? ''
+        : `선택: ${checked.length}개 연도 · ${totalCount.toLocaleString('ko-KR')}건`;
+}
+
+/** 연도별 삭제 목록 렌더 */
+function renderYearPurgeList() {
+    const list = document.getElementById('yearPurgeList');
+    const info = document.getElementById('yearPurgeThresholdInfo');
+    if (!list) return;
+
+    const currentYear = new Date().getFullYear();
+    const threshold = getYearPurgeThreshold();
+    if (info) info.textContent = `(${currentYear}년 기준 ${threshold}년 이전 자료)`;
+
+    const rows = collectYearInventory();
+    list.innerHTML = '';
+
+    if (rows.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'font-size: 0.85rem; color: #64748b; padding: 0.5rem;';
+        empty.textContent = '삭제할 수 있는 연도별 데이터가 없습니다.';
+        list.appendChild(empty);
+        updateYearPurgeSelection();
+        return;
+    }
+
+    rows.sort((a, b) => a.year - b.year).forEach(({ year, count, deletable, isCurrent }) => {
+        const rowLabel = document.createElement('label');
+        rowLabel.style.cssText = 'display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer;' +
+            (deletable ? ' background: #fef2f2; border-color: #fecaca;' : ' background: #f8fafc;');
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.dataset.year = String(year);
+        cb.dataset.count = String(count);
+        cb.checked = deletable;            // 삭제 대상은 기본 선택
+        cb.disabled = !deletable;          // 보관 기간 내 연도는 보호(실수 삭제 방지)
+        if (deletable) cb.addEventListener('change', updateYearPurgeSelection);
+
+        const yearText = document.createElement('span');
+        yearText.style.cssText = 'font-weight: 600; min-width: 4.5rem;';
+        yearText.textContent = `${year}년`;
+
+        const countText = document.createElement('span');
+        countText.style.cssText = 'flex: 1; color: #475569; font-size: 0.9rem;';
+        countText.textContent = `${count.toLocaleString('ko-KR')}건`;
+
+        rowLabel.appendChild(cb);
+        rowLabel.appendChild(yearText);
+        rowLabel.appendChild(countText);
+
+        if (deletable) {
+            const badge = document.createElement('span');
+            badge.style.cssText = 'font-size: 0.72rem; font-weight: 600; color: #dc2626; background: #fee2e2; padding: 0.15rem 0.5rem; border-radius: 999px;';
+            badge.textContent = '3년 경과 · 삭제 권장';
+            rowLabel.appendChild(badge);
+        } else if (isCurrent) {
+            const badge = document.createElement('span');
+            badge.style.cssText = 'font-size: 0.72rem; font-weight: 600; color: #2563eb; background: #dbeafe; padding: 0.15rem 0.5rem; border-radius: 999px;';
+            badge.textContent = '올해';
+            rowLabel.appendChild(badge);
+        }
+
+        list.appendChild(rowLabel);
+    });
+
+    updateYearPurgeSelection();
+}
+
+/** 단일 연도 데이터 삭제: Firestore → localStorage → 자동저장 파일 순. 반환: {cloud} */
+async function purgeYearData(year) {
+    let cloudDeleted = 0;
+
+    // 1) Firestore 컬렉션 비우기 (클라우드 사용 시)
+    if (window.firestoreDb?.isEnabled?.()) {
+        try {
+            const docs = await window.firestoreDb.getAll(YEAR_PURGE_SAMPLE_TYPE, year);
+            for (const doc of docs) {
+                if (doc && doc.id != null) {
+                    await window.firestoreDb.delete(YEAR_PURGE_SAMPLE_TYPE, year, doc.id);
+                    cloudDeleted++;
+                }
+            }
+        } catch (e) {
+            console.error(`${year}년 클라우드 삭제 오류:`, e);
+            throw new Error(`${year}년 클라우드 삭제 중 오류: ${e.message}`);
+        }
+    }
+
+    // 2) localStorage 제거
+    localStorage.removeItem(`${YEAR_PURGE_PREFIX}_${year}`);
+
+    // 3) Electron 자동저장 파일 비우기 (best-effort — 실패해도 진행)
+    //    주의: window.isElectron은 file-api.js에서만 노출되며 설정 페이지는 미로드 → 모듈 최상위 isElectron(line 12) 사용.
+    //    이 비우기를 건너뛰면 토양 페이지 재진입 시 잔존 auto-save 파일에서 삭제분이 부활함.
+    if (isElectron && window.electronAPI?.getAutoSavePath && window.electronAPI?.writeFile) {
+        try {
+            const path = await window.electronAPI.getAutoSavePath(YEAR_PURGE_SAMPLE_TYPE, year);
+            if (path) await window.electronAPI.writeFile(path, '[]');
+        } catch (e) {
+            console.warn(`${year}년 자동저장 파일 정리 실패(무시):`, e);
+        }
+    }
+
+    return { cloud: cloudDeleted };
+}
+
+/** 선택 연도 일괄 삭제 (2단계 확인) */
+async function purgeSelectedYears() {
+    const list = document.getElementById('yearPurgeList');
+    const btn = document.getElementById('purgeYearsBtn');
+    if (!list || !btn) return;
+
+    const checked = Array.from(list.querySelectorAll('input[type="checkbox"]:checked'));
+    if (checked.length === 0) { alert('삭제할 연도를 선택해주세요.'); return; }
+
+    const targets = checked.map(cb => ({
+        year: parseInt(cb.dataset.year, 10),
+        count: parseInt(cb.dataset.count, 10) || 0
+    })).sort((a, b) => a.year - b.year);
+    const totalCount = targets.reduce((s, t) => s + t.count, 0);
+    const detail = targets.map(t => `· ${t.year}년 (${t.count.toLocaleString('ko-KR')}건)`).join('\n');
+
+    // 1단계: 내용 확인
+    if (!confirm(`다음 연도의 자료를 영구 삭제합니다.\n\n${detail}\n\n총 ${totalCount.toLocaleString('ko-KR')}건\n삭제한 자료는 복구할 수 없습니다. 계속하시겠습니까?`)) {
+        return;
+    }
+    // 2단계: 오삭제 방지 — '삭제' 입력
+    const typed = prompt(`삭제를 확정하려면 아래에 '삭제'라고 입력하세요.\n(연도 ${targets.map(t => t.year).join(', ')} · 총 ${totalCount.toLocaleString('ko-KR')}건)`);
+    if (typed === null) return;
+    if (typed.trim() !== '삭제') { alert('입력이 일치하지 않아 취소되었습니다.'); return; }
+
+    const refreshBtn = document.getElementById('refreshYearPurgeBtn');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '삭제 중...';
+    if (refreshBtn) refreshBtn.disabled = true; // 진행 중 목록 새로고침 차단(상태 혼란 방지)
+
+    const succeeded = [];
+    const failed = [];
+    let cloudTotal = 0;
+    let succeededCount = 0; // 실제 삭제 성공한 연도의 건수만 합산(부분 실패 시 과대 보고 방지)
+    for (const t of targets) {
+        try {
+            const { cloud } = await purgeYearData(t.year);
+            cloudTotal += cloud;
+            succeeded.push(t.year);
+            succeededCount += t.count;
+        } catch (e) {
+            failed.push(`${t.year}년: ${e.message}`);
+        }
+    }
+
+    btn.textContent = originalText;
+    if (refreshBtn) refreshBtn.disabled = false;
+    renderYearPurgeList(); // 목록 갱신(버튼 상태도 재계산)
+
+    let msg = '';
+    if (succeeded.length > 0) {
+        msg += `삭제 완료: ${succeeded.join(', ')}년 (총 ${succeededCount.toLocaleString('ko-KR')}건`;
+        msg += cloudTotal > 0 ? `, 클라우드 ${cloudTotal.toLocaleString('ko-KR')}건 포함)` : ')';
+    }
+    if (failed.length > 0) {
+        msg += `${msg ? '\n\n' : ''}일부 실패:\n${failed.join('\n')}`;
+    }
+    alert(msg || '삭제할 데이터가 없습니다.');
+}
+
+document.getElementById('purgeYearsBtn')?.addEventListener('click', purgeSelectedYears);
+document.getElementById('refreshYearPurgeBtn')?.addEventListener('click', renderYearPurgeList);
+renderYearPurgeList();

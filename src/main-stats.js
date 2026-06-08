@@ -61,39 +61,6 @@
   $rate.innerHTML = `${rate}<span class="unit">%</span>`;
   $incomplete.innerHTML = `${fmt(incompleteCount)}<span class="unit">건</span>`;
 
-  // 경지구분(landClass1)별 접수 건수 — 미지정 레코드는 soil-script 마이그레이션
-  // 기본값('농가의뢰')과 동일하게 집계. 건수 내림차순, 동률은 가나다순.
-  const LAND_CLASS1_DEFAULT = '농가의뢰';
-  const $landClass = document.getElementById('statsLandClass');
-  const $landClassRows = document.getElementById('statsLandClassRows');
-  if ($landClass && $landClassRows) {
-    const classCounts = new Map();
-    logs.forEach((log) => {
-      const cls = String((log && log.landClass1) || LAND_CLASS1_DEFAULT);
-      classCounts.set(cls, (classCounts.get(cls) || 0) + 1);
-    });
-    const sorted = [...classCounts.entries()].sort(
-      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko')
-    );
-    sorted.forEach(([cls, count]) => {
-      const row = document.createElement('div');
-      row.className = 'stats-landclass-row';
-      const label = document.createElement('span');
-      label.className = 'stats-landclass-label';
-      label.textContent = cls; // localStorage 값이므로 textContent로만 출력 (XSS 안전)
-      const value = document.createElement('span');
-      value.className = 'stats-landclass-value';
-      value.textContent = fmt(count);
-      const unit = document.createElement('span');
-      unit.className = 'unit';
-      unit.textContent = '건';
-      value.appendChild(unit);
-      row.append(label, value);
-      $landClassRows.appendChild(row);
-    });
-    $landClass.style.display = '';
-  }
-
   requestAnimationFrame(() => {
     $bar.style.width = `${rate}%`;
   });

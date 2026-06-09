@@ -11,6 +11,9 @@
  *       onInput: () => {},           // input 이벤트 후 호출 (선택)
  *       onSelect: (value, ctx) => {},// 주소 선택 완료 후 호출 (ctx.source='juso': zipNo/roadAddr 등)
  *       onShowModal: (result, input) => {},  // 사용 안 함 (정적 파싱 제거)
+ *       getDefaultRegion: () => '경상북도', // (선택) 리 단독 검색 시 prefix할 기본 시·도 주입.
+ *                                          //   미지정 시 설정값(localStorage 'app_default_sido')으로 폴백.
+ *                                          //   결합도 분리 + 캐시 함수 주입으로 입력당 조회 비용 절감 가능 (SLS-1-118)
  *   });
  */
 (function () {
@@ -252,6 +255,25 @@
     }
 
     /**
+     * 기본 시·도 해석 — 결합도 분리(SLS-1-118).
+     * bind 옵션으로 getDefaultRegion 함수를 주입하면 그 값을 쓰고(시료 타입별 오버라이드/캐시 가능),
+     * 미주입 시에만 공통 모듈의 기본값(설정 localStorage 'app_default_sido')으로 폴백한다.
+     * → 공통 모듈이 앱 특정 키를 강제로 읽지 않게 하고, 호출부가 조회 전략을 결정한다.
+     * @param {Object} [options] - bind 옵션 (getDefaultRegion?: () => string)
+     * @returns {string} 기본 시·도 (없으면 '')
+     */
+    function resolveDefaultRegion(options) {
+        if (options && typeof options.getDefaultRegion === 'function') {
+            try {
+                return (options.getDefaultRegion() || '').trim();
+            } catch (_) {
+                return '';
+            }
+        }
+        return getDefaultRegion();
+    }
+
+    /**
      * 행정구역 dedup 키 표준화 헬퍼.
      * 형식: `${시·군}|${면}|${리}` - 정적/JUSO 양쪽에서 동일 키 보장.
      * 산/일반 구분은 사용자 입력 키워드(extractVillageAndLot.hasMountainKeyword)로 처리.
@@ -403,10 +425,11 @@
      * JUSO 검색 → 결과를 list에 렌더 (캐시 우선, 없으면 API 호출)
      * @returns Promise<number> 매칭 건수
      */
-    async function searchAndRenderJuso(value, list) {
+    async function searchAndRenderJuso(value, list, defaultRegion) {
         // 리 단독 입력이면 기본 시·도를 prefix(입력 핸들러와 동일 규칙). 캐시 키도 동일하게 정규화.
+        // defaultRegion: 호출부가 주입한 기본 시·도(SLS-1-118). 미지정 시 buildJusoSearchKey가 설정값으로 폴백.
         const parsed = extractVillageAndLot(value);
-        const searchKey = buildJusoSearchKey(parsed) || parsed.village || value;
+        const searchKey = buildJusoSearchKey(parsed, defaultRegion) || parsed.village || value;
         // 1) 캐시 적중
         const cached = getJusoCache(searchKey);
         if (cached) {
@@ -489,7 +512,7 @@
         // 정적 파싱 실패 → JUSO 폴백
         if (options.enableJusoFallback === false) return;
         if (value.length < JUSO_MIN_QUERY_LEN) return;
-        await searchAndRenderJuso(value, list);
+        await searchAndRenderJuso(value, list, resolveDefaultRegion(options));
     }
 
     /**
@@ -549,7 +572,7 @@
             // 사용자 입력에서 리 이름만 분리 (juso는 지번 검색 미지원이라 village로만 검색)
             // 리 단독 입력이면 기본 시·도를 prefix해 전국 동명 리에 의한 누락을 방지.
             const parsed = extractVillageAndLot(value);
-            const searchKey = buildJusoSearchKey(parsed) || parsed.village || value;
+            const searchKey = buildJusoSearchKey(parsed, resolveDefaultRegion(options)) || parsed.village || value;
             if (searchKey.length < JUSO_MIN_QUERY_LEN) {
                 cancelDebounce();
                 if (typeof options.onInput === 'function') options.onInput();
@@ -630,6 +653,8 @@
         _setJusoCache: setJusoCache,
         _sweepJusoCacheOnce: sweepJusoCacheOnce,
         _extractVillageAndLot: extractVillageAndLot,
-        _buildJusoSearchKey: buildJusoSearchKey
+        _buildJusoSearchKey: buildJusoSearchKey,
+        _resolveDefaultRegion: resolveDefaultRegion,
+        _getDefaultRegion: getDefaultRegion
     };
 })();

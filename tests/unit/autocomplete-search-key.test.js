@@ -56,3 +56,34 @@ describe('buildJusoSearchKey — 기본 시·도 prefix', () => {
         expect(buildKey(extract('삼계리 123'), '경상북도')).toBe('경상북도 삼계리')
     })
 })
+
+describe('resolveDefaultRegion — bind 옵션 주입 (SLS-1-118 결합도 분리)', () => {
+    const resolve = (opts) => window.AddressAutocomplete._resolveDefaultRegion(opts)
+
+    it('getDefaultRegion 옵션 주입 시 주입값을 사용(앱 키 미조회)', () => {
+        localStorage.setItem('app_default_sido', '충청남도')  // 주입이 우선이면 무시되어야 함
+        expect(resolve({ getDefaultRegion: () => '경상북도' })).toBe('경상북도')
+    })
+    it('주입값 trim 처리', () => {
+        expect(resolve({ getDefaultRegion: () => '  경상북도  ' })).toBe('경상북도')
+    })
+    it('옵션 미주입 시 설정값(localStorage)으로 폴백 — 하위호환', () => {
+        localStorage.setItem('app_default_sido', '경상북도')
+        expect(resolve({})).toBe('경상북도')
+        expect(resolve(undefined)).toBe('경상북도')
+    })
+    it('미주입 + 설정 없음 → 빈 문자열', () => {
+        expect(resolve({})).toBe('')
+    })
+    it('주입 함수가 예외를 던져도 빈 문자열로 안전 폴백', () => {
+        expect(resolve({ getDefaultRegion: () => { throw new Error('boom') } })).toBe('')
+    })
+    it('주입 함수가 null/undefined 반환 시 빈 문자열', () => {
+        expect(resolve({ getDefaultRegion: () => null })).toBe('')
+        expect(resolve({ getDefaultRegion: () => undefined })).toBe('')
+    })
+    it('주입값으로 buildJusoSearchKey가 시·도 prefix를 생성한다(통합)', () => {
+        const region = resolve({ getDefaultRegion: () => '강원특별자치도' })
+        expect(buildKey(extract('삼계리'), region)).toBe('강원특별자치도 삼계리')
+    })
+})

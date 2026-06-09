@@ -378,23 +378,6 @@
 
         .footer p { margin-bottom: 0; }
 
-        .new-badge {
-            display: inline-block;
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            margin-left: 8px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
         /* FAQ 접이식 */
         .faq-item {
             margin-bottom: 12px;
@@ -549,12 +532,12 @@
                 <li><a href="#start"><span class="toc-icon">🏠</span> 1. 시작하기</a></li>
                 <li><a href="#register"><span class="toc-icon">📝</span> 2. 토양 시료 접수하기</a></li>
                 <li><a href="#list"><span class="toc-icon">📋</span> 3. 접수 목록 조회</a></li>
-                <li><a href="#heuktoram"><span class="toc-icon">🌱</span> 4. 흙토람 결과 가져오기<span class="new-badge">NEW</span></a></li>
+                <li><a href="#heuktoram"><span class="toc-icon">🌱</span> 4. 흙토람 결과 가져오기</a></li>
                 <li><a href="#data"><span class="toc-icon">💾</span> 5. 데이터 관리</a></li>
-                <li><a href="#import"><span class="toc-icon">📥</span> 6. 엑셀로 한꺼번에 등록<span class="new-badge">NEW</span></a></li>
+                <li><a href="#import"><span class="toc-icon">📥</span> 6. 엑셀로 한꺼번에 등록</a></li>
                 <li><a href="#stats"><span class="toc-icon">📊</span> 7. 통계 및 라벨 인쇄</a></li>
-                <li><a href="#cloud"><span class="toc-icon">☁️</span> 8. 클라우드 동기화<span class="new-badge">NEW</span></a></li>
-                <li><a href="#settings"><span class="toc-icon">⚙️</span> 9. 설정<span class="new-badge">NEW</span></a></li>
+                <li><a href="#cloud"><span class="toc-icon">☁️</span> 8. 클라우드 동기화</a></li>
+                <li><a href="#settings"><span class="toc-icon">⚙️</span> 9. 설정</a></li>
                 <li><a href="#faq"><span class="toc-icon">❓</span> 10. 자주 묻는 질문</a></li>
             </ul>
         </div>
@@ -590,7 +573,7 @@
                     <li>이미 접수한 내용을 보려면 화면 위쪽의 <strong>목록</strong> 메뉴를 클릭하세요. (<a href="#list" style="color:#16a34a;">3. 접수 목록 조회</a> 참고)</li>
                 </ol>
 
-                <h3>📊 토양 통계 패널 <span class="new-badge">NEW</span></h3>
+                <h3>📊 토양 통계 패널</h3>
                 <p>메인 화면 오른쪽에 올해 등록된 토양 시료 통계가 한눈에 표시됩니다. 별도 조회 없이 진행 상황을 즉시 파악할 수 있습니다.</p>
                 <table class="data-table">
                     <thead>
@@ -659,7 +642,7 @@
                     <li><strong>목적(용도)</strong>을 반드시 하나 고르세요. <strong>이 칸은 비워두면 등록이 안 됩니다.</strong> (일반재배 / 무농약 / 유기 / GAP / 저탄소)</li>
                 </ol>
 
-                <h3>경지구분 1차 선택 <span class="new-badge">NEW</span></h3>
+                <h3>경지구분 1차 선택</h3>
                 <p>토양 시료 정보 줄에는 <strong>경지구분 1차 · 구분 · 목적(용도)</strong>가 한 줄로 나란히 있으며, 이 묶음이 <strong>접수 화면 맨 위</strong>에 옵니다. 아래 그림의 <strong>①번 위치</strong>(줄 맨 앞)에서 경지구분 1차를 드롭다운으로 고릅니다.</p>
 
                 <div class="screenshot">
@@ -749,7 +732,7 @@
                     <li>보고 싶은 연도를 목록에서 고르면 그 해에 접수한 시료만 표시됩니다.<span class="sub-note">작년에 입력한 내용이 안 보인다면 연도가 올해로 되어 있기 때문입니다. 연도를 바꿔 보세요.</span></li>
                 </ol>
 
-                <h3>경지구분 1차 드롭다운으로 나눠 보기 <span class="new-badge">NEW</span></h3>
+                <h3>경지구분 1차 드롭다운으로 나눠 보기</h3>
                 <p>목록 위쪽에는 <strong>경지구분 1차</strong> 드롭다운이 있습니다. 분류를 하나 고르면 그 분류로 접수한 시료만 보입니다. <strong>"전체 경지구분"</strong>을 고르면 모든 시료가 함께 나옵니다.</p>
 
                 <div class="screenshot">
@@ -809,7 +792,7 @@
 
             <!-- 4. 흙토람 결과 가져오기 -->
             <div class="section" id="heuktoram">
-                <h2><span class="icon">🌱</span> 4. 흙토람 결과 가져오기 <span class="new-badge">NEW</span></h2>
+                <h2><span class="icon">🌱</span> 4. 흙토람 결과 가져오기</h2>
                 <div class="term-box">
                     <p><span class="term-name">흙토람</span>은 농촌진흥청이 운영하는 토양 검정 결과 시스템입니다. 검사가 끝난 토양 분석 수치(pH·유기물 등)를 엑셀로 받아, 이 프로그램의 시료에 한꺼번에 채워 넣을 수 있습니다.</p>
                 </div>
@@ -988,7 +971,7 @@
 
             <!-- 6. 엑셀로 한꺼번에 등록 -->
             <div class="section" id="import">
-                <h2><span class="icon">📥</span> 6. 엑셀로 한꺼번에 등록 (가져오기) <span class="new-badge">NEW</span></h2>
+                <h2><span class="icon">📥</span> 6. 엑셀로 한꺼번에 등록 (가져오기)</h2>
 
                 <p>시료가 많을 때 한 건씩 손으로 입력하지 않고, 엑셀 파일이나 표를 한꺼번에 불러와 등록하는 방법입니다. 예를 들어 50건·100건처럼 많은 시료를 미리 엑셀에 정리해 두었다면, 이 기능으로 단번에 등록할 수 있습니다.</p>
 
@@ -1135,7 +1118,7 @@
 
             <!-- 8. 클라우드 동기화 -->
             <div class="section" id="cloud">
-                <h2><span class="icon">☁️</span> 8. 클라우드 동기화 <span class="new-badge">NEW</span></h2>
+                <h2><span class="icon">☁️</span> 8. 클라우드 동기화</h2>
                 <p>Firebase 클라우드 동기화를 설정하면 여러 PC에서 같은 데이터를 사용할 수 있습니다. 인터넷이 연결되면 자동으로 데이터가 동기화됩니다.</p>
 
                 <div class="term-box">
@@ -1193,7 +1176,7 @@
 
             <!-- 9. 설정 -->
             <div class="section" id="settings">
-                <h2><span class="icon">⚙️</span> 9. 설정 <span class="new-badge">NEW</span></h2>
+                <h2><span class="icon">⚙️</span> 9. 설정</h2>
                 <p>클라우드 연결, 기관명, 캐시 등 프로그램 전반을 조정하는 화면입니다.</p>
 
                 <h3>설정 화면 열기</h3>
@@ -1222,7 +1205,7 @@
                 <h3>💾 로컬 데이터 관리</h3>
                 <p>모든 시료 타입의 현재 연도 데이터를 JSON 파일로 일괄 내보낼 수 있습니다.</p>
 
-                <h3>🗂️ 연도별 데이터 삭제 <span class="new-badge">NEW</span></h3>
+                <h3>🗂️ 연도별 데이터 삭제</h3>
                 <p>자료 보관 기한은 <strong>3년</strong>입니다. 3년이 지난 오래된 자료를 <strong>연도 단위로 한 번에</strong> 지울 수 있습니다. 한 건씩 일일이 지울 필요가 없습니다.</p>
                 <ul style="margin: 10px 0 20px 24px; color: #475569;">
                     <li><strong>삭제 대상 자동 표시</strong>: 올해를 기준으로 3년이 지난 연도(예: 2026년이면 <strong>2023년까지(2023년 포함)</strong>)가 자동으로 선택되고 <span style="color:#dc2626; font-weight:600;">"3년 경과 · 삭제 권장"</span> 표시가 붙습니다.</li>

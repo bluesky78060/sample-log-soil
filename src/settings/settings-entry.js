@@ -14,8 +14,5 @@ import '../shared/toast.js';
 import '../shared/theme.js';
 import '../shared/cache-manager.js';
 
-// MRL API (식품안전나라)
-import '../shared/mrl-api.js';
-
 // Main script
 import './settings-script.js';

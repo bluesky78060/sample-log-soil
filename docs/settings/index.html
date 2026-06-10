@@ -410,7 +410,7 @@
             color: #F4A4A4 !important;
         }
     </style>
-  <script type="module" crossorigin src="../assets/settings-BzKE27_A.js"></script>
+  <script type="module" crossorigin src="../assets/settings-DZLd9vkg.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/theme-D1BqTDsX.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-GoFsRstw.js">
   <link rel="modulepreload" crossorigin href="../assets/storage-manager-CiSlsDsY.js">
@@ -731,73 +731,6 @@
 
             <p class="help-text" style="margin-top: 0.75rem;">
                 캐시를 삭제하면 다음 앱 실행 시 Firebase에서 데이터를 다시 불러옵니다.
-            </p>
-        </div>
-
-        <!-- 식품안전나라 MRL API 설정 -->
-        <div class="settings-card">
-            <h2>
-                <span>🧪</span>
-                식품안전나라 MRL API
-            </h2>
-
-            <div class="alert alert-info">
-                <strong>잔류농약 분석결과 입력 시 작물별 잔류허용기준(MRL)을 자동 조회</strong>하기 위한 API 설정입니다.<br>
-                <small style="color: #64748b;">
-                    키 발급: <a href="https://openapi.foodsafetykorea.go.kr/" target="_blank" style="color: #3b82f6;">openapi.foodsafetykorea.go.kr</a>
-                    → 회원가입 → OpenAPI 이용신청 → <strong>식품별 농약잔류허용기준 (I1050)</strong> 서비스 신청
-                </small>
-            </div>
-
-            <!-- API 키 입력 -->
-            <div style="margin-top: 1rem;">
-                <label for="mrlApiKey" style="display: block; font-size: 0.85rem; color: #475569; font-weight: 600; margin-bottom: 0.4rem;">
-                    API 인증키
-                </label>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <input type="password" id="mrlApiKey" placeholder="식품안전나라 OpenAPI 인증키 입력"
-                           style="flex: 1; padding: 0.55rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 0.85rem;">
-                    <button type="button" id="mrlApiKeyToggle" class="btn btn-secondary" style="padding: 0.5rem 0.75rem;" title="표시/숨김">👁</button>
-                    <button type="button" id="mrlApiKeySave" class="btn btn-primary">저장</button>
-                </div>
-                <p class="help-text" style="margin-top: 0.4rem;">
-                    저장된 키는 로컬(localStorage)에만 보관되며 외부로 전송되지 않습니다.
-                </p>
-            </div>
-
-            <!-- 캐시 상태 -->
-            <div id="mrlCacheStatus" style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <div style="font-size: 0.85rem; color: #64748b;">
-                    <div style="margin-bottom: 0.5rem;">연결 상태: <strong id="mrlConnStatus">확인 중...</strong></div>
-                    <div style="margin-bottom: 0.5rem;">캐시된 MRL 레코드: <strong id="mrlCacheCount">-</strong></div>
-                    <div style="margin-bottom: 0.5rem;">마지막 동기화: <strong id="mrlLastSync">-</strong></div>
-                    <div>캐시 상태: <strong id="mrlCacheExpiry">-</strong></div>
-                </div>
-            </div>
-
-            <!-- 액션 버튼 -->
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem;">
-                <button type="button" id="mrlSyncBtn" class="btn btn-primary">
-                    🔄 지금 동기화
-                </button>
-                <button type="button" id="mrlTestBtn" class="btn btn-secondary">
-                    🔌 연결 테스트
-                </button>
-                <button type="button" id="mrlClearCacheBtn" class="btn btn-warning">
-                    🗑️ MRL 캐시 삭제
-                </button>
-            </div>
-
-            <!-- 진행률 표시 -->
-            <div id="mrlProgressBar" class="hidden" style="margin-top: 1rem;">
-                <div style="background: #e2e8f0; border-radius: 4px; overflow: hidden; height: 8px;">
-                    <div id="mrlProgressFill" style="background: linear-gradient(90deg, #10b981, #059669); height: 100%; width: 0%; transition: width 0.3s;"></div>
-                </div>
-                <div id="mrlProgressText" style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; text-align: center;">0 / 0</div>
-            </div>
-
-            <p class="help-text" style="margin-top: 0.75rem;">
-                캐시는 7일간 유효하며, 약 18,000건의 MRL 기준 데이터를 포함합니다 (~2MB). 오프라인에서도 조회 가능합니다.
             </p>
         </div>
     </div>

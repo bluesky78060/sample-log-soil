@@ -64,12 +64,9 @@ window.addEventListener('offline', updateSyncStatus);
 // ========================================
 // 전체 동기화 기능
 // ========================================
+// 토양 전용 분리본 — 토양 한 종만 동기화 (settings-script.js SAMPLE_TYPES와 동일 종 목록, 필드명은 type vs key로 상이)
 const SAMPLE_TYPES = [
-    { type: 'soil', name: '토양', icon: '🌱', storagePrefix: 'soilSampleLogs' },
-    { type: 'water', name: '수질분석', icon: '💧', storagePrefix: 'waterSampleLogs' },
-    { type: 'compost', name: '퇴·액비', icon: '🐄', storagePrefix: 'compostSampleLogs' },
-    { type: 'heavyMetal', name: '토양 중금속', icon: '⚗️', storagePrefix: 'heavyMetalSampleLogs' },
-    { type: 'pesticide', name: '잔류농약', icon: '🧪', storagePrefix: 'pesticideSampleLogs' }
+    { type: 'soil', name: '토양', icon: '🌱', storagePrefix: 'soilSampleLogs' }
 ];
 
 const MIN_YEAR = 2020;
@@ -264,9 +261,6 @@ function showSyncResults(results) {
     results.forEach(result => {
         totalItems += result.totalCount;
         const statusClass = result.totalCount > 0 ? 'success' : '';
-        const yearInfo = result.yearsWithData.length > 0
-            ? result.yearsWithData.map(y => `${y.year}년: ${y.count}건`).join(', ')
-            : '데이터 없음';
 
         html += `
             <div class="sync-result-item">

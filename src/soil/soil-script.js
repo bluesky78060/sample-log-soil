@@ -73,6 +73,9 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.parcels = [];
         this.parcelIdCounter = 0;
         this.currentRegistrationData = null;
+        // SLS-1-122: Firebase 삭제 실패 시 보류 큐 — online 복귀 시 재시도해
+        //            클라우드 잔존 문서로 인한 삭제 레코드 부활을 방지한다.
+        this._pendingCloudDeletes = new Set();
         this.listViewStale = true;
         this.currentSearchFilter = {
             dateFrom: '',
@@ -115,6 +118,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.subCategorySelect = null;
         this.purposeSelect = null;
         this.landClass1Select = null;
+        this.landClass1Tab = null;
         this.receptionMethodBtns = null;
         this.receptionMethodInput = null;
         this.navSubmitBtn = null;
@@ -205,6 +209,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.subCategorySelect = document.getElementById('subCategory');
         this.purposeSelect = document.getElementById('purpose');
         this.landClass1Select = document.getElementById('landClass1');
+        this.landClass1Tab = document.getElementById('landClass1Tab');
         this.receptionMethodBtns = document.querySelectorAll('.reception-method-btn');
         this.receptionMethodInput = document.getElementById('receptionMethod');
         this.navSubmitBtn = document.getElementById('navSubmitBtn');
@@ -248,6 +253,9 @@ class SoilSampleManager extends window.BaseSampleManager {
     // ========================================
 
     initViews() {
+        // 경지구분 1차 폼/탭 option 동적 생성 (LAND_CLASS1_OPTIONS 단일 소스)
+        this.populateLandClass1Options();
+
         // 오늘 날짜 설정
         if (this.dateInput) {
             this.dateInput.valueAsDate = new Date();
@@ -526,12 +534,23 @@ class SoilSampleManager extends window.BaseSampleManager {
             .filter(log => log.id)
             .map(log => window.firestoreDb.save('soil', year, String(log.id), log));
         Promise.allSettled(promises).then(results => {
-            const failed = results.filter(r => r.status === 'rejected');
+            // save는 실패 시 reject가 아닌 false 반환 — value===false도 실패로 판정해야 함
+            const failed = results.filter(r => r.status === 'rejected' || r.value === false);
             if (failed.length > 0) {
                 (window.logger?.error || console.error)('Firebase 저장 실패:', failed.length, '건');
                 this.showToast(`클라우드 동기화 ${failed.length}건 실패`, 'warning');
             }
         });
+    }
+
+    /**
+     * localStorage 저장 + Firestore 개별 저장을 한 번에 수행하는 편의 메서드.
+     * saveLogs() + firebaseSaveRecords(records) 연쇄 호출 패턴의 단일 소스.
+     * @param {Array|Object} records - Firestore에 동기화할 레코드 (배열 또는 단일 객체)
+     */
+    persistRecords(records) {
+        this.saveLogs();
+        this.firebaseSaveRecords(records);
     }
 
     /**
@@ -542,27 +561,124 @@ class SoilSampleManager extends window.BaseSampleManager {
         if (!window.firestoreDb?.isEnabled()) return;
         const arr = Array.isArray(ids) ? ids : [ids];
         const year = parseInt(this.selectedYear, 10);
-        const promises = arr.map(id => window.firestoreDb.delete('soil', year, String(id)));
-        Promise.allSettled(promises).then(results => {
-            const failed = results.filter(r => r.status === 'rejected');
-            if (failed.length > 0) {
-                (window.logger?.error || console.error)('Firebase 삭제 실패:', failed.length, '건');
+        // SLS-1-122: id별 결과를 추적해 실패분만 보류 큐에 적재한다.
+        // 주의: firestoreDb.delete는 실패 시 reject가 아니라 false로 resolve한다
+        // (deleteDocument의 catch → false) — value===false도 실패로 판정해야 한다.
+        const tracked = arr.map(id => ({
+            id: String(id),
+            promise: window.firestoreDb.delete('soil', year, String(id))
+        }));
+        Promise.allSettled(tracked.map(t => t.promise)).then(results => {
+            const failedIds = [];
+            results.forEach((r, i) => {
+                if (r.status === 'rejected' || r.value === false) failedIds.push(tracked[i].id);
+            });
+            if (failedIds.length > 0) {
+                (window.logger?.error || console.error)('Firebase 삭제 실패:', failedIds.length, '건');
+                // SLS-1-122: 실패한 삭제 id를 큐에 보관 → online 복귀 시 재시도(_retryCloudSyncAction).
+                failedIds.forEach(id => this._pendingCloudDeletes.add(id));
+                this._handleCloudSyncFailure();
             }
         });
     }
 
     /**
-     * 전체 데이터를 Firestore에 동기화 (대량 import 전용)
+     * SLS-1-122: online 복귀 시 재시도 동작 오버라이드.
+     * 베이스 기본 구현은 saveLogs()만 호출하지만, soil의 saveLogs는 로컬 전용이라
+     * 실패한 삭제가 재시도되지 않아 클라우드 문서가 잔존하고 다음 병합에서 부활한다.
+     * → 보류 삭제를 먼저 재시도하고, 성공분만 큐에서 제거한 뒤 전체 동기화를 수행한다.
      */
-    firebaseBatchSync() {
-        if (!window.firestoreDb?.isEnabled()) return;
-        const snapshot = [...this.sampleLogs]; // 레이스 컨디션 방지: 현재 시점 스냅샷
-        window.firestoreDb.batchSave('soil', parseInt(this.selectedYear, 10), snapshot)
-            .then(() => this.log('Firebase 전체 동기화 완료:', snapshot.length, '건'))
-            .catch(err => {
-                (window.logger?.error || console.error)('Firebase 전체 동기화 실패:', err);
-                this.showToast('클라우드 전체 동기화 실패', 'warning');
+    _retryCloudSyncAction() {
+        if (!window.firestoreDb?.isEnabled()) {
+            // 오프라인 등으로 비활성 — 다음 online 이벤트에서 다시 시도하도록 실패 상태 재무장
+            if (this._pendingCloudDeletes.size > 0) this._handleCloudSyncFailure();
+            return;
+        }
+
+        const year = parseInt(this.selectedYear, 10);
+        const pending = Array.from(this._pendingCloudDeletes);
+
+        if (pending.length === 0) {
+            // 보류 삭제 없음 → 전체 재동기화만
+            this.firebaseBatchSync();
+            return;
+        }
+
+        this.log('🔁 보류 삭제 재시도:', pending.length, '건');
+        const tracked = pending.map(id => ({
+            id,
+            promise: window.firestoreDb.delete('soil', year, String(id))
+        }));
+        Promise.allSettled(tracked.map(t => t.promise)).then(results => {
+            const stillFailed = [];
+            results.forEach((r, i) => {
+                // delete는 실패 시 false resolve — fulfilled여도 value===false면 실패
+                if (r.status === 'fulfilled' && r.value !== false) {
+                    this._pendingCloudDeletes.delete(tracked[i].id);  // 성공분만 큐에서 제거
+                } else {
+                    stillFailed.push(tracked[i].id);
+                }
             });
+            if (stillFailed.length > 0) {
+                // 일부 재시도 실패 → 다음 online 복귀에서 다시 시도
+                (window.logger?.warn || console.warn)('보류 삭제 재시도 일부 실패:', stillFailed.length, '건');
+                this._handleCloudSyncFailure();
+            } else {
+                this.log('✅ 보류 삭제 전부 재시도 완료');
+            }
+            // 삭제 정리 후 전체 동기화로 나머지 변경분 반영
+            this.firebaseBatchSync();
+        });
+    }
+
+    /**
+     * 전체 데이터를 Firestore에 동기화 (대량 import 전용)
+     * SLS-1-122: cloudSyncPromise 락으로 동시 batchSave를 직렬화한다.
+     * 메인(sample-log-electron) syncWithCloud의 Promise 락과 동일한 의미 —
+     * 진행 중인 batchSave가 끝난 뒤에야 다음 batchSave가 시작되어 쓰기 순서를 보장한다.
+     * 락 진입 시점에 최신 sampleLogs 스냅샷을 잡으므로, 대기 중 변경분도 누락되지 않는다.
+     * @returns {Promise<void>}
+     */
+    async firebaseBatchSync() {
+        if (!window.firestoreDb?.isEnabled()) return;
+
+        // 이전 동기화가 끝난 뒤 이어서 실행되도록 체인을 건다 (직렬화 락).
+        const previous = this.cloudSyncPromise;
+        const run = (async () => {
+            if (previous) {
+                this.log('⏳ 기존 전체 동기화 대기 중...');
+                await previous.catch(() => {});  // 이전 실패는 흡수, 직렬성만 보장
+            }
+            const snapshot = [...this.sampleLogs]; // 레이스 컨디션 방지: 락 진입 시점 스냅샷
+            if (snapshot.length === 0) {
+                // batchSave는 빈 배열에도 false를 반환하므로 호출 생략 (거짓 실패→재시도 루프 방지, saveLogs와 동일 정책)
+                this.log('빈 데이터 — 전체 동기화 생략');
+                return;
+            }
+            try {
+                // batchSave는 실패 시 throw가 아닌 false 반환 — 반환값 검사 필수
+                const ok = await window.firestoreDb.batchSave('soil', parseInt(this.selectedYear, 10), snapshot);
+                if (ok) {
+                    this.log('Firebase 전체 동기화 완료:', snapshot.length, '건');
+                } else {
+                    (window.logger?.error || console.error)('Firebase 전체 동기화 실패 (batchSave false)');
+                    this._handleCloudSyncFailure(); // 토스트 + online 복귀 재시도
+                }
+            } catch (err) {
+                (window.logger?.error || console.error)('Firebase 전체 동기화 실패:', err);
+                this._handleCloudSyncFailure();
+            }
+        })();
+        this.cloudSyncPromise = run;
+
+        try {
+            await run;
+        } finally {
+            // 자신이 체인의 마지막이면 락 해제 (뒤이은 호출이 이어받았으면 그대로 둠)
+            if (this.cloudSyncPromise === run) {
+                this.cloudSyncPromise = null;
+            }
+        }
     }
 
     // ========================================
@@ -697,8 +813,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         if (!confirm(`${this.selectedYear}년 공익직불제 ${targets.length}건(현재 필터 무관 전체)에 차수=${orderLabel}, 기준년도=${baseYear || '(없음)'}을(를) 일괄 적용합니다. 계속하시겠습니까?`)) return;
         const now = new Date().toISOString();
         targets.forEach(l => { l.gongikOrder = order; l.gongikBaseYear = baseYear; l.updatedAt = now; });
-        this.saveLogs();
-        this.firebaseSaveRecords(targets); // Firebase 동기화
+        this.persistRecords(targets);
         this.filterAndRenderLogs();
         this.showToast(`공익직불제 ${targets.length}건에 일괄 적용했습니다.`, 'success');
     }
@@ -710,6 +825,44 @@ class SoilSampleManager extends window.BaseSampleManager {
     setupTableEventDelegation() {
         // soil handles table events in setupTypeSpecificEvents via direct delegation
         // Do not call base class setupTableEventDelegation
+    }
+
+    // ========================================
+    // 경지구분 1차 (landClass1) 헬퍼
+    // ========================================
+
+    /**
+     * 폼 select(#landClass1)와 목록 탭 select(#landClass1Tab) option을
+     * LAND_CLASS1_OPTIONS 단일 소스로 동적 생성한다.
+     */
+    populateLandClass1Options() {
+        if (this.landClass1Select && this.landClass1Select.options.length === 0) {
+            const frag = document.createDocumentFragment();
+            LAND_CLASS1_OPTIONS.forEach(value => {
+                const opt = document.createElement('option');
+                opt.value = value;
+                opt.textContent = value;
+                if (value === LAND_CLASS1_DEFAULT) opt.selected = true;
+                frag.appendChild(opt);
+            });
+            this.landClass1Select.appendChild(frag);
+            this.landClass1Select.value = LAND_CLASS1_DEFAULT;
+        }
+        if (this.landClass1Tab && this.landClass1Tab.options.length === 0) {
+            const frag = document.createDocumentFragment();
+            const allOpt = document.createElement('option');
+            allOpt.value = '';
+            allOpt.textContent = '전체 경지구분';
+            frag.appendChild(allOpt);
+            LAND_CLASS1_OPTIONS.forEach(value => {
+                const opt = document.createElement('option');
+                opt.value = value;
+                opt.textContent = value;
+                frag.appendChild(opt);
+            });
+            this.landClass1Tab.appendChild(frag);
+            this.landClass1Tab.value = LAND_CLASS1_DEFAULT;
+        }
     }
 
     // ========================================
@@ -835,8 +988,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         };
 
         this.sampleLogs.push(newLog);
-        this.saveLogs();
-        this.firebaseSaveRecords(newLog);
+        this.persistRecords(newLog);
         this.filterAndRenderLogs();
         this.log('가져오기 레코드 추가:', receptionNumber, '(경지구분1차:', landClass1, ')');
         return newLog;
@@ -1854,6 +2006,18 @@ class SoilSampleManager extends window.BaseSampleManager {
             // Firebase: 삭제된 레코드 제거 + 새 레코드 저장
             const newIds = new Set(newLogs.map(l => l.id));
             const removedIds = oldGroupLogs.filter(l => !newIds.has(l.id)).map(l => l.id);
+
+            // SLS-1-123 (SAMPL-1-82 백포트): 빈 필지주소/빈 작물명이 필터되면 해당 멤버가
+            // removedIds에 포함돼 조용히 삭제된다. 삭제 전 사용자에게 확인 — 취소 시 원본 복원.
+            if (removedIds.length > 0 &&
+                !confirm(`기존 ${oldGroupLogs.length}건 중 ${removedIds.length}건이 삭제됩니다. (빈 필지 주소 또는 빈 작물명이 있으면 해당 항목이 제외됩니다.) 계속하시겠습니까?`)) {
+                this.sampleLogs = this.sampleLogs.filter(l => l.groupId !== groupId); // 방금 추가한 새 레코드 제거
+                this.sampleLogs.push(...oldGroupLogs);                                // 원본 그룹 복원
+                this.saveLogs(); // 위(1852)에서 이미 새 상태가 저장됐으므로 localStorage도 원본으로 되돌림
+                this.filterAndRenderLogs();
+                return;
+            }
+
             if (removedIds.length > 0) this.firebaseDeleteRecords(removedIds);
             this.firebaseSaveRecords(newLogs);
             this.filterAndRenderLogs();
@@ -1918,8 +2082,7 @@ class SoilSampleManager extends window.BaseSampleManager {
 
             delete updatedLog.addressVerified; // 주소 편집 시 검증 초기화
             this.sampleLogs[logIndex] = updatedLog;
-            this.saveLogs();
-            this.firebaseSaveRecords(updatedLog); // Firebase 개별 저장
+            this.persistRecords(updatedLog);
             this.filterAndRenderLogs();
             this.validateAndMarkLogs([updatedLog]).catch(err => // 편집 후 재검증 (백그라운드)
                 (window.logger?.error || console.error)('VWORLD 재검증 오류:', err)
@@ -2017,8 +2180,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         });
 
         newLogs.forEach(log => this.sampleLogs.push(log));
-        this.saveLogs();
-        this.firebaseSaveRecords(newLogs); // Firebase 개별 저장
+        this.persistRecords(newLogs);
         this.filterAndRenderLogs();
         this.form.reset();
         // yearSelect 복원: form.reset()이 yearSelect를 첫 옵션(2025)으로 되돌리므로 복원
@@ -3897,8 +4059,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                                 }
                             });
                         });
-                        this.saveLogs();
-                        this.firebaseSaveRecords(relatedLogs); // 완료 상태 변경분만 저장
+                        this.persistRecords(relatedLogs);
                         const count = relatedLogs.length;
                         if (newCompletedStatus) {
                             this.showToast(count > 1 ? `${count}개 시료가 완료 처리되었습니다` : '완료 처리되었습니다', 'success');
@@ -3963,8 +4124,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                         if (isOrder) log.gongikOrder = val;
                         else log.gongikBaseYear = val;
                         log.updatedAt = new Date().toISOString();
-                        this.saveLogs();
-                        this.firebaseSaveRecords(log); // Firebase 동기화
+                        this.persistRecords(log);
                         // 같은 log가 여러 행(필지)으로 펼쳐진 경우 형제 select 값 동기화
                         const cls = isOrder ? 'gongik-order-select' : 'gongik-baseyear-select';
                         this.tableBody.querySelectorAll(`.${cls}[data-id="${id}"]`).forEach(sel => {
@@ -4196,8 +4356,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                         changedLogs.push(log);
                     }
                 });
-                this.saveLogs();
-                this.firebaseSaveRecords(changedLogs);
+                this.persistRecords(changedLogs);
                 this.filterAndRenderLogs();
                 if (this.selectAllCheckbox) { this.selectAllCheckbox.checked = false; this.selectAllCheckbox.indeterminate = false; }
                 this.showToast(`${changedLogs.length}건이 ${actionLabel}되었습니다.`, 'success');
@@ -4257,8 +4416,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                         changedLogs.push(log);
                     }
                 });
-                this.saveLogs();
-                this.firebaseSaveRecords(changedLogs);
+                this.persistRecords(changedLogs);
                 this.filterAndRenderLogs();
                 if (this.selectAllCheckbox) { this.selectAllCheckbox.checked = false; this.selectAllCheckbox.indeterminate = false; }
                 closeMailDateModalFn();
@@ -4886,6 +5044,9 @@ class SoilSampleManager extends window.BaseSampleManager {
         }
     }
 }
+
+// 전역 노출 (단위 테스트 및 디버깅용 — 인스턴스화는 DOMContentLoaded에서만 수행)
+window.SoilSampleManager = SoilSampleManager;
 
 // ========================================
 // 인스턴스 생성 및 초기화

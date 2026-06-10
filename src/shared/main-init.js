@@ -133,14 +133,38 @@ async function syncAllData() {
             // 모든 연도 동기화 (2020년부터 현재 연도까지)
             for (let year = MIN_YEAR; year <= currentYear; year++) {
                 try {
-                    const cloudData = await window.firestoreDb.getAll(sampleType.type, year);
+                    // SLS-1-121 (SAMPL-1-80 백포트): fromCache 메타 포함 조회 —
+                    // 캐시/불완전 읽기에서 무병합 덮어쓰기로 미업로드 로컬 항목이 유실되는 것을 방지
+                    let cloudData, fromCache = false;
+                    if (typeof window.firestoreDb.getAllWithMeta === 'function') {
+                        const res = await window.firestoreDb.getAllWithMeta(sampleType.type, year);
+                        cloudData = res.documents;
+                        fromCache = res.fromCache === true;
+                    } else {
+                        cloudData = await window.firestoreDb.getAll(sampleType.type, year);
+                    }
                     const storageKey = `${sampleType.storagePrefix}_${year}`;
 
                     if (cloudData && cloudData.length > 0) {
-                        // Firebase 데이터를 localStorage에 저장
-                        localStorage.setItem(storageKey, JSON.stringify(cloudData));
-                        totalLoaded += cloudData.length;
-                        yearsWithData.push({ year, count: cloudData.length });
+                        // 통째 덮어쓰기 대신 로컬과 스마트 병합:
+                        //  - 미업로드 로컬 항목(syncedAt 없음) 보존
+                        //  - fromCache(불완전 가능) 읽기에서는 cross-device 삭제 보류
+                        const localData = window.SyncUtils?.smartMerge
+                            ? (() => {
+                                let local;
+                                try { local = JSON.parse(localStorage.getItem(storageKey) || '[]'); }
+                                catch { local = []; }
+                                if (!Array.isArray(local)) local = [];
+                                const merged = window.SyncUtils.mergeCloudData
+                                    ? window.SyncUtils.mergeCloudData(local, cloudData, { fromCache })
+                                    : { data: window.SyncUtils.smartMerge(local, cloudData, { allowDeletions: !fromCache }).data };
+                                return merged.data;
+                            })()
+                            : cloudData;
+                        // 병합 결과를 localStorage에 저장
+                        localStorage.setItem(storageKey, JSON.stringify(localData));
+                        totalLoaded += localData.length;
+                        yearsWithData.push({ year, count: localData.length });
                     }
                 } catch (err) {
                     (window.logger?.error || console.error)(`${sampleType.name} ${year}년 동기화 오류:`, err);

@@ -153,10 +153,11 @@ describe('loadYearData smartMerge 결선(wiring)', () => {
         delete window.firebaseConfig
     })
 
-    function wire(firebaseLogs) {
+    function wire(firebaseLogs, fromCache = false) {
         window.firebaseConfig = { isEnabled: () => true }
-        // 실제 loadFromFirebase(year)와 시그니처를 맞춰 둠 (현재는 고정 반환)
-        manager.loadFromFirebase = async (_year) => firebaseLogs
+        // 실제 loadFromFirebase(year)와 시그니처를 맞춰 둠
+        // SLS-1-121: loadFromFirebase는 { data, fromCache } 객체를 반환한다
+        manager.loadFromFirebase = async (_year) => ({ data: firebaseLogs, fromCache })
     }
 
     const ids = (arr) => arr.map(r => r.id).sort()
@@ -204,6 +205,26 @@ describe('loadYearData smartMerge 결선(wiring)', () => {
         expect(resultIds).not.toContain('D') // 삭제 전파
         expect(resultIds).toContain('E')     // 오프라인 신규 보존
         expect(resultIds).toContain('F')     // 클라우드 신규 병합
+    })
+
+    it('SLS-1-121: fromCache=true면 cross-device 삭제 보류 (캐시 읽기 데이터 보존)', async () => {
+        const year = 2026
+        const key = manager.getStorageKey(year)
+        // 로컬: D=과거 동기화됨(syncedAt) 그러나 캐시 응답에 없음 → 평소라면 삭제 대상
+        const local = [
+            { id: 'D', receptionNumber: '4', syncedAt: '2026-01-01', updatedAt: '2026-01-01' },
+            { id: 'E', receptionNumber: '5', updatedAt: '2026-01-01' },
+        ]
+        localStorage.setItem(key, JSON.stringify(local))
+        // 클라우드(캐시) 응답: F만. fromCache=true → D 삭제 보류해야 함
+        wire([{ id: 'F', receptionNumber: '6', updatedAt: '2026-02-01' }], true)
+
+        await manager.loadYearData(year)
+
+        const resultIds = ids(manager.sampleLogs)
+        expect(resultIds).toContain('D') // 캐시 읽기 → 삭제 보류(보존)
+        expect(resultIds).toContain('E') // 오프라인 신규 보존
+        expect(resultIds).toContain('F') // 클라우드 신규 병합
     })
 
     it('클라우드 빈 응답이면 로컬 유지(전멸 방지 안전가드 — smartMerge 미경유)', async () => {

@@ -35,6 +35,9 @@ class BaseSampleManager {
         this._firebaseCache = new Map();  // PER-9: 연도별 Firebase 데이터 캐시 { data, timestamp }
         this._firebaseCacheTTL = 30000;   // PER-9: 캐시 유효 시간 (30초)
         this._firebaseCacheMax = 5;       // 메모리 누수 방지: 캐시 보관 연도 상한
+        this._cloudSyncFailed = false;       // L2: 클라우드 동기화 실패 상태 (중복 토스트 방지)
+        this._retryCloudSyncHandler = null;  // L2: online 복귀 재시도 리스너 참조
+        this.cloudSyncPromise = null;  // Promise-based lock
         this._hashChangeHandler = null;   // destroy()에서 해제하기 위한 핸들러 참조
 
         // PaginationManager 인스턴스
@@ -237,11 +240,23 @@ class BaseSampleManager {
             throw e;
         }
 
-        // Firebase 백그라운드 동기화 (fire-and-forget — Quota 초과 시에도 UI 블로킹 없음)
-        if (window.firestoreDb?.isEnabled()) {
+        // Firebase 백그라운드 동기화 (UI 비블로킹 — 실패 시 토스트 + online 재시도)
+        // 주의: batchSave는 실패 시 throw가 아닌 false 반환 → 반환값 검사 필수
+        // 빈 배열은 batchSave가 false를 반환하므로 호출 생략
+        if (window.firestoreDb?.isEnabled() && this.sampleLogs.length > 0) {
             window.firestoreDb.batchSave(this.moduleKey, parseInt(this.selectedYear, 10), this.sampleLogs)
-                .then(() => this.log('Firebase 동기화 완료:', this.sampleLogs.length, '건'))
-                .catch(err => (window.logger?.error || console.error)('Firebase 동기화 실패:', err));
+                .then(ok => {
+                    if (ok) {
+                        this._clearCloudSyncFailure();
+                        this.log('Firebase 동기화 완료:', this.sampleLogs.length, '건');
+                    } else {
+                        this._handleCloudSyncFailure();
+                    }
+                })
+                .catch(err => {
+                    (window.logger?.error || console.error)('Firebase 동기화 실패:', err);
+                    this._handleCloudSyncFailure();
+                });
         }
 
         // 자동 저장 트리거
@@ -268,11 +283,58 @@ class BaseSampleManager {
         this.filterAndRenderLogs();
         this.showToast('삭제되었습니다.', 'success');
 
-        // Firebase 삭제 (백그라운드)
+        // Firebase 삭제 (백그라운드 — 실패 시 다음 병합에서 항목이 부활할 수 있으므로 사용자에게 알림)
         if (window.firestoreDb?.isEnabled()) {
             window.firestoreDb.delete(this.moduleKey, parseInt(this.selectedYear, 10), String(id))
-                .then(() => this.log('Firebase 삭제 완료:', id))
-                .catch(err => (window.logger?.error || console.error)('Firebase 삭제 실패:', err));
+                .then(ok => {
+                    if (ok) this.log('Firebase 삭제 완료:', id);
+                    else this._handleCloudSyncFailure();
+                })
+                .catch(err => {
+                    (window.logger?.error || console.error)('Firebase 삭제 실패:', err);
+                    this._handleCloudSyncFailure();
+                });
+        }
+    }
+
+    /**
+     * L2: 클라우드 동기화 실패 처리 — 사용자 알림 + 온라인 복귀 시 1회 자동 재시도
+     * batchSave/delete는 실패 시 false를 반환하므로 호출부에서 이 메서드를 호출한다.
+     */
+    _handleCloudSyncFailure() {
+        if (this._cloudSyncFailed) return;  // 이미 알림/재시도 대기 중이면 중복 방지
+        this._cloudSyncFailed = true;
+        this.showToast(
+            '클라우드 동기화 실패 — 데이터는 이 컴퓨터에 저장되어 있습니다. 온라인 연결 시 자동 재시도합니다.',
+            'error'
+        );
+        if (!this._retryCloudSyncHandler) {
+            this._retryCloudSyncHandler = () => {
+                this._retryCloudSyncHandler = null;
+                this._cloudSyncFailed = false;
+                this.log('🔁 온라인 복귀 — 클라우드 동기화 재시도');
+                this._retryCloudSyncAction();
+            };
+            window.addEventListener('online', this._retryCloudSyncHandler, { once: true });
+        }
+    }
+
+    /**
+     * L2: online 복귀 시 실행할 재시도 동작 — 서브클래스 오버라이드 지점
+     * (기본: saveLogs가 전체 batchSave를 수행)
+     */
+    _retryCloudSyncAction() {
+        this.saveLogs();
+    }
+
+    /**
+     * L2: 동기화 성공 시 실패 상태 해제 — 플래그 리셋 + 대기 중 재시도 리스너 정리
+     */
+    _clearCloudSyncFailure() {
+        this._cloudSyncFailed = false;
+        if (this._retryCloudSyncHandler) {
+            window.removeEventListener('online', this._retryCloudSyncHandler);
+            this._retryCloudSyncHandler = null;
         }
     }
 
@@ -295,10 +357,19 @@ class BaseSampleManager {
                     const cacheEntry = this._firebaseCache.get(year);
                     const cacheValid = cacheEntry && (Date.now() - cacheEntry.timestamp < this._firebaseCacheTTL);
                     this.log(cacheValid ? ` Firebase 캐시 사용 (${year}년)` : ` Firebase에서 데이터 로드 시작`);
-                    const firebaseLogs = cacheValid ? cacheEntry.data : await this.loadFromFirebase(year);
+                    // SLS-1-121 (SAMPL-1-80 백포트): firebaseLogs와 함께 fromCache(읽기 신뢰도)도 확보
+                    let firebaseLogs, fromCache;
+                    if (cacheValid) {
+                        firebaseLogs = cacheEntry.data;
+                        fromCache = cacheEntry.fromCache === true;  // 캐시된 응답의 원래 신뢰도 보존
+                    } else {
+                        const res = await this.loadFromFirebase(year);
+                        firebaseLogs = res.data;
+                        fromCache = res.fromCache === true;
+                    }
 
                     if (firebaseLogs && firebaseLogs.length > 0) {
-                        this.log(` Firebase 데이터:`, firebaseLogs.length, '건');
+                        this.log(` Firebase 데이터:`, firebaseLogs.length, '건', `(fromCache=${fromCache})`);
 
                         // PER-9: TTL 포함 캐시 저장 (Firebase 원본 기준 — 다음 로드에서 재병합)
                         if (!cacheValid) {
@@ -306,15 +377,20 @@ class BaseSampleManager {
                             if (this._firebaseCache.size >= this._firebaseCacheMax && !this._firebaseCache.has(year)) {
                                 this._firebaseCache.delete(this._firebaseCache.keys().next().value);
                             }
-                            this._firebaseCache.set(year, { data: JSON.parse(JSON.stringify(firebaseLogs)), timestamp: Date.now() });
+                            this._firebaseCache.set(year, { data: JSON.parse(JSON.stringify(firebaseLogs)), fromCache, timestamp: Date.now() });
                         }
 
                         // 통째 교체 대신 로컬과 스마트 병합(동기화 경로 단일화):
                         //  - 오프라인에서 로컬에만 추가된(syncedAt 없는) 레코드 → 보존(유실 방지)
                         //  - 클라우드에서 삭제된(과거 동기화되어 syncedAt 있는) 레코드 → 로컬에서도 제거
                         //  - 양쪽 존재 시 updatedAt 최신 우선
+                        // SLS-1-121: fromCache(불완전 가능) 읽기에서는 cross-device 삭제를 보류하고,
+                        //            클라우드에 없는 localOnly 레코드는 재업로드 대상으로 분리
                         const localLogs = this.safeParseArray(yearStorageKey);
-                        const mergedLogs = this.smartMerge(localLogs, firebaseLogs);
+                        const merged = window.SyncUtils?.mergeCloudData
+                            ? window.SyncUtils.mergeCloudData(localLogs, firebaseLogs, { fromCache })
+                            : { data: this.smartMerge(localLogs, firebaseLogs, { allowDeletions: !fromCache }), localOnly: [] };
+                        const mergedLogs = merged.data;
                         this.sampleLogs = mergedLogs;
 
                         // 병합 결과를 localStorage에 저장 (Quota 보호)
@@ -327,7 +403,21 @@ class BaseSampleManager {
                                 throw e;
                             }
                         }
-                        this.log(` Firebase+로컬 병합 결과 저장 (${mergedLogs.length}건, 로컬 ${localLogs.length}건)`);
+                        this.log(` Firebase+로컬 병합 결과 저장 (${mergedLogs.length}건, 로컬 ${localLogs.length}건, 로컬전용 ${merged.localOnly.length}건)`);
+
+                        // 보존된 로컬 전용 항목을 클라우드로 재업로드 (전체가 아닌 localOnly만 —
+                        // 전체 재업로드 시 모든 문서의 updatedAt이 갱신되어 타 기기 병합을 교란함)
+                        if (merged.localOnly.length > 0 && window.firestoreDb?.isEnabled()) {
+                            window.firestoreDb.batchSave(this.moduleKey, parseInt(year, 10), merged.localOnly)
+                                .then(ok => {
+                                    if (ok) {
+                                        this.log(`☁️ 로컬 전용 ${merged.localOnly.length}건 클라우드 업로드 완료`);
+                                        // stale 캐시로 인한 반복 재업로드 방지
+                                        this._firebaseCache.delete(year);
+                                    }
+                                })
+                                .catch((err) => (window.logger?.warn || console.warn)('로컬 전용 항목 재업로드 실패:', err));
+                        }
                     } else {
                         this.log(` Firebase에 데이터 없음, localStorage 확인`);
                         // Firebase에 데이터가 없으면 localStorage 확인
@@ -400,25 +490,35 @@ class BaseSampleManager {
                 firestoreDb: !!window.firestoreDb
             });
 
-            const data = await window.firestoreDb.getAll(this.moduleKey, parseInt(year, 10));
-            this.log(` Firebase 응답:`, data ? `${data.length}건` : 'null/undefined');
+            // SLS-1-121 (SAMPL-1-80 백포트): fromCache 메타 포함 조회 (있으면) —
+            // 불완전 캐시 읽기 시 cross-device 삭제 보류 판단용
+            let data, fromCache = false;
+            if (typeof window.firestoreDb?.getAllWithMeta === 'function') {
+                const res = await window.firestoreDb.getAllWithMeta(this.moduleKey, parseInt(year, 10));
+                data = res.documents;
+                fromCache = res.fromCache === true;
+            } else {
+                data = await window.firestoreDb.getAll(this.moduleKey, parseInt(year, 10));
+            }
+            this.log(` Firebase 응답:`, data ? `${data.length}건 (fromCache=${fromCache})` : 'null/undefined');
             this.log(` Firebase 데이터 샘플:`, data && data.length > 0 ? data[0] : 'No data');
-            return data || [];
+            return { data: data || [], fromCache };
         } catch (error) {
             console.error(`[${this.moduleName}] Firebase 로드 오류 상세:`, error);
             (window.logger?.error || console.error)('Firebase 로드 실패:', error);
-            return [];
+            return { data: [], fromCache: false };
         }
     }
 
     /**
      * 스마트 병합 - utils.js의 함수 사용
      */
-    smartMerge(localData, firebaseData) {
+    smartMerge(localData, firebaseData, options = {}) {
         if (window.SyncUtils?.smartMerge) {
             // SyncUtils.smartMerge는 { data, hasChanges, ... } 객체를 반환하므로
             // 배열 계약을 유지하기 위해 data를 언래핑한다 (객체를 그대로 쓰면 데이터 손상)
-            const result = window.SyncUtils.smartMerge(localData, firebaseData);
+            // SLS-1-121: options(allowDeletions 등)를 그대로 전달해 캐시 읽기 시 삭제 보류 가능
+            const result = window.SyncUtils.smartMerge(localData, firebaseData, options);
             return Array.isArray(result) ? result : (result?.data || []);
         }
         // 폴백: id 기준 union merge (로컬 우선 — Firebase만 반환하면 로컬 변경 유실)
@@ -629,6 +729,13 @@ class BaseSampleManager {
             window.removeEventListener('hashchange', this._hashChangeHandler);
             this._hashChangeHandler = null;
         }
+
+        // L2: online 재시도 리스너 정리
+        if (this._retryCloudSyncHandler) {
+            window.removeEventListener('online', this._retryCloudSyncHandler);
+            this._retryCloudSyncHandler = null;
+        }
+        this.cloudSyncPromise = null;
 
         // Firebase 캐시/페이지네이션 정리
         this._firebaseCache.clear();

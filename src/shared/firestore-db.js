@@ -144,21 +144,21 @@ async function getDocument(sampleType, year, docId) {
 }
 
 /**
- * 컬렉션 전체 조회 (compat 버전)
+ * 컬렉션 전체 조회 (메타데이터 포함, compat 버전)
  * @param {string} sampleType - 시료 타입
  * @param {number} year - 연도
  * @param {Object} options - 조회 옵션
  * @param {boolean} options.skipOrder - 정렬 생략 (속도 향상)
- * @returns {Promise<Array>} 문서 배열
+ * @returns {Promise<{documents: Array, fromCache: boolean}>} 문서 배열 + 캐시 여부
  */
-async function getAllDocuments(sampleType, year, options = {}) {
+async function getAllDocumentsWithMeta(sampleType, year, options = {}) {
     if (!window.firebaseConfig?.isEnabled()) {
-        return [];
+        return { documents: [], fromCache: false };
     }
 
     try {
         const db = window.firebaseConfig.getDb();
-        if (!db) return [];
+        if (!db) return { documents: [], fromCache: false };
 
         const collectionName = getCollectionName(sampleType, year);
         let queryRef = db.collection(collectionName);
@@ -166,6 +166,10 @@ async function getAllDocuments(sampleType, year, options = {}) {
         // orderBy를 사용하지 않고 전체 조회 후 로컬 정렬
         // (Firestore orderBy는 해당 필드가 없는 문서를 제외하므로 데이터 누락 방지)
         const querySnapshot = await queryRef.get();
+
+        // SLS-1-121 (SAMPL-1-80 백포트): 캐시(오프라인/경합/일시단절)에서 온 불완전 응답 여부.
+        // fromCache=true면 호출부가 cross-device 삭제 판정을 보류해야 한다.
+        const fromCache = querySnapshot.metadata?.fromCache === true;
 
         const documents = [];
         querySnapshot.forEach((doc) => {
@@ -181,12 +185,24 @@ async function getAllDocuments(sampleType, year, options = {}) {
             });
         }
 
-        logFirestore(`조회 완료: ${collectionName} (${documents.length}건)`);
-        return normalizeDataIds(documents);
+        logFirestore(`조회 완료: ${collectionName} (${documents.length}건, fromCache=${fromCache})`);
+        return { documents: normalizeDataIds(documents), fromCache };
     } catch (error) {
         (window.logger?.error || console.error)('Firestore 전체 조회 실패:', error);
-        return [];
+        return { documents: [], fromCache: false };
     }
+}
+
+/**
+ * 컬렉션 전체 조회 (배열 반환 — 기존 호출 호환)
+ * @param {string} sampleType - 시료 타입
+ * @param {number} year - 연도
+ * @param {Object} options - 조회 옵션
+ * @returns {Promise<Array>} 문서 배열
+ */
+async function getAllDocuments(sampleType, year, options = {}) {
+    const { documents } = await getAllDocumentsWithMeta(sampleType, year, options);
+    return documents;
 }
 
 /**
@@ -236,8 +252,10 @@ async function deleteDocument(sampleType, year, docId) {
         }
 
         if (querySnapshot.empty) {
-            logFirestore(`삭제 대상 없음: ${collectionName}/${stringDocId}`);
-            return false;
+            // SLS-1-121 (SAMPL-1-80 백포트): 멱등 삭제 — 대상이 이미 없음 = 삭제 목표 달성
+            // (미업로드 항목 삭제 시 거짓 실패로 호출부가 동기화를 오판하는 것 방지)
+            logFirestore(`삭제 대상 없음(멱등 성공): ${collectionName}/${stringDocId}`);
+            return true;
         }
 
         // 찾은 문서 삭제
@@ -453,6 +471,7 @@ window.firestoreDb = {
     save: saveDocument,
     get: getDocument,
     getAll: getAllDocuments,
+    getAllWithMeta: getAllDocumentsWithMeta,
     delete: deleteDocument,
     batchSave: batchSave,
     migrate: migrateFromLocalStorage,

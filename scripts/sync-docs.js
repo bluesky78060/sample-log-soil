@@ -15,10 +15,6 @@ const DOCS = path.resolve(__dirname, '..', 'docs');
 const SYNC_TARGETS = [
     'shared',
     'soil',
-    'water',
-    'compost',
-    'heavy-metal',
-    'pesticide',
     'settings',
     'label-print',
     'manual',

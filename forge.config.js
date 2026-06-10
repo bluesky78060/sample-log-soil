@@ -27,7 +27,19 @@ module.exports = {
       }
     }
   },
-  publishers: [],
+  // SLS-1-126: GitHub Release 자동 배포 (npm run publish) — 메인 sample-log-electron과 동일 구성
+  publishers: [
+    {
+      name: '@electron-forge/publisher-github',
+      config: {
+        repository: {
+          owner: 'bluesky78060',
+          name: 'sample-log-soil'
+        },
+        prerelease: false
+      }
+    }
+  ],
   makers: [
     {
       name: '@electron-forge/maker-squirrel',

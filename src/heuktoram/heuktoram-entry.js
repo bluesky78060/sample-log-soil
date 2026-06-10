@@ -1,7 +1,11 @@
 // npm packages
 import * as XLSX from 'xlsx-js-style';
+// 외부 엑셀 읽기 전용 보안 패치판 (SheetJS 0.20.x) — xlsx-js-style(0.18 기반)의
+// 프로토타입 오염/ReDoS CVE를 읽기 경로에서 회피 (SLS-1-131 H-1)
+import * as XLSXRead from 'xlsx';
 import JSZip from 'jszip';
 window.XLSX = XLSX;
+window.XLSXRead = XLSXRead;
 window.JSZip = JSZip;
 
 // Shared modules

@@ -61,7 +61,8 @@ const RULES = {
     'valid-typeof': 'error',          // typeof 오타
     // ── 경고 (warn) — 기존 코드 폭탄 완화 ───────────────
     'no-undef': 'warn',               // 미정의 참조(오타). globals로 대부분 커버
-    'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none' }],
+    // varsIgnorePattern '^_': 구조분해에서 필드 제외용 의도적 디스카드(예: const { type: _t, ...rest }) 허용
+    'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none', varsIgnorePattern: '^_' }],
     'no-constant-condition': ['warn', { checkLoops: false }],
     // ── 거대 함수 탐지 (분석 #6) ────────────────────────
     'max-lines-per-function': ['warn', { max: 100, skipBlankLines: true, skipComments: true, IIFEs: false }],

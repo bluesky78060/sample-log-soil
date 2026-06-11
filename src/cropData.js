@@ -802,16 +802,6 @@ const CROP_DATA = [
 // 카테고리별 그룹화
 const CROP_CATEGORIES = [...new Set(CROP_DATA.map(c => c.category))];
 
-// 코드로 작물 검색
-function getCropByCode(code) {
-    return CROP_DATA.find(c => c.code === code) || null;
-}
-
-// 이름으로 작물 검색 (부분일치)
-function searchCrops(query) {
-    return CROP_DATA.filter(c => c.name.includes(query));
-}
-
 // ESM 모듈 스코프에서도 다른 스크립트가 접근할 수 있도록 window에 등록
 window.CROP_DATA = CROP_DATA;
 window.CROP_CATEGORIES = CROP_CATEGORIES;

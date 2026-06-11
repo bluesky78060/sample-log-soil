@@ -542,7 +542,6 @@
             if (this._built) return;
             injectStyle();
             const modal = buildModal();
-            const $ = (sel) => modal.querySelector(sel);
             const els = { modal };
             modal.querySelectorAll('[data-el]').forEach(node => {
                 els[node.getAttribute('data-el')] = node;

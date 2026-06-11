@@ -63,15 +63,6 @@ const CacheManager = (function() {
     }
 
     /**
-     * 키가 보존 대상인지 확인
-     * @param {string} key - localStorage 키
-     * @returns {boolean}
-     */
-    function shouldPreserve(key) {
-        return KEYS_TO_PRESERVE.some(pattern => key === pattern || key.startsWith(pattern));
-    }
-
-    /**
      * 키가 시료 데이터인지 확인
      * @param {string} key - localStorage 키
      * @returns {boolean}

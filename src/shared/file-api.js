@@ -3,9 +3,6 @@
 // Electron과 Web 환경 모두 지원
 // ========================================
 
-// PathSecurity 로드 (있으면 사용)
-const pathSecurity = window.PathSecurity || null;
-
 // Electron 환경 여부 감지
 const isElectron = window.electronAPI?.isElectron === true;
 

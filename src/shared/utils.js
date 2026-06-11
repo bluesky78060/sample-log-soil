@@ -335,7 +335,6 @@ function updateAutoSaveStatus(status) {
     const autoSaveStatus = document.getElementById('autoSaveStatus');
     if (!autoSaveStatus) return;
 
-    const statusDot = autoSaveStatus.querySelector('.status-dot');
     const statusText = autoSaveStatus.querySelector('.status-text');
 
     autoSaveStatus.classList.remove('hidden', 'active', 'saving', 'error');
@@ -382,10 +381,9 @@ function updateAutoSaveStatus(status) {
  * @param {Object} options.FileAPI - 파일 API 인스턴스
  * @param {string} options.currentYear - 현재 연도
  * @param {Function} [options.log] - 로그 함수
- * @param {Function} [options.showToast] - 토스트 메시지 함수
  */
 async function initAutoSave(options) {
-    const { moduleKey, moduleName, FileAPI, currentYear, log = console.log, showToast } = options;
+    const { moduleKey, moduleName, FileAPI, currentYear, log = console.log } = options;
 
     const autoSaveToggle = document.getElementById('autoSaveToggle');
     const folderSelectedKey = `${moduleKey}AutoSaveFolderSelected`;
@@ -555,22 +553,16 @@ async function performAutoSave(options) {
  * 자동 저장 토글 이벤트 설정
  * @param {Object} options - 옵션
  * @param {string} options.moduleKey - 모듈 키
- * @param {Object} options.FileAPI - 파일 API 인스턴스
- * @param {Function} options.getWebFileHandle - Web 파일 핸들 getter
  * @param {Function} options.setWebFileHandle - Web 파일 핸들 setter
  * @param {Function} options.autoSaveCallback - 자동 저장 실행 콜백
  * @param {Function} [options.showToast] - 토스트 메시지 함수
- * @param {Function} [options.log] - 로그 함수
  */
 function setupAutoSaveToggle(options) {
     const {
         moduleKey,
-        FileAPI,
-        getWebFileHandle,
         setWebFileHandle,
         autoSaveCallback,
-        showToast,
-        log = console.log
+        showToast
     } = options;
 
     const autoSaveToggle = document.getElementById('autoSaveToggle');
@@ -639,7 +631,6 @@ function setupAutoSaveToggle(options) {
  * @param {string} options.moduleKey - 모듈 키
  * @param {Object} options.FileAPI - 파일 API 인스턴스
  * @param {string} options.selectedYear - 현재 선택된 연도
- * @param {Function} options.getWebFileHandle - Web 파일 핸들 getter
  * @param {Function} options.setWebFileHandle - Web 파일 핸들 setter
  * @param {Function} options.autoSaveCallback - 자동 저장 실행 콜백
  * @param {Function} [options.showToast] - 토스트 메시지 함수
@@ -649,7 +640,6 @@ function setupAutoSaveFolderButton(options) {
         moduleKey,
         FileAPI,
         selectedYear,
-        getWebFileHandle,
         setWebFileHandle,
         autoSaveCallback,
         showToast

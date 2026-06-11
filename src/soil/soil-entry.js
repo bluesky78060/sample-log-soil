@@ -1,3 +1,4 @@
+import '../shared/frame-guard.js'; // 클릭재킹 자기방어 (SLS-1-132)
 // npm packages
 import * as XLSX from 'xlsx';
 import DOMPurify from 'dompurify';

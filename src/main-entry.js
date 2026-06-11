@@ -1,3 +1,4 @@
+import './shared/frame-guard.js'; // 클릭재킹 자기방어 (SLS-1-132)
 // Shared modules (메인 페이지에서 필요한 것만)
 import './shared/logger.js';
 import './shared/network-config.js';

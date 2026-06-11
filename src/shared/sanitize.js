@@ -3,6 +3,9 @@
 // DOMPurify를 사용한 HTML 새니타이징
 // ========================================
 
+// DOMPurify 훅 1회 등록 가드 (sanitizeHTML 최초 호출 시 등록)
+let relNoopenerHookRegistered = false;
+
 /**
  * HTML 문자열을 새니타이즈하여 XSS 공격 방지
  * @param {string} html - 새니타이즈할 HTML 문자열
@@ -10,6 +13,16 @@
  */
 function sanitizeHTML(html) {
     if (typeof window.DOMPurify !== 'undefined') {
+        // reverse tabnabbing 방어: target=_blank 링크에 rel="noopener noreferrer" 강제 (SLS-1-132)
+        // Electron은 setWindowOpenHandler가 새 창 생성을 차단하므로 실질 효과는 웹 빌드에서 발생.
+        if (!relNoopenerHookRegistered) {
+            window.DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+                if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+                    node.setAttribute('rel', 'noopener noreferrer');
+                }
+            });
+            relNoopenerHookRegistered = true;
+        }
         const config = {
             ALLOWED_TAGS: [
                 'div', 'span', 'p', 'br', 'hr',

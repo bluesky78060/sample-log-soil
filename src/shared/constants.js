@@ -110,39 +110,6 @@ const YEAR = {
 };
 
 /**
- * 시료 타입 코드
- */
-const SAMPLE_TYPE_CODE = {
-    SOIL: 'soil',
-    WATER: 'water',
-    COMPOST: 'compost',
-    HEAVY_METAL: 'heavyMetal',
-    PESTICIDE: 'pesticide'
-};
-
-/**
- * 시료 타입 한글명
- */
-const SAMPLE_TYPE_NAME = {
-    soil: '토양',
-    water: '수질분석',
-    compost: '퇴·액비',
-    heavyMetal: '토양 중금속',
-    pesticide: '잔류농약'
-};
-
-/**
- * localStorage 키 접두사
- */
-const STORAGE_KEY_PREFIX = {
-    soil: 'soilSampleLogs',
-    water: 'waterSampleLogs',
-    compost: 'compostSampleLogs',
-    heavyMetal: 'heavyMetalSampleLogs',
-    pesticide: 'pesticideSampleLogs'
-};
-
-/**
  * 수령 방법 옵션
  */
 const RECEPTION_METHOD = {
@@ -170,9 +137,6 @@ window.APP_CONSTANTS = {
     FILE,
     VALIDATION,
     YEAR,
-    SAMPLE_TYPE_CODE,
-    SAMPLE_TYPE_NAME,
-    STORAGE_KEY_PREFIX,
     RECEPTION_METHOD,
     APPLICANT_TYPE
 };

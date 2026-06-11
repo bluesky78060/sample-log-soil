@@ -2,12 +2,8 @@
  * @fileoverview Firestore 데이터베이스 CRUD 모듈 (compat 버전)
  * @description 시료 데이터의 Firestore 저장/조회/수정/삭제 기능
  *
- * 컬렉션 구조:
- * - soilSamples: 토양 시료
- * - waterSamples: 수질분석 시료
- * - compostSamples: 퇴·액비 시료
- * - heavyMetalSamples: 토양 중금속 시료
- * - pesticideSamples: 잔류농약 시료
+ * 컬렉션 구조 (토양 전용 분리본):
+ * - soilSamples_{year}: 연도별 토양 시료
  */
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
@@ -33,23 +29,14 @@ const DEBUG_FIRESTORE = (() => {
 /** 조건부 로깅 */
 const logFirestore = (...args) => DEBUG_FIRESTORE && console.log('[Firestore]', ...args);
 
-// 컬렉션 이름 매핑
+// 컬렉션 이름 매핑 — 토양 전용 분리본: soil 단일 (호출 인자 전수 'soil' 검증, SLS-1-134)
 const COLLECTION_MAP = {
-    'soil': 'soilSamples',
-    'water': 'waterSamples',
-    'compost': 'compostSamples',
-    'heavyMetal': 'heavyMetalSamples',
-    'heavy-metal': 'heavyMetalSamples',
-    'pesticide': 'pesticideSamples',
-    'waterTestResults': 'waterTestResults',
-    'pesticideTestResults': 'pesticideTestResults',
-    'compostTestResults': 'compostTestResults',
-    'heavyMetalTestResults': 'heavyMetalTestResults'
+    'soil': 'soilSamples'
 };
 
 /**
  * 컬렉션 이름 가져오기
- * @param {string} sampleType - 시료 타입 (soil, water, compost, heavyMetal, pesticide)
+ * @param {string} sampleType - 시료 타입 ('soil')
  * @param {number} year - 연도
  * @returns {string} 컬렉션 이름
  */

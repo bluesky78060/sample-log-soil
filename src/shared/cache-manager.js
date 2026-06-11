@@ -22,6 +22,9 @@ const CacheManager = (function() {
 
     // 시료 데이터 키 패턴 (이 패턴의 데이터가 클리어 대상)
     // 연도 포함 키(예: soilSampleLogs_2026)와 레거시 키(예: waterSampleLogs) 모두 매칭
+    // ⚠️ 타 시료 4종은 의도적 유지 (SLS-1-134): 5종 통합본(sample-log-electron)에서 넘어온
+    //    사용자의 localStorage에 남은 잔존 키를 캐시 정리 때 함께 지워주는 정리 로직.
+    //    제거하면 그 레거시 키들이 영구 잔존하므로 삭제 금지.
     const SAMPLE_DATA_PATTERNS = [
         'soilSampleLogs',
         'waterSampleLogs',

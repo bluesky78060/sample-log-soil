@@ -5,7 +5,7 @@
 
 /**
  * 시료 관리의 기본 클래스
- * 모든 시료 타입 (soil, water, compost, pesticide, heavy-metal)이 공통으로 사용하는 기능 제공
+ * 토양 전용 분리본에서는 soil 한 종만 사용 (범용 베이스 구조는 유지)
  */
 class BaseSampleManager {
     /**

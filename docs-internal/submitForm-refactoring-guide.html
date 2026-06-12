@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>submitForm(245줄) 분해 설계 가이드 — sample-log-soil</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#fff; --ink:#1f2933; --muted:#64748b; --line:#e3e8ef;
+    --green:#16a34a; --amber:#d97706; --red:#dc2626; --blue:#2563eb; --violet:#7c3aed;
+    --codebg:#0f172a; --codeink:#e2e8f0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Pretendard','Noto Sans KR',-apple-system,sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.7;font-size:15px}
+  .wrap{max-width:900px;margin:0 auto;padding:2.5rem 1.5rem 5rem}
+  header{border-bottom:3px solid var(--ink);padding-bottom:1.2rem;margin-bottom:2rem}
+  h1{font-size:1.9rem;margin:0 0 .4rem;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:.95rem}
+  .meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.8rem}
+  .tag{font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:999px;background:#eef2ff;color:#4338ca}
+  .tag.warn{background:#fef3c7;color:#92400e}
+  .tag.danger{background:#fee2e2;color:#991b1b}
+  h2{font-size:1.35rem;margin:2.6rem 0 1rem;padding-left:.6rem;border-left:5px solid var(--blue)}
+  h3{font-size:1.08rem;margin:1.8rem 0 .6rem;color:#0f172a}
+  p{margin:.6rem 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1.3rem 1.5rem;margin:1rem 0;
+        box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .callout{border-left:4px solid var(--amber);background:#fffbeb;padding:.9rem 1.2rem;border-radius:0 8px 8px 0;margin:1rem 0}
+  .callout.danger{border-color:var(--red);background:#fef2f2}
+  .callout.good{border-color:var(--green);background:#f0fdf4}
+  .callout.info{border-color:var(--blue);background:#eff6ff}
+  .callout strong{display:block;margin-bottom:.2rem}
+  code{background:#eef2f6;color:#0f172a;padding:.1rem .4rem;border-radius:4px;font-size:.86em;
+       font-family:'JetBrains Mono','SF Mono',Consolas,monospace}
+  pre{background:var(--codebg);color:var(--codeink);padding:1.1rem 1.3rem;border-radius:10px;overflow-x:auto;
+      font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:.82rem;line-height:1.6;margin:1rem 0}
+  pre .c{color:#94a3b8} pre .k{color:#c4b5fd} pre .s{color:#86efac} pre .f{color:#7dd3fc} pre .n{color:#fca5a5}
+  table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.9rem}
+  th,td{border:1px solid var(--line);padding:.55rem .75rem;text-align:left;vertical-align:top}
+  th{background:#f1f5f9;font-weight:600}
+  td code{font-size:.82em}
+  .flow{display:flex;flex-direction:column;gap:.5rem;margin:1rem 0}
+  .flow .step{display:flex;align-items:flex-start;gap:.8rem;background:#fff;border:1px solid var(--line);
+              border-radius:10px;padding:.8rem 1rem}
+  .flow .num{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;
+             display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem}
+  .flow .step.done .num{background:var(--green)}
+  .flow .step.risk .num{background:var(--amber)}
+  .modebox{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:.8rem 0}
+  .modebox .h{padding:.6rem 1rem;font-weight:600;color:#fff}
+  .modebox.g .h{background:var(--violet)} .modebox.e .h{background:var(--amber)} .modebox.n .h{background:var(--green)}
+  .modebox .b{padding:.8rem 1rem;font-size:.9rem}
+  .lines{color:var(--muted);font-size:.8rem;font-family:monospace}
+  ul{margin:.5rem 0;padding-left:1.3rem} li{margin:.3rem 0}
+  .legend{font-size:.82rem;color:var(--muted);margin-top:.3rem}
+  hr{border:none;border-top:1px dashed var(--line);margin:2.5rem 0}
+  .footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>submitForm(245줄) 분해 설계 가이드</h1>
+  <div class="sub">토양 시료 접수 폼 제출 핸들러의 책임 분리 리팩토링 — sample-log-soil</div>
+  <div class="meta">
+    <span class="tag">대상: src/soil/soil-script.js:1929–2224</span>
+    <span class="tag warn">분류: MEDIUM · 핫패스</span>
+    <span class="tag danger">선행 필수: 폼 제출 골든 안전망</span>
+  </div>
+  <div class="legend">작성: 2026-06-12 · 2026-06-10 전체 점검 후속 잔여 항목</div>
+</header>
+
+<!-- 1 -->
+<h2>1. 왜 분해하는가</h2>
+<div class="card">
+  <p><code>submitForm()</code>은 ESLint <code>max-lines-per-function</code>(한도 100줄) 경고가 붙은 <strong>245줄짜리 단일 메서드</strong>로, 현재 코드베이스에서 분해 ROI가 가장 높은 함수입니다.</p>
+  <p>한 함수가 <strong>3가지 완전히 다른 흐름</strong>(그룹 수정 / 단일 수정 / 신규 등록)을 모두 담고 있어, 다음 문제가 생깁니다.</p>
+  <ul>
+    <li><strong>가독성</strong> — 어느 분기를 읽는지 추적하려면 200줄을 위아래로 오가야 함</li>
+    <li><strong>중복</strong> — <code>commonData</code> 객체 구성과 "필지×작물 채번 → 레코드 생성" 루프가 그룹 수정과 신규 등록에 거의 동일하게 두 번 존재</li>
+    <li><strong>테스트 불가</strong> — 각 모드를 독립적으로 검증할 수 없어, 채번·동기화 회귀를 잡을 단위가 없음</li>
+    <li><strong>변경 위험</strong> — 한 모드를 고치다 다른 모드의 로직을 건드리기 쉬움</li>
+  </ul>
+</div>
+
+<!-- 2 -->
+<h2>2. 현재 구조 — 3개 모드 분기</h2>
+<p><code>submitForm()</code>은 진입 직후 공통 가드를 거친 뒤, 인스턴스 상태(<code>this.editingGroupId</code> / <code>this.editingLogId</code>)에 따라 세 갈래로 분기합니다.</p>
+
+<div class="card">
+  <strong>공통 가드</strong> <span class="lines">(1930–1936)</span>
+  <ul>
+    <li><code>validParcels</code> = 필지 주소가 입력된 필지만 필터. 0개면 토스트 후 <code>return</code></li>
+    <li><code>formData = new FormData(this.form)</code></li>
+  </ul>
+</div>
+
+<div class="modebox g">
+  <div class="h">① 그룹 수정 모드 — <code>this.editingGroupId</code> 존재 <span class="lines" style="color:#ede9fe">1939–2031 (약 93줄)</span></div>
+  <div class="b">
+    <ul>
+      <li><code>commonData</code> 객체 구성 (날짜·이름·주소·경지구분 등 12개 필드)</li>
+      <li>기존 그룹 레코드 전부 제거 → <code>validParcels.forEach</code>로 <strong>필지×작물 채번</strong> 후 <code>buildSoilLogRecord</code> 호출하여 새 레코드 생성</li>
+      <li><code>saveLogs()</code> (localStorage 먼저 — ID 할당 보장)</li>
+      <li>삭제될 레코드(<code>removedIds</code>) 있으면 <strong>confirm</strong> — 취소 시 원본 복원 후 <code>return</code> <span class="lines">(SLS-1-123 데이터 보호)</span></li>
+      <li>Firebase 삭제/저장 → <code>filterAndRenderLogs</code> → 백그라운드 재검증 → <code>cancelEditMode</code> → 목록 전환</li>
+    </ul>
+  </div>
+</div>
+
+<div class="modebox e">
+  <div class="h">② 단일 수정 모드 — <code>this.editingLogId</code> 존재 <span class="lines" style="color:#fef3c7">2034–2094 (약 61줄)</span></div>
+  <div class="b">
+    <ul>
+      <li>대상 레코드 탐색(없으면 에러 토스트 <code>return</code>)</li>
+      <li><code>updatedLog</code> = 기존 레코드 스프레드 + 폼 값 + <code>parcels</code> 재구성(인라인, commonData 미사용)</li>
+      <li>첫 필지 기준 <code>lotAddress·area·cropsDisplay</code> 파생값 갱신</li>
+      <li><code>persistRecords</code> → 렌더 → 백그라운드 재검증 → <code>cancelEditMode</code> → 목록 전환</li>
+    </ul>
+  </div>
+</div>
+
+<div class="modebox n">
+  <div class="h">③ 신규 등록 모드 — 위 둘 다 아님 <span class="lines" style="color:#dcfce7">2096–2224 (약 91줄)</span></div>
+  <div class="b">
+    <ul>
+      <li>채번 파싱(<code>isFillNumber·baseNumber</code>) → <strong>중복 접수번호 검사</strong>(같은 경지구분 1차 범위) → 중복 시 다음 번호로 교체 후 <code>return</code></li>
+      <li><code>commonData</code> 객체 구성 (그룹 수정과 거의 동일 + <code>gongikOrder·createdAt</code>)</li>
+      <li><code>validParcels.forEach</code>로 <strong>필지×작물 채번</strong> 후 <code>buildSoilLogRecord</code> (그룹 수정 루프와 거의 동일)</li>
+      <li><code>persistRecords</code> → 렌더 → <strong>폼 리셋</strong>(연도·날짜·주소·필지 초기화) → 다음 접수번호 생성</li>
+      <li>등록 결과 모달 표시 → 목록 전환 → <code>runVerificationForModal</code></li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout info">
+  <strong>핵심 관찰 — 중복 2곳</strong>
+  ① <code>commonData</code> 객체 구성이 <span class="lines">그룹 수정(1946) · 신규(2131)</span>에 거의 동일하게 존재.
+  ② "필지×작물 채번 → buildSoilLogRecord" 루프가 <span class="lines">그룹 수정(1971) · 신규(2153)</span>에 거의 동일하게 존재(차이는 <code>isGroupEdit</code> 플래그·<code>existingLog</code> 전달뿐).
+  이 두 패턴 추출이 분해의 핵심입니다.
+</div>
+
+<!-- 3 -->
+<h2>3. 분해 설계 — 추출할 단위</h2>
+<p>목표: <code>submitForm</code>은 <strong>가드 + 모드 디스패치</strong>만 남기고(약 15줄), 실제 로직은 의도가 드러나는 메서드로 옮깁니다.</p>
+
+<table>
+  <thead><tr><th>추출 단위</th><th>입력 → 출력</th><th>대체하는 중복</th><th>난이도</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>_parseReceptionNumber(base)</code></td>
+      <td><code>'F503'</code> → <code>{isFillNumber, baseNumber}</code></td>
+      <td>1941, 2098 (순수 함수)</td>
+      <td>🟢 낮음</td>
+    </tr>
+    <tr>
+      <td><code>_collectCommonData(formData)</code></td>
+      <td><code>FormData</code> → <code>commonData</code> 객체</td>
+      <td>1946, 2131</td>
+      <td>🟢 낮음</td>
+    </tr>
+    <tr>
+      <td><code>_buildLogsForParcels(parcels, {baseNumber, isFillNumber, commonData, groupId, isGroupEdit, oldGroupLogs})</code></td>
+      <td>필지 배열 → 레코드 배열</td>
+      <td>1971↔2153 (가장 큰 중복)</td>
+      <td>🟠 중간</td>
+    </tr>
+    <tr>
+      <td><code>_submitGroupEdit(validParcels, formData)</code></td>
+      <td>그룹 수정 전체 흐름</td>
+      <td>분기 ① 전부</td>
+      <td>🟠 중간</td>
+    </tr>
+    <tr>
+      <td><code>_submitSingleEdit(validParcels, formData)</code></td>
+      <td>단일 수정 전체 흐름</td>
+      <td>분기 ② 전부</td>
+      <td>🟢 낮음</td>
+    </tr>
+    <tr>
+      <td><code>_submitNewRegistration(validParcels, formData)</code></td>
+      <td>신규 등록 전체 흐름</td>
+      <td>분기 ③ 전부</td>
+      <td>🟠 중간</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>분해 후 submitForm의 모습</h3>
+<pre><span class="c">// 가드 + 디스패치만 남김 (약 15줄)</span>
+<span class="k">submitForm</span>() {
+  <span class="k">const</span> validParcels = <span class="k">this</span>.parcels.<span class="f">filter</span>(p =&gt; p.lotAddress.<span class="f">trim</span>());
+  <span class="k">if</span> (validParcels.length === <span class="s">0</span>) {
+    <span class="k">this</span>.<span class="f">showToast</span>(<span class="s">'최소 1개의 필지 주소를 입력해주세요.'</span>, <span class="s">'warning'</span>);
+    <span class="k">return</span>;
+  }
+  <span class="k">const</span> formData = <span class="k">new</span> <span class="f">FormData</span>(<span class="k">this</span>.form);
+
+  <span class="k">if</span> (<span class="k">this</span>.editingGroupId)  <span class="k">return this</span>.<span class="f">_submitGroupEdit</span>(validParcels, formData);
+  <span class="k">if</span> (<span class="k">this</span>.editingLogId)    <span class="k">return this</span>.<span class="f">_submitSingleEdit</span>(validParcels, formData);
+  <span class="k">return this</span>.<span class="f">_submitNewRegistration</span>(validParcels, formData);
+}</pre>
+
+<h3>공유 헬퍼 예시</h3>
+<pre><span class="c">// 채번 파싱 — 순수 함수, this 무관 (정적 메서드로 둘 수도)</span>
+<span class="k">_parseReceptionNumber</span>(base) {
+  <span class="k">const</span> isFillNumber = <span class="f">String</span>(base).<span class="f">startsWith</span>(<span class="s">'F'</span>);
+  <span class="k">const</span> baseNumber = isFillNumber
+    ? <span class="f">parseInt</span>(base.<span class="f">replace</span>(<span class="s">'F'</span>, <span class="s">''</span>), <span class="s">10</span>) || <span class="s">1</span>
+    : <span class="f">parseInt</span>(base, <span class="s">10</span>) || <span class="s">1</span>;
+  <span class="k">return</span> { isFillNumber, baseNumber };
+}
+
+<span class="c">// 필지×작물 채번 → 레코드 배열 (그룹 수정·신규 공유)</span>
+<span class="c">// oldGroupLogs를 넘기면 그룹 수정(기존 ID 보존), 없으면 신규</span>
+<span class="k">_buildLogsForParcels</span>(validParcels, opts) {
+  <span class="k">const</span> { baseNumber, isFillNumber, commonData, groupId, isGroupEdit, oldGroupLogs } = opts;
+  <span class="k">const</span> logs = [];
+  <span class="k">let</span> existingIdx = <span class="s">0</span>;
+  validParcels.<span class="f">forEach</span>((parcel, index) =&gt; {
+    <span class="k">const</span> num = baseNumber + index;
+    <span class="k">const</span> validCrops = parcel.crops.<span class="f">filter</span>(c =&gt; c.name.<span class="f">trim</span>());
+    <span class="k">const</span> useSubNumbers = validCrops.length &gt; <span class="s">1</span>;
+    <span class="c">// ... 기존 1971/2153 루프 본문 그대로 (existingLog는 oldGroupLogs?.[existingIdx++]) ...</span>
+  });
+  <span class="k">return</span> logs;
+}</pre>
+
+<!-- 4 -->
+<h2>4. 안전한 진행 순서</h2>
+<p>핫패스(데이터 저장)이므로 <strong>"안전망 먼저, 한 번에 한 조각, 동작 동치 유지"</strong> 원칙을 지킵니다.</p>
+
+<div class="flow">
+  <div class="step risk">
+    <span class="num">0</span>
+    <div><strong>폼 제출 골든 안전망 확보 (선행 필수)</strong><br>
+    분해 <em>전에</em> 현재 동작을 고정해야 합니다. 흙토람 빌더 골든(SLS-1-135)과 동일한 방식 —
+    실제 soil 페이지에서 폼+필지를 시드하고 <code>submitForm()</code>을 실행한 뒤,
+    결과 <code>sampleLogs</code>(접수번호·groupId 제외 정규화)를 골든 스냅샷으로 고정.
+    <strong>3개 모드 × 핵심 분기</strong>(단일 작물/다중 작물 채번, 성토 F, 중복 번호, 그룹 수정 삭제 confirm)를 모두 커버.</div>
+  </div>
+  <div class="step">
+    <span class="num">1</span>
+    <div><strong>순수 헬퍼 추출</strong> — <code>_parseReceptionNumber</code>, <code>_collectCommonData</code>.
+    this 의존이 없거나 작아 가장 안전. 추출 후 골든 그린 확인.</div>
+  </div>
+  <div class="step">
+    <span class="num">2</span>
+    <div><strong>모드별 핸들러로 통째 이동</strong> — 분기 ②(단일 수정, 가장 단순)부터 <code>_submitSingleEdit</code>로 잘라내기.
+    <em>로직은 한 줄도 바꾸지 말고</em> 그대로 옮기는 "zero-move seam" 기법(SLS-1-106 선례).
+    그 다음 ①, ③ 순으로.</div>
+  </div>
+  <div class="step">
+    <span class="num">3</span>
+    <div><strong>공유 루프 추출</strong> — ①③이 분리된 뒤 <code>_buildLogsForParcels</code>로 중복 루프를 합치기.
+    가장 미묘한 단계(채번·기존 ID 보존)이므로 마지막에, 골든으로 매 단계 검증.</div>
+  </div>
+  <div class="step done">
+    <span class="num">4</span>
+    <div><strong>최종 확인</strong> — <code>submitForm</code>이 디스패치만 남았는지, ESLint 경고 해소, 골든 + 기존 E2E(form-submission, edit-delete) 전부 그린.</div>
+  </div>
+</div>
+
+<!-- 5 -->
+<h2>5. 위험 요소와 주의점</h2>
+
+<div class="callout danger">
+  <strong>⚠️ 채번·중복 검사 순서 변경 금지</strong>
+  신규 등록의 중복 검사(2112)는 <code>localStorage</code>에서 최신 데이터를 다시 읽어(<code>latestLogs</code>) 같은 경지구분 1차 범위만 비교합니다.
+  이 "읽기 → 검사 → return" 순서가 바뀌면 중복 접수번호가 생기거나 정상 등록이 막힙니다.
+</div>
+
+<div class="callout danger">
+  <strong>⚠️ 그룹 수정의 confirm 복원 경로</strong>
+  그룹 수정은 <code>saveLogs()</code>로 localStorage를 <em>먼저</em> 갱신한 뒤 confirm을 띄우고, 취소 시 원본을 복원합니다(SLS-1-123).
+  이 "저장 → 확인 → 필요 시 롤백" 순서는 데이터 보호 장치이므로 핸들러로 옮길 때 그대로 보존해야 합니다.
+</div>
+
+<div class="callout">
+  <strong>저장 메서드 차이 유지</strong>
+  그룹 수정은 <code>saveLogs()</code> + <code>firebaseDeleteRecords</code>/<code>firebaseSaveRecords</code>를 분리 호출하고,
+  단일 수정·신규는 <code>persistRecords()</code>를 씁니다. 이 차이는 "삭제 동반 여부" 때문이므로 통일하지 말 것.
+</div>
+
+<div class="callout good">
+  <strong>✓ 동작 동치가 성공 기준</strong>
+  이 리팩토링은 <em>기능 변경이 0</em>이어야 합니다. 골든 스냅샷이 분해 전후로 한 셀도 바뀌지 않으면 성공.
+  바뀐다면 그것이 곧 회귀입니다.
+</div>
+
+<!-- 6 -->
+<h2>6. 예상 결과</h2>
+<table>
+  <thead><tr><th>항목</th><th>현재</th><th>분해 후</th></tr></thead>
+  <tbody>
+    <tr><td><code>submitForm</code> 길이</td><td>245줄</td><td>약 15줄(디스패치)</td></tr>
+    <tr><td>ESLint max-lines 경고</td><td>1건</td><td>0건</td></tr>
+    <tr><td>commonData 중복</td><td>2벌</td><td>1벌(<code>_collectCommonData</code>)</td></tr>
+    <tr><td>채번 루프 중복</td><td>2벌</td><td>1벌(<code>_buildLogsForParcels</code>)</td></tr>
+    <tr><td>모드별 단위 테스트</td><td>불가</td><td>핸들러별 골든 가능</td></tr>
+  </tbody>
+</table>
+
+<div class="callout info">
+  <strong>작업 규모</strong>
+  설계상 난이도는 중간(M)이나, <strong>0단계(골든 안전망)</strong>가 사실상 별도 티켓 분량입니다.
+  권장: <em>SLS-1-A "폼 제출 골든 테스트"</em> → <em>SLS-1-B "submitForm 분해"</em> 2개 티켓으로 나눠 진행.
+  골든 없이 분해를 강행하지 말 것 — 핫패스에서 안전망 없는 리팩토링은 데이터 유실·중복 채번 위험이 큽니다.
+</div>
+
+<div class="footer">
+  이 문서는 설계 가이드입니다. 실제 코드 변경은 AI PM 티켓 발행 후 진행하며, 각 단계마다 골든·E2E 검증을 거칩니다.<br>
+  참고 선례: SLS-1-106(zero-move seam으로 setupTypeSpecificEvents 686줄 분해), SLS-1-135(엑셀 빌더 골든 테스트).
+</div>
+
+</div>
+</body>
+</html>

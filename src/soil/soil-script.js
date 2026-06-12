@@ -1935,170 +1935,203 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         const formData = new FormData(this.form);
 
-        // 그룹 수정 모드인 경우
-        if (this.editingGroupId) {
-            const baseReceptionNumber = formData.get('receptionNumber');
-            const isFillNumber = baseReceptionNumber.startsWith('F');
-            const baseNumber = isFillNumber
-                ? parseInt(baseReceptionNumber.replace('F', ''), 10) || 1
-                : parseInt(baseReceptionNumber, 10) || 1;
+        if (this.editingGroupId) return this._submitGroupEdit(validParcels, formData);
+        if (this.editingLogId) return this._submitSingleEdit(validParcels, formData);
+        return this._submitNewRegistration(validParcels, formData);
+    }
 
-            const commonData = {
-                date: formData.get('date'),
-                name: formData.get('name'),
-                phoneNumber: formData.get('phoneNumber'),
-                address: formData.get('address'),
-                addressPostcode: this.addressPostcode?.value || '',
-                addressRoad: this.addressRoad?.value || '',
-                addressDetail: this.addressDetail?.value || '',
-                subCategory: formData.get('subCategory') || '-',
-                purpose: formData.get('purpose'),
-                landClass1: formData.get('landClass1') || LAND_CLASS1_DEFAULT,
-                receptionMethod: formData.get('receptionMethod') || '-',
-                note: formData.get('note') || '',
-                updatedAt: new Date().toISOString()
-            };
+    /**
+     * 접수번호 파싱: 'F503' → {isFillNumber:true, baseNumber:503}, '503' → {false, 503}. 순수.
+     * null/undefined → {isFillNumber:false, baseNumber:1} 폴백(방어적 — 현 호출처는 항상 문자열 전달).
+     */
+    _parseReceptionNumber(base) {
+        const isFillNumber = String(base || '').startsWith('F');
+        const baseNumber = isFillNumber
+            ? parseInt(String(base).replace('F', ''), 10) || 1
+            : parseInt(base, 10) || 1;
+        return { isFillNumber, baseNumber };
+    }
 
-            const oldGroupLogs = this.editingGroupLogs;
-            const groupId = this.editingGroupId;
+    /**
+     * 폼에서 공통 레코드 데이터 수집 (그룹 수정·신규 등록 공유).
+     * 모드별 필드(updatedAt / gongikOrder·createdAt 등)는 호출처에서 추가한다.
+     */
+    _collectCommonData(formData) {
+        return {
+            date: formData.get('date'),
+            name: formData.get('name'),
+            phoneNumber: formData.get('phoneNumber'),
+            address: formData.get('address'),
+            addressPostcode: this.addressPostcode?.value || '',
+            addressRoad: this.addressRoad?.value || '',
+            addressDetail: this.addressDetail?.value || '',
+            subCategory: formData.get('subCategory') || '-',
+            purpose: formData.get('purpose'),
+            landClass1: formData.get('landClass1') || LAND_CLASS1_DEFAULT,
+            receptionMethod: formData.get('receptionMethod') || '-',
+            note: formData.get('note') || ''
+        };
+    }
 
-            // 기존 그룹 레코드 모두 제거
-            this.sampleLogs = this.sampleLogs.filter(l => l.groupId !== groupId);
+    /**
+     * 필지×작물 채번 → 레코드 배열 생성 (그룹 수정·신규 등록 공유).
+     * oldGroupLogs가 있으면 그룹 수정(기존 ID 보존), 없으면 신규.
+     * 한 필지에 작물이 2개 이상이면 기본번호·기본번호-1·-2 형태로 분할(하위필지는 분할 안 함).
+     */
+    _buildLogsForParcels(validParcels, opts) {
+        const { baseNumber, isFillNumber, commonData, groupId, oldGroupLogs } = opts;
+        const isGroupEdit = !!oldGroupLogs;
+        const logs = [];
+        let existingLogIdx = 0; // 그룹 수정 전용: 생성 순서대로 기존 레코드 ID를 매칭(신규에선 미사용)
+        validParcels.forEach((parcel, index) => {
+            const num = baseNumber + index;
+            const validCrops = parcel.crops.filter(c => c.name.trim());
+            const useSubNumbers = validCrops.length > 1;
 
-            // 새 레코드 생성 (필지 수 × 작물 수에 맞춰)
-            const newLogs = [];
-            let existingLogIdx = 0;
-            validParcels.forEach((parcel, index) => {
-                const num = baseNumber + index;
-                const validCrops = parcel.crops.filter(c => c.name.trim());
-                const useSubNumbers = validCrops.length > 1;
-
-                if (useSubNumbers) {
-                    // 첫 작물은 기본번호, 두 번째부터 -1, -2
-                    // 하위필지(subLots)는 작물별로 복제하지 않음
-                    validCrops.forEach((crop, cropIndex) => {
-                        const baseNum = isFillNumber ? `F${num}` : String(num);
-                        const receptionNumber = cropIndex === 0 ? baseNum : `${baseNum}-${cropIndex}`;
-                        const existingLog = oldGroupLogs[existingLogIdx++];
-                        newLogs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
-                            receptionNumber, commonData, groupId, index,
-                            totalParcels: validParcels.length,
-                            crop, cropIndex, isGroupEdit: true, existingLog
-                        }));
-                    });
-                } else {
-                    const receptionNumber = isFillNumber ? `F${num}` : String(num);
-                    const existingLog = oldGroupLogs[existingLogIdx++];
-                    newLogs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
+            if (useSubNumbers) {
+                validCrops.forEach((crop, cropIndex) => {
+                    const baseNum = isFillNumber ? `F${num}` : String(num);
+                    const receptionNumber = cropIndex === 0 ? baseNum : `${baseNum}-${cropIndex}`;
+                    const existingLog = isGroupEdit ? oldGroupLogs[existingLogIdx++] : undefined;
+                    logs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
                         receptionNumber, commonData, groupId, index,
                         totalParcels: validParcels.length,
-                        isGroupEdit: true, existingLog
+                        crop, cropIndex, isGroupEdit, existingLog
                     }));
-                }
-            });
-
-            newLogs.forEach(log => {
-                delete log.addressVerified; // 주소 편집 시 검증 초기화
-                this.sampleLogs.push(log);
-            });
-            this.saveLogs(); // localStorage 먼저 (ID 할당 보장)
-
-            // Firebase: 삭제된 레코드 제거 + 새 레코드 저장
-            const newIds = new Set(newLogs.map(l => l.id));
-            const removedIds = oldGroupLogs.filter(l => !newIds.has(l.id)).map(l => l.id);
-
-            // SLS-1-123 (SAMPL-1-82 백포트): 빈 필지주소/빈 작물명이 필터되면 해당 멤버가
-            // removedIds에 포함돼 조용히 삭제된다. 삭제 전 사용자에게 확인 — 취소 시 원본 복원.
-            if (removedIds.length > 0 &&
-                !confirm(`기존 ${oldGroupLogs.length}건 중 ${removedIds.length}건이 삭제됩니다. (빈 필지 주소 또는 빈 작물명이 있으면 해당 항목이 제외됩니다.) 계속하시겠습니까?`)) {
-                this.sampleLogs = this.sampleLogs.filter(l => l.groupId !== groupId); // 방금 추가한 새 레코드 제거
-                this.sampleLogs.push(...oldGroupLogs);                                // 원본 그룹 복원
-                this.saveLogs(); // 위(1852)에서 이미 새 상태가 저장됐으므로 localStorage도 원본으로 되돌림
-                this.filterAndRenderLogs();
-                return;
+                });
+            } else {
+                const receptionNumber = isFillNumber ? `F${num}` : String(num);
+                const existingLog = isGroupEdit ? oldGroupLogs[existingLogIdx++] : undefined;
+                logs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
+                    receptionNumber, commonData, groupId, index,
+                    totalParcels: validParcels.length,
+                    isGroupEdit, existingLog
+                }));
             }
+        });
+        return logs;
+    }
 
-            if (removedIds.length > 0) this.firebaseDeleteRecords(removedIds);
-            this.firebaseSaveRecords(newLogs);
-            this.filterAndRenderLogs();
-            this.validateAndMarkLogs(newLogs).catch(err => // 그룹 수정 후 재검증 (백그라운드)
-                (window.logger?.error || console.error)('VWORLD 재검증 오류:', err)
-            );
-            this.cancelEditMode();
-            this.showToast(`${newLogs.length}건의 시료가 수정되었습니다.`, 'success');
-            this.switchView('list');
-            return;
-        }
-
-        // 수정 모드인 경우
-        if (this.editingLogId) {
-            const logIndex = this.sampleLogs.findIndex(l => l.id === this.editingLogId);
-            if (logIndex === -1) {
-                this.showToast('수정할 데이터를 찾을 수 없습니다.', 'error');
-                return;
-            }
-
-            const existingLog = this.sampleLogs[logIndex];
-            const firstParcelCategory = validParcels[0]?.category;
-            const firstParcelPurpose = validParcels[0]?.purpose;
-            const mainSubCategory = formData.get('subCategory') || '-';
-            const effectiveSubCategory = firstParcelCategory || mainSubCategory;
-            const effectivePurpose = firstParcelPurpose || formData.get('purpose');
-
-            const updatedLog = {
-                ...existingLog,
-                receptionNumber: formData.get('receptionNumber'),
-                date: formData.get('date'),
-                name: formData.get('name'),
-                phoneNumber: formData.get('phoneNumber'),
-                address: formData.get('address'),
-                addressPostcode: this.addressPostcode?.value || '',
-                addressRoad: this.addressRoad?.value || '',
-                addressDetail: this.addressDetail?.value || '',
-                subCategory: effectiveSubCategory,
-                purpose: effectivePurpose,
-                landClass1: formData.get('landClass1') || existingLog.landClass1 || LAND_CLASS1_DEFAULT,
-                receptionMethod: formData.get('receptionMethod') || '-',
-                note: formData.get('note') || '',
-                parcels: validParcels.map(p => ({
-                    id: p.id || crypto.randomUUID(),
-                    lotAddress: p.lotAddress,
-                    isMountain: p.isMountain || false,
-                    subLots: [...p.subLots],
-                    crops: p.crops.map(c => ({ ...c })),
-                    category: p.category || '',
-                    purpose: p.purpose || '',
-                    note: p.note || ''
-                })),
-                updatedAt: new Date().toISOString()
-            };
-
-            if (validParcels.length > 0) {
-                const firstParcel = validParcels[0];
-                updatedLog.lotAddress = firstParcel.lotAddress;
-                updatedLog.area = firstParcel.crops.reduce((sum, c) => sum + (parseFloat(c.area) || 0), 0).toString();
-                updatedLog.cropsDisplay = firstParcel.crops.map(c => c.name).join(', ') || '-';
-            }
-
-            delete updatedLog.addressVerified; // 주소 편집 시 검증 초기화
-            this.sampleLogs[logIndex] = updatedLog;
-            this.persistRecords(updatedLog);
-            this.filterAndRenderLogs();
-            this.validateAndMarkLogs([updatedLog]).catch(err => // 편집 후 재검증 (백그라운드)
-                (window.logger?.error || console.error)('VWORLD 재검증 오류:', err)
-            );
-            this.cancelEditMode();
-            this.showToast('수정이 완료되었습니다.', 'success');
-            this.switchView('list');
-            return;
-        }
-
-        // 신규 등록 모드
+    /**
+     * 그룹 수정 모드: 기존 그룹을 통째로 교체. 삭제될 멤버가 있으면 확인 후 진행(취소 시 원본 복원).
+     */
+    _submitGroupEdit(validParcels, formData) {
         const baseReceptionNumber = formData.get('receptionNumber');
-        const isFillNumber = baseReceptionNumber.startsWith('F');
-        const baseNumber = isFillNumber
-            ? parseInt(baseReceptionNumber.replace('F', ''), 10) || 1
-            : parseInt(baseReceptionNumber, 10) || 1;
+        const { isFillNumber, baseNumber } = this._parseReceptionNumber(baseReceptionNumber);
+
+        const commonData = { ...this._collectCommonData(formData), updatedAt: new Date().toISOString() };
+
+        const oldGroupLogs = this.editingGroupLogs;
+        const groupId = this.editingGroupId;
+
+        // 기존 그룹 레코드 모두 제거
+        this.sampleLogs = this.sampleLogs.filter(l => l.groupId !== groupId);
+
+        // 새 레코드 생성 (필지 수 × 작물 수에 맞춰, 기존 ID 보존)
+        const newLogs = this._buildLogsForParcels(validParcels, { baseNumber, isFillNumber, commonData, groupId, oldGroupLogs });
+
+        newLogs.forEach(log => {
+            delete log.addressVerified; // 주소 편집 시 검증 초기화
+            this.sampleLogs.push(log);
+        });
+        this.saveLogs(); // localStorage 먼저 (ID 할당 보장)
+
+        // Firebase: 삭제된 레코드 제거 + 새 레코드 저장
+        const newIds = new Set(newLogs.map(l => l.id));
+        const removedIds = oldGroupLogs.filter(l => !newIds.has(l.id)).map(l => l.id);
+
+        // SLS-1-123 (SAMPL-1-82 백포트): 빈 필지주소/빈 작물명이 필터되면 해당 멤버가
+        // removedIds에 포함돼 조용히 삭제된다. 삭제 전 사용자에게 확인 — 취소 시 원본 복원.
+        if (removedIds.length > 0 &&
+            !confirm(`기존 ${oldGroupLogs.length}건 중 ${removedIds.length}건이 삭제됩니다. (빈 필지 주소 또는 빈 작물명이 있으면 해당 항목이 제외됩니다.) 계속하시겠습니까?`)) {
+            this.sampleLogs = this.sampleLogs.filter(l => l.groupId !== groupId); // 방금 추가한 새 레코드 제거
+            this.sampleLogs.push(...oldGroupLogs);                                // 원본 그룹 복원
+            this.saveLogs(); // 위에서 이미 새 상태가 저장됐으므로 localStorage도 원본으로 되돌림
+            this.filterAndRenderLogs();
+            return;
+        }
+
+        if (removedIds.length > 0) this.firebaseDeleteRecords(removedIds);
+        this.firebaseSaveRecords(newLogs);
+        this.filterAndRenderLogs();
+        this.validateAndMarkLogs(newLogs).catch(err => // 그룹 수정 후 재검증 (백그라운드)
+            (window.logger?.error || console.error)('VWORLD 재검증 오류:', err)
+        );
+        this.cancelEditMode();
+        this.showToast(`${newLogs.length}건의 시료가 수정되었습니다.`, 'success');
+        this.switchView('list');
+    }
+
+    /**
+     * 단일 수정 모드: 한 레코드를 폼 값으로 갱신.
+     */
+    _submitSingleEdit(validParcels, formData) {
+        const logIndex = this.sampleLogs.findIndex(l => l.id === this.editingLogId);
+        if (logIndex === -1) {
+            this.showToast('수정할 데이터를 찾을 수 없습니다.', 'error');
+            return;
+        }
+
+        const existingLog = this.sampleLogs[logIndex];
+        const firstParcelCategory = validParcels[0]?.category;
+        const firstParcelPurpose = validParcels[0]?.purpose;
+        const mainSubCategory = formData.get('subCategory') || '-';
+        const effectiveSubCategory = firstParcelCategory || mainSubCategory;
+        const effectivePurpose = firstParcelPurpose || formData.get('purpose');
+
+        const updatedLog = {
+            ...existingLog,
+            receptionNumber: formData.get('receptionNumber'),
+            date: formData.get('date'),
+            name: formData.get('name'),
+            phoneNumber: formData.get('phoneNumber'),
+            address: formData.get('address'),
+            addressPostcode: this.addressPostcode?.value || '',
+            addressRoad: this.addressRoad?.value || '',
+            addressDetail: this.addressDetail?.value || '',
+            subCategory: effectiveSubCategory,
+            purpose: effectivePurpose,
+            landClass1: formData.get('landClass1') || existingLog.landClass1 || LAND_CLASS1_DEFAULT,
+            receptionMethod: formData.get('receptionMethod') || '-',
+            note: formData.get('note') || '',
+            parcels: validParcels.map(p => ({
+                id: p.id || crypto.randomUUID(),
+                lotAddress: p.lotAddress,
+                isMountain: p.isMountain || false,
+                subLots: [...p.subLots],
+                crops: p.crops.map(c => ({ ...c })),
+                category: p.category || '',
+                purpose: p.purpose || '',
+                note: p.note || ''
+            })),
+            updatedAt: new Date().toISOString()
+        };
+
+        if (validParcels.length > 0) {
+            const firstParcel = validParcels[0];
+            updatedLog.lotAddress = firstParcel.lotAddress;
+            updatedLog.area = firstParcel.crops.reduce((sum, c) => sum + (parseFloat(c.area) || 0), 0).toString();
+            updatedLog.cropsDisplay = firstParcel.crops.map(c => c.name).join(', ') || '-';
+        }
+
+        delete updatedLog.addressVerified; // 주소 편집 시 검증 초기화
+        this.sampleLogs[logIndex] = updatedLog;
+        this.persistRecords(updatedLog);
+        this.filterAndRenderLogs();
+        this.validateAndMarkLogs([updatedLog]).catch(err => // 편집 후 재검증 (백그라운드)
+            (window.logger?.error || console.error)('VWORLD 재검증 오류:', err)
+        );
+        this.cancelEditMode();
+        this.showToast('수정이 완료되었습니다.', 'success');
+        this.switchView('list');
+    }
+
+    /**
+     * 신규 등록 모드: 중복 접수번호 검사 후 새 그룹 생성, 폼 초기화, 결과 모달 표시.
+     */
+    _submitNewRegistration(validParcels, formData) {
+        const baseReceptionNumber = formData.get('receptionNumber');
+        const { isFillNumber, baseNumber } = this._parseReceptionNumber(baseReceptionNumber);
 
         const numbersToCheck = validParcels.map((_, index) => {
             const num = baseNumber + index;
@@ -2129,18 +2162,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         }
 
         const commonData = {
-            date: formData.get('date'),
-            name: formData.get('name'),
-            phoneNumber: formData.get('phoneNumber'),
-            address: formData.get('address'),
-            addressPostcode: this.addressPostcode?.value || '',
-            addressRoad: this.addressRoad?.value || '',
-            addressDetail: this.addressDetail?.value || '',
-            subCategory: formData.get('subCategory') || '-',
-            purpose: formData.get('purpose'),
-            landClass1: formData.get('landClass1') || LAND_CLASS1_DEFAULT,
-            receptionMethod: formData.get('receptionMethod') || '-',
-            note: formData.get('note') || '',
+            ...this._collectCommonData(formData),
             gongikOrder: '1',
             gongikBaseYear: '',
             createdAt: new Date().toISOString(),
@@ -2149,35 +2171,7 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         const groupId = crypto.randomUUID();
 
-        const newLogs = [];
-        validParcels.forEach((parcel, index) => {
-            const num = baseNumber + index;
-            const validCrops = parcel.crops.filter(c => c.name.trim());
-            const useSubNumbers = validCrops.length > 1;
-
-            if (useSubNumbers) {
-                // 한 필지에 작물이 여러 개: 321, 321-1, 321-2 형태
-                // 첫 작물은 기본번호, 두 번째부터 -1, -2
-                // 하위필지(subLots)는 작물별로 복제하지 않음 (필지 단위이므로)
-                validCrops.forEach((crop, cropIndex) => {
-                    const baseNum = isFillNumber ? `F${num}` : String(num);
-                    const receptionNumber = cropIndex === 0 ? baseNum : `${baseNum}-${cropIndex}`;
-                    newLogs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
-                        receptionNumber, commonData, groupId, index,
-                        totalParcels: validParcels.length,
-                        crop, cropIndex, isGroupEdit: false
-                    }));
-                });
-            } else {
-                // 작물 1개: 기존처럼 단순 번호
-                const receptionNumber = isFillNumber ? `F${num}` : String(num);
-                newLogs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
-                    receptionNumber, commonData, groupId, index,
-                    totalParcels: validParcels.length,
-                    isGroupEdit: false
-                }));
-            }
-        });
+        const newLogs = this._buildLogsForParcels(validParcels, { baseNumber, isFillNumber, commonData, groupId });
 
         newLogs.forEach(log => this.sampleLogs.push(log));
         this.persistRecords(newLogs);

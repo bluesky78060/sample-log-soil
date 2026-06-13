@@ -1,6 +1,6 @@
 # 토양 시료 접수 대장 (Soil Sample Log)
 
-봉화군 농업기술센터 **토양 분석 전용** 시료 접수 관리 시스템.
+**토양 분석 전용** 시료 접수·관리 시스템. 전국 농업기술센터·분석기관에서 사용할 수 있습니다.
 Electron 데스크톱 + 웹 듀얼 환경.
 
 [![최신 버전 받기](https://img.shields.io/badge/⬇️_최신_버전_받기-Windows_설치파일-22c55e?style=for-the-badge)](https://github.com/bluesky78060/sample-log-soil/releases/latest/download/soil-sample-log-setup.exe)

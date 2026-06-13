@@ -41,6 +41,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'src/index.html'),
+        landing: resolve(__dirname, 'src/landing/index.html'),
         soil: resolve(__dirname, 'src/soil/index.html'),
         settings: resolve(__dirname, 'src/settings/index.html'),
         labelPrint: resolve(__dirname, 'src/label-print/index.html'),

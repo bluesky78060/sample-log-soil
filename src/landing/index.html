@@ -60,6 +60,25 @@
         .feature .icon{font-size:1.9rem;margin-bottom:.7rem}
         .feature h3{font-size:1.1rem;font-weight:600;margin-bottom:.35rem}
         .feature p{color:var(--muted);font-size:.92rem}
+        .only{display:inline-block;font-size:.68rem;font-weight:600;vertical-align:middle;
+              color:var(--green-d);background:#dcfce7;padding:.1rem .5rem;border-radius:999px;margin-left:.2rem}
+
+        /* 버전 비교 */
+        .compare{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;max-width:880px;margin:0 auto}
+        .plan{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:1.8rem 1.7rem;position:relative}
+        .plan.featured{border-color:var(--green);box-shadow:0 8px 26px rgba(22,163,74,.13)}
+        .plan-badge{position:absolute;top:-12px;left:1.7rem;background:var(--green);color:#fff;
+                    font-size:.72rem;font-weight:600;padding:.2rem .75rem;border-radius:999px}
+        .plan h3{font-size:1.25rem;font-weight:700;margin-bottom:.25rem}
+        .plan .p-desc{color:var(--muted);font-size:.88rem;margin-bottom:1.1rem;min-height:2.4em}
+        .plan ul{list-style:none;padding:0}
+        .plan li{font-size:.92rem;padding:.45rem 0 .45rem 1.65rem;position:relative;border-top:1px dashed var(--line)}
+        .plan li:first-child{border-top:none}
+        .plan li.yes::before{content:'✓';position:absolute;left:0;color:var(--green);font-weight:700}
+        .plan li.no::before{content:'—';position:absolute;left:.15rem;color:#cbd5e1;font-weight:700}
+        .plan li.no{color:var(--muted)}
+        .compare-note{text-align:center;color:var(--muted);font-size:.9rem;margin-top:1.9rem;
+                      max-width:680px;margin-left:auto;margin-right:auto}
 
         /* 스크린샷 */
         .shots{background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -89,6 +108,7 @@
         @media(max-width:760px){
             .hero h1{font-size:2.1rem}
             .features{grid-template-columns:1fr}
+            .compare{grid-template-columns:1fr;gap:1.8rem}
             .shot,.shot.rev{grid-template-columns:1fr;direction:ltr;gap:1.2rem}
             .shot-txt{order:2}
         }
@@ -123,7 +143,7 @@
                 <div class="feature"><div class="icon">📍</div><h3>본필지·하위필지</h3><p>한 접수에 여러 필지와 작물을 묶어 자동으로 번호를 매깁니다.</p></div>
                 <div class="feature"><div class="icon">☁️</div><h3>오프라인 우선 저장</h3><p>인터넷이 끊겨도 안전하게 저장하고, 연결되면 클라우드와 동기화합니다.</p></div>
                 <div class="feature"><div class="icon">🏷️</div><h3>라벨 인쇄·통계</h3><p>시료 라벨을 인쇄하고, 경지구분·기간별 접수 통계를 한눈에 봅니다.</p></div>
-                <div class="feature"><div class="icon">🔍</div><h3>주소 자동완성</h3><p>리 이름만 입력해도 우리 지역 필지 주소를 빠르게 찾아줍니다.</p></div>
+                <div class="feature"><div class="icon">🔍</div><h3>주소 자동완성 <span class="only">데스크톱</span></h3><p>리 이름만 입력해도 우리 지역 필지 주소를 빠르게 찾아줍니다.</p></div>
             </div>
         </div>
     </section>
@@ -171,6 +191,44 @@
                     <p>접수한 시료의 라벨을 보기 좋게 인쇄합니다. 현장에서 시료를 빠르고 정확하게 구분할 수 있습니다.</p>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- 버전 비교 -->
+    <section class="block">
+        <div class="wrap">
+            <div class="sec-head">
+                <h2>웹 vs 데스크톱, 무엇을 쓸까요?</h2>
+                <p>접수·통계·라벨·흙토람 연동 등 핵심 기능은 두 버전이 같습니다. 사용 환경에 맞게 고르세요.</p>
+            </div>
+            <div class="compare">
+                <div class="plan">
+                    <h3>🌐 웹 버전</h3>
+                    <p class="p-desc">설치 없이 브라우저에서 바로. 간단 조회·외부 공유·설치가 어려운 PC에 적합합니다.</p>
+                    <ul>
+                        <li class="yes">시료 접수·수정·삭제</li>
+                        <li class="yes">통계 패널 · 라벨 인쇄</li>
+                        <li class="yes">흙토람 검정결과 가져오기 / 내보내기</li>
+                        <li class="yes">오프라인 저장 · 클라우드 동기화</li>
+                        <li class="no">주소 자동완성 — 주소 직접 입력</li>
+                        <li class="no">파일 자동저장 — 클라우드 동기화로 대체</li>
+                        <li class="no">자동 업데이트 — 새로고침하면 항상 최신</li>
+                    </ul>
+                </div>
+                <div class="plan featured">
+                    <span class="plan-badge">현장 권장</span>
+                    <h3>🖥️ 데스크톱 버전</h3>
+                    <p class="p-desc">Windows 설치형. 매일 접수를 입력하는 담당자께 권장합니다.</p>
+                    <ul>
+                        <li class="yes">웹 버전의 모든 기능 포함</li>
+                        <li class="yes">주소 자동완성 — 리 이름만으로 빠른 검색</li>
+                        <li class="yes">파일 자동저장 — 입력 즉시 로컬에 백업</li>
+                        <li class="yes">자동 업데이트 — 새 버전 자동 설치</li>
+                        <li class="yes">지번 좌표 검증</li>
+                    </ul>
+                </div>
+            </div>
+            <p class="compare-note">두 버전은 같은 데이터를 사용해 서로 호환됩니다. 웹은 파일 자동저장이 없으므로, 중요한 데이터는 클라우드 동기화를 켜두시길 권장합니다.</p>
         </div>
     </section>
 

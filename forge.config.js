@@ -49,7 +49,7 @@ module.exports = {
         setupIcon: path.resolve(__dirname, 'assets', 'icon.ico'),
         title: '토양 시료 접수 대장',
         shortcutName: '토양 시료 접수 대장',
-        authors: '봉화군 농업기술센터',
+        authors: '토양 시료 접수 대장',
         description: '토양 시료 접수 관리 프로그램'
       },
     },

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-토양 시료 접수 대장 (Soil Sample Log) — 봉화군 농업기술센터 **토양 분석 전용** 시료 접수/관리 시스템. **Electron 데스크톱 + GitHub Pages 웹** 듀얼 환경.
+토양 시료 접수 대장 (Soil Sample Log) — **토양 분석 전용** 시료 접수/관리 시스템 (전국 농업기술센터·분석기관 배포용). **Electron 데스크톱 + GitHub Pages 웹** 듀얼 환경.
 
 > 본 저장소는 [`sample-log-electron`](https://github.com/bluesky78060/sample-log-electron)(5종 시료 통합본)에서 토양 부분만 분리한 독립 프로젝트입니다. v1.0.0 = 2026-05-08 신규 출발.
 

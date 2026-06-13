@@ -3,6 +3,22 @@
 봉화군 농업기술센터 **토양 분석 전용** 시료 접수 관리 시스템.
 Electron 데스크톱 + 웹 듀얼 환경.
 
+[![최신 버전 받기](https://img.shields.io/badge/⬇️_최신_버전_받기-Windows_설치파일-22c55e?style=for-the-badge)](https://github.com/bluesky78060/sample-log-soil/releases/latest/download/soil-sample-log-setup.exe)
+[![최신 릴리스](https://img.shields.io/github/v/release/bluesky78060/sample-log-soil?style=for-the-badge&label=최신%20버전&color=3b82f6)](https://github.com/bluesky78060/sample-log-soil/releases/latest)
+[![웹앱 바로가기](https://img.shields.io/badge/🌐_웹앱_바로가기-GitHub_Pages-8b5cf6?style=for-the-badge)](https://bluesky78060.github.io/sample-log-soil/)
+
+## 📥 다운로드 (Windows)
+
+위 **「⬇️ 최신 버전 받기」** 버튼을 누르면 Windows 설치 파일이 바로 다운로드됩니다.
+
+- 이 버튼(아래 링크)은 **항상 최신 버전**을 가리킵니다. 새 버전이 나와도 링크는 그대로이니, 한 번만 공유해두면 됩니다.
+  ```
+  https://github.com/bluesky78060/sample-log-soil/releases/latest/download/soil-sample-log-setup.exe
+  ```
+- 설치된 앱은 **자동 업데이트**를 지원하므로, 한 번 설치하면 이후 새 버전이 자동으로 적용됩니다.
+- 변경 내역과 이전 버전은 [릴리스 페이지](https://github.com/bluesky78060/sample-log-soil/releases/latest)에서 확인할 수 있습니다.
+- 설치 없이 바로 쓰려면 [웹앱](https://bluesky78060.github.io/sample-log-soil/)을 이용하세요.
+
 ## 주요 기능
 
 - 토양 시료 접수/관리 (논, 밭, 과수, 시설)

@@ -200,7 +200,10 @@ class FirestoreFeedbackStore extends FeedbackStore {
         };
         try {
             const ref = await this._db().collection(FEEDBACK_INQUIRY_COLLECTION).add(record);
-            return { id: ref.id, ...record };
+            const created = { id: ref.id, ...record };
+            // 관리자 알림 (Telegram/EmailJS) — fire-and-forget, 실패해도 등록은 정상 (SLS-1-153)
+            try { window.notifyNewInquiry?.(created); } catch (_) { /* 알림 실패 무시 */ }
+            return created;
         } catch (e) {
             (window.logger?.error || console.error)('[feedback] 문의 등록 실패:', e);
             throw new Error('문의 등록에 실패했습니다. 네트워크 상태를 확인해주세요.');

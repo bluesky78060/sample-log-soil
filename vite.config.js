@@ -49,7 +49,8 @@ export default defineConfig({
         firebaseSetup: resolve(__dirname, 'src/manual/firebase-setup.html'),
         heuktoram: resolve(__dirname, 'src/heuktoram/index.html'),
         release: resolve(__dirname, 'src/release/index.html'),
-        feedback: resolve(__dirname, 'src/feedback/index.html')
+        feedback: resolve(__dirname, 'src/feedback/index.html'),
+        feedbackAdmin: resolve(__dirname, 'src/feedback-admin/index.html')
       }
     }
   }

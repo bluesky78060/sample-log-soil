@@ -5,5 +5,14 @@
   "projectId": "your-feedback-project",
   "storageBucket": "your-feedback-project.firebasestorage.app",
   "messagingSenderId": "000000000000",
-  "appId": "1:000000000000:web:0000000000000000000000"
+  "appId": "1:000000000000:web:0000000000000000000000",
+
+  "_notify_comment": "(선택) 새 문의 알림. 빈 값이면 해당 채널 미전송. 자격증명은 설치본에 동봉됨(공개는 아님).",
+  "notify": {
+    "telegram": { "botToken": "", "chatId": "" },
+    "emailjs": { "serviceId": "", "templateId": "", "publicKey": "", "toEmail": "", "accessToken": "" }
+  },
+
+  "_admin_comment": "(선택) 관리자 페이지 로그인용 이메일/비번 인증은 Firebase 콘솔에서 활성화하고 계정을 만드세요. 관리자 UID는 firestore.rules에 넣습니다.",
+  "adminEmailHint": ""
 }

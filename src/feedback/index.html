@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr https://api.telegram.org https://api.emailjs.com; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>문의/건의 - 시료 접수 대장</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -395,6 +395,10 @@
             <div id="inquiryList">
                 <div class="empty-hint">문의를 불러오는 중...</div>
             </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 1rem;">
+            <a href="../feedback-admin/index.html" style="font-size: 0.75rem; color: #b8b2ab; text-decoration: none;">관리자</a>
         </div>
     </div>
 

@@ -182,7 +182,33 @@ createdAt: "2026-06-20"            (문자열)</code></pre>
     <tr><td>SMS 문자 / 카카오 알림톡</td><td>유료</td><td>문자/카톡</td><td>무료 거의 없음</td></tr>
   </table>
   <div class="ok"><strong>결론:</strong> 요금제가 <em>꼭</em> 필요하진 않습니다. Firebase Cloud Functions만 Blaze가 필요하고, <strong>텔레그램 봇/EmailJS</strong> 등으로 무료로 알림받을 수 있습니다. "폰 즉시 알림"이면 텔레그램 봇이 가장 실용적입니다.</div>
-  <p style="font-size:.9rem;color:var(--muted)">구현은 작습니다: <code>addInquiry</code>에서 문서 저장 후 알림 서비스로 전송 + CSP에 도메인 추가 + 봇 토큰/웹훅 URL을 <code>feedback-auth.json</code>(비공개)에 보관. (아직 미구현 — 필요 시 별도 작업)</p>
+  <div class="ok"><strong>구현됨 (SLS-1-153):</strong> 텔레그램 + EmailJS 알림이 앱에 들어가 있습니다. <code>feedback-auth.json</code>의 <code>notify</code> 블록에 자격증명만 채우면 새 문의 등록 시 자동 전송됩니다(둘 중 채운 것만 전송, 빈 값은 건너뜀).</div>
+
+  <h3>알림 설정 방법</h3>
+  <p><code>feedback-auth.json</code>에 아래를 추가:</p>
+  <pre><code>"notify": {
+  "telegram": { "botToken": "봇토큰", "chatId": "내챗ID" },
+  "emailjs":  { "serviceId": "service_xxx", "templateId": "template_xxx",
+                "publicKey": "공개키", "toEmail": "받을주소@메일.com",
+                "accessToken": "(EmailJS strict 모드일 때만)" }
+}</code></pre>
+  <ul>
+    <li><strong>텔레그램</strong>: BotFather로 봇 생성 → 토큰 받기. 챗 ID는 봇과 대화 후 <code>api.telegram.org/bot&lt;토큰&gt;/getUpdates</code>로 확인.</li>
+    <li><strong>EmailJS</strong>: 서비스·템플릿 생성, 템플릿 변수는 <code>type/org/title/body/contact/to_email</code> 사용. Electron(파일 origin)에서 401이 나면 EmailJS 대시보드에서 origin 제한을 풀거나 <code>accessToken</code>(private key)을 넣으세요.</li>
+  </ul>
+  <div class="warn">봇 토큰·EmailJS 키가 설치본에 동봉되어 추출 가능합니다(공개는 아님). 닫힌 센터 배포 기준 허용 위험이며, 텔레그램 봇은 알림 전용 챗에만 쓰는 것을 권장합니다.</div>
+
+  <h3 id="admin-page">관리자 페이지 (앱 내) <span class="pill">SLS-1-154</span></h3>
+  <p>콘솔 대신 앱에서 직접 답변/공지를 관리하는 페이지가 있습니다. 게시판 페이지 하단의 작은 <strong>"관리자"</strong> 링크로 진입합니다.</p>
+  <ol>
+    <li>Firebase 콘솔 → Authentication → Sign-in method → <strong>이메일/비밀번호 활성화</strong></li>
+    <li>Authentication → Users → <strong>관리자 계정(이메일/비번) 추가</strong> → 생성된 <strong>UID 복사</strong></li>
+    <li><code>firestore.rules</code>의 <code>PASTE_ADMIN_UID_HERE</code>를 그 <strong>UID로 교체 → 콘솔에 다시 게시</strong>
+      <div class="warn">이 단계를 빼면 관리자가 로그인해도 문의 조회/답변/공지 관리가 전부 거부됩니다(보안상 기본 거부).</div>
+    </li>
+    <li>관리자 페이지에서 이메일/비번으로 로그인 → 전체 문의에 <strong>답변·상태(접수/처리중/완료)</strong> 저장, <strong>공지 작성/삭제</strong></li>
+  </ol>
+  <p style="font-size:.9rem;color:var(--muted)">관리자 페이지도 데스크톱 전용입니다(게시판 설정이 데스크톱에만 동봉). 관리자 이메일/비번은 본인이 입력하며 설치본에 동봉되지 않습니다.</p>
 
   <!-- 7 -->
   <h2 id="deploy">7. 배포 절차</h2>

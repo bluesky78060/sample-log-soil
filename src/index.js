@@ -444,7 +444,7 @@ app.whenReady().then(() => {
           "script-src 'self' file:; " +
           "style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; " +
           "font-src 'self' file: https://fonts.gstatic.com; " +
-          "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr; " +
+          "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr https://api.telegram.org https://api.emailjs.com; " +
           "img-src 'self' file: data:; " +
           "frame-src 'self'; " +  // SLS-1-20: Kakao 우편번호 iframe 도메인 제거
           "object-src 'none'; " +  // Flash, Java 등 플러그인 차단

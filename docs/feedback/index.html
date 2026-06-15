@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr https://api.telegram.org https://api.emailjs.com; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>문의/건의 - 시료 접수 대장</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -312,13 +312,14 @@
         .toast-icon { font-size: 1.25rem; }
         .toast-message { flex: 1; font-size: 0.875rem; font-weight: 500; }
     </style>
-  <script type="module" crossorigin src="../assets/feedback-DECLEwOl.js"></script>
+  <script type="module" crossorigin src="../assets/feedback-vE-5MS0J.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-GoFsRstw.js">
   <link rel="modulepreload" crossorigin href="../assets/theme-2kqPfXg0.js">
   <link rel="modulepreload" crossorigin href="../assets/constants-D9sEBxTR.js">
   <link rel="modulepreload" crossorigin href="../assets/toast-CYVUzQgW.js">
   <link rel="modulepreload" crossorigin href="../assets/index.esm-k5uDoaEq.js">
+  <link rel="modulepreload" crossorigin href="../assets/feedback-firebase-B6kONoGL.js">
   <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
 </head>
 
@@ -402,6 +403,10 @@
             <div id="inquiryList">
                 <div class="empty-hint">문의를 불러오는 중...</div>
             </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 1rem;">
+            <a href="../feedback-admin/index.html" style="font-size: 0.75rem; color: #b8b2ab; text-decoration: none;">관리자</a>
         </div>
     </div>
 

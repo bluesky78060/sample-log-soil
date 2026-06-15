@@ -115,11 +115,9 @@ class ExcelImportManager {
     // ========================================
 
     _bindDownloadButtons() {
-        const handler = () => this._downloadTemplate();
-        const navBtn = document.getElementById('downloadTemplateNavBtn');
-        if (navBtn) navBtn.addEventListener('click', handler);
+        // 서식 다운로드는 가져오기 모달 내부 버튼(downloadTemplateBtn)으로 일원화 (SLS-1-157)
         const modalBtn = document.getElementById('downloadTemplateBtn');
-        if (modalBtn) modalBtn.addEventListener('click', handler);
+        if (modalBtn) modalBtn.addEventListener('click', () => this._downloadTemplate());
     }
 
     _downloadTemplate() {

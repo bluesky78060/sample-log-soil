@@ -119,3 +119,6 @@ feedback-auth.json
 # Playwright test artifacts
 playwright-report/
 test-results/
+
+# 코드리뷰 아티팩트(빌드 outDir, 비커밋)
+docs/03-code-review/

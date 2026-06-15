@@ -1,0 +1,9 @@
+{
+  "_comment": "게시판 전용 Firebase 설정 예시 (SLS-1-151). 이 파일을 feedback-auth.json 으로 복사하고 실제 값으로 채우세요. feedback-auth.json 은 .gitignore 되어 공개 저장소에 올라가지 않으며, 빌드 시 Electron 패키지에만 동봉됩니다(웹/docs 미포함). CI는 GitHub Secrets로 이 파일을 생성합니다.",
+  "apiKey": "PASTE_FEEDBACK_PROJECT_API_KEY_HERE",
+  "authDomain": "your-feedback-project.firebaseapp.com",
+  "projectId": "your-feedback-project",
+  "storageBucket": "your-feedback-project.firebasestorage.app",
+  "messagingSenderId": "000000000000",
+  "appId": "1:000000000000:web:0000000000000000000000"
+}

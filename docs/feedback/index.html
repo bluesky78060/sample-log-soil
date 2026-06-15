@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>문의/건의 - 시료 접수 대장</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { height: 100%; overflow-y: auto; }
+
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #FAF8F5 0%, #F5F3EF 50%, #FAF8F5 100%);
+            min-height: 100%;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .feedback-container { max-width: 800px; margin: 0 auto; }
+
+        .feedback-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(60, 53, 48, 0.06);
+            border: 1.5px solid #E8E4DF;
+        }
+
+        .feedback-card h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            font-family: 'Fraunces', 'Noto Sans KR', serif;
+            color: #3C3530;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feedback-card h2 span.icon { font-size: 1.5rem; }
+
+        .form-group { margin-bottom: 1rem; }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #6B6460;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1.5px solid #E8E4DF;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            background: #FAFAF9;
+        }
+
+        .form-group textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #7C9082;
+            box-shadow: 0 0 0 3px rgba(124, 144, 130, 0.12);
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder { color: #94a3b8; }
+
+        .form-row { display: flex; gap: 1rem; }
+        .form-row .form-group { flex: 1; }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .btn-primary { background: #7C9082; color: white; }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            background: #6B7D72;
+            box-shadow: 0 4px 12px rgba(124, 144, 130, 0.4);
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #78716C;
+            text-decoration: none;
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+            transition: color 0.2s ease;
+        }
+
+        .back-link:hover { color: #7C9082; }
+
+        .help-text { font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .alert-info { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .alert-warning { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+
+        .empty-hint {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        /* 공지 항목 */
+        .notice-item {
+            padding: 1rem;
+            border: 1px solid #E8E4DF;
+            border-radius: 10px;
+            margin-bottom: 0.75rem;
+            background: #FAFAF9;
+        }
+
+        .notice-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .notice-title { font-weight: 600; color: #3C3530; }
+        .notice-date { font-size: 0.75rem; color: #94a3b8; white-space: nowrap; }
+        .notice-body { font-size: 0.875rem; color: #6B6460; line-height: 1.6; }
+
+        /* 문의 항목 */
+        .inquiry-item {
+            padding: 1rem;
+            border: 1px solid #E8E4DF;
+            border-radius: 10px;
+            margin-bottom: 0.75rem;
+            background: #FAFAF9;
+        }
+
+        .inquiry-head {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .inquiry-type {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #6B7D72;
+            background: #E9EFEA;
+            padding: 0.15rem 0.6rem;
+            border-radius: 20px;
+        }
+
+        .inquiry-meta { font-size: 0.75rem; color: #94a3b8; }
+
+        .inquiry-del {
+            margin-left: auto;
+            background: #fee2e2;
+            color: #dc2626;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.6rem;
+            cursor: pointer;
+        }
+
+        .inquiry-del:hover { background: #fecaca; }
+
+        .inquiry-title { font-weight: 600; color: #3C3530; margin-bottom: 0.35rem; }
+        .inquiry-body { font-size: 0.875rem; color: #6B6460; line-height: 1.6; }
+
+        .inquiry-reply {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: #E9EFEA;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #3C3530;
+            line-height: 1.6;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.15rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .status-received { background: #fef3c7; color: #d97706; }
+        .status-progress { background: #dbeafe; color: #1d4ed8; }
+        .status-done { background: #dcfce7; color: #16a34a; }
+
+        /* 다크 모드 */
+        [data-theme="dark"] body {
+            background: linear-gradient(135deg, #1C1917 0%, #292524 50%, #1C1917 100%);
+        }
+
+        [data-theme="dark"] .feedback-card {
+            background: rgba(41, 37, 36, 0.95);
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .feedback-card h2 { color: #E7E5E4; }
+        [data-theme="dark"] h1 { color: #E7E5E4 !important; }
+        [data-theme="dark"] .form-group label { color: #A8A29E; }
+
+        [data-theme="dark"] .form-group input,
+        [data-theme="dark"] .form-group select,
+        [data-theme="dark"] .form-group textarea {
+            background: #1C1917;
+            border-color: #57534E;
+            color: #E7E5E4;
+        }
+
+        [data-theme="dark"] .back-link { color: #A8A29E; }
+
+        [data-theme="dark"] .notice-item,
+        [data-theme="dark"] .inquiry-item {
+            background: #292524;
+            border-color: #57534E;
+        }
+
+        [data-theme="dark"] .notice-title,
+        [data-theme="dark"] .inquiry-title { color: #E7E5E4; }
+
+        [data-theme="dark"] .notice-body,
+        [data-theme="dark"] .inquiry-body { color: #A8A29E; }
+
+        [data-theme="dark"] .inquiry-type { background: #1E2B22; color: #A8B5A2; }
+        [data-theme="dark"] .inquiry-reply { background: #1E2B22; color: #D6D3D1; }
+
+        [data-theme="dark"] .alert-info {
+            background: #0c2d4d !important; color: #7dd3fc !important; border-color: #0369a1 !important;
+        }
+
+        [data-theme="dark"] .alert-warning {
+            background: #451a03 !important; color: #fde68a !important; border-color: #92400e !important;
+        }
+
+        /* 토스트 (style.css의 CSS 변수 의존을 피해 구체값으로 자체 포함) */
+        .toast-container {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: #292524;
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+            animation: toastIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 280px;
+            border: 1px solid #44403C;
+        }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(100%); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .toast.success { background: #16a34a; border-color: #15803d; }
+        .toast.error { background: #dc2626; border-color: #b91c1c; }
+        .toast.warning { background: #f59e0b; color: #1c1917; border-color: #d97706; }
+        .toast.info { background: #2563eb; border-color: #1d4ed8; }
+
+        .toast-icon { font-size: 1.25rem; }
+        .toast-message { flex: 1; font-size: 0.875rem; font-weight: 500; }
+    </style>
+  <script type="module" crossorigin src="../assets/feedback-KAVmGizM.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
+  <link rel="modulepreload" crossorigin href="../assets/purify.es-GoFsRstw.js">
+  <link rel="modulepreload" crossorigin href="../assets/theme-2kqPfXg0.js">
+  <link rel="modulepreload" crossorigin href="../assets/constants-BXrBHcZp.js">
+  <link rel="modulepreload" crossorigin href="../assets/toast-CYVUzQgW.js">
+  <link rel="modulepreload" crossorigin href="../assets/index.esm-k5uDoaEq.js">
+  <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
+</head>
+
+<body>
+    <div class="feedback-container">
+        <a href="../index.html" class="back-link">
+            ← 메인으로 돌아가기
+        </a>
+
+        <h1 style="font-size: 2rem; font-weight: 600; font-family: 'Fraunces', 'Noto Sans KR', serif; color: #3C3530; margin-bottom: 2rem;">
+            💬 문의 / 건의
+        </h1>
+
+        <!-- 공지 (읽기 전용) -->
+        <div class="feedback-card">
+            <h2>
+                <span class="icon">📢</span>
+                공지사항
+            </h2>
+            <div id="noticeList">
+                <div class="empty-hint">공지를 불러오는 중...</div>
+            </div>
+        </div>
+
+        <!-- 문의 작성 -->
+        <div class="feedback-card">
+            <h2>
+                <span class="icon">✏️</span>
+                문의 / 건의 남기기
+            </h2>
+
+            <div class="alert alert-info" id="storageHint" style="display: none;">
+                <strong>안내:</strong> 현재 게시판 클라우드에 연결되어 있지 않아 작성한 문의는
+                <strong>이 컴퓨터에만 저장</strong>되며 관리자에게 전달되지 않습니다.
+                급한 문의는 관리자 이메일/전화를 이용해주세요.
+            </div>
+
+            <form id="inquiryForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="inquiryType">유형</label>
+                        <select id="inquiryType"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="inquiryOrg">기관명 (선택)</label>
+                        <input type="text" id="inquiryOrg" placeholder="예: ○○시·군 농업기술센터" maxlength="100">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="inquiryTitle">제목</label>
+                    <input type="text" id="inquiryTitle" placeholder="문의 제목을 입력하세요" maxlength="200">
+                </div>
+
+                <div class="form-group">
+                    <label for="inquiryBody">내용</label>
+                    <textarea id="inquiryBody" placeholder="문제점, 의문사항, 개선 건의 등을 자유롭게 작성하세요" maxlength="2000"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="inquiryContact">연락처 (선택, 답변 받을 이메일·전화)</label>
+                    <input type="text" id="inquiryContact" placeholder="답변을 받으실 이메일 또는 전화번호" maxlength="100">
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary">문의 등록</button>
+                </div>
+
+                <p class="help-text">
+                    등록한 문의는 아래 목록에서 확인할 수 있으며, 답변이 등록되면 함께 표시됩니다.
+                </p>
+            </form>
+        </div>
+
+        <!-- 문의 목록 -->
+        <div class="feedback-card">
+            <h2>
+                <span class="icon">🗂️</span>
+                내 문의 목록
+            </h2>
+            <div id="inquiryList">
+                <div class="empty-hint">문의를 불러오는 중...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 토스트 알림 컨테이너 (showToast가 #toastContainer를 요구) -->
+    <div id="toastContainer" class="toast-container"></div>
+
+</body>
+
+</html>

@@ -10,3 +10,12 @@ import './shared/sanitize.js';
 import './shared/theme.js';
 import './shared/cache-manager.js';
 import './shared/main-init.js';
+
+// 게시판은 데스크톱(Electron) 전용 — 웹에선 진입 버튼을 숨긴다 (SLS-1-151).
+// 버튼은 기본 display:none이며, Electron일 때만 노출한다(fail-closed).
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.electronAPI?.isElectron) {
+        const btn = document.getElementById('feedbackNavBtn');
+        if (btn) btn.style.display = '';
+    }
+});

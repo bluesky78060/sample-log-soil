@@ -897,6 +897,33 @@ ipcMain.handle('read-auth-file', async () => {
     }
 });
 
+// 게시판 전용 Firebase 설정 읽기 (SLS-1-151)
+// 게시판 키를 렌더러 번들(docs/=공개)에 넣지 않기 위해, 런타임에 파일에서만 로드한다.
+//   - 개발: <repo>/feedback-auth.json
+//   - packaged: process.resourcesPath/feedback-auth.json (forge extraResource로 동봉)
+// 웹(electronAPI 없음)에서는 이 IPC가 호출되지 않아 게시판이 로컬 모드로 동작한다.
+ipcMain.handle('read-feedback-config', async () => {
+    try {
+        const candidates = [path.join(__dirname, '..', 'feedback-auth.json')];
+        if (process.resourcesPath) {
+            candidates.push(path.join(process.resourcesPath, 'feedback-auth.json'));
+        }
+        const filePath = candidates.find((p) => {
+            try { return fs.existsSync(p); } catch { return false; }
+        });
+        if (!filePath) return { exists: false };
+        // 정상 설정 파일은 작음 — 손상/거대 파일로 인한 동기 읽기 블로킹 방어 (10KB 상한)
+        if (fs.statSync(filePath).size > 10240) {
+            return { exists: false, error: '게시판 설정 파일이 너무 큽니다 (최대 10KB).' };
+        }
+        const content = fs.readFileSync(filePath, 'utf8');
+        return { exists: true, content };
+    } catch (error) {
+        console.error('[FeedbackConfig] 읽기 오류:', error);
+        return { exists: false, error: '게시판 설정 파일 읽기 중 오류가 발생했습니다.' };
+    }
+});
+
 // 인증 파일 저장 (메인 프로세스에서도 검증 - defense-in-depth)
 ipcMain.handle('save-auth-file', async (event, content) => {
     try {

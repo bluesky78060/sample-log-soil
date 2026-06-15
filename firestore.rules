@@ -1,0 +1,53 @@
+rules_version = '2';
+
+// ============================================================
+// 게시판 전용(공유) Firebase 프로젝트 보안 규칙 — SLS-1-150
+// ------------------------------------------------------------
+// 이 프로젝트는 "게시판 데이터(feedback*)만" 담는 공유 프로젝트다.
+// 모든 센터가 이 한 프로젝트의 게시판을 공유한다(개발자가 문의를 한곳에서 수신).
+// 익명 인증(signInAnonymously) 기반이라 Firebase에 '관리자' 역할은 없으며,
+// 관리자(배포자) 작업(공지 작성, 문의 답변)은 Firebase 콘솔에서 직접 수행한다.
+//
+// ⚠️ 시료 데이터(soilSamples_*)는 이 프로젝트에 넣지 않는다.
+//    시료 데이터는 각 센터의 "별도 Firebase 프로젝트"(설정 페이지) 또는 로컬에 격리 저장된다.
+//    아래에는 게시판 컬렉션 규칙만 두며, 그 외 모든 경로는 기본 거부된다.
+//
+// 배포: Firebase 콘솔 > Firestore Database > 규칙 탭에 붙여넣고 게시.
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── 공지사항 ─────────────────────────────────────────────────────────
+    // 앱에서는 읽기만 가능. 작성/수정/삭제는 관리자가 Firebase 콘솔에서 수행.
+    match /feedbackNotices/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ── 문의 (1:1 문의함) ────────────────────────────────────────────────
+    // 익명 사용자는 '본인(ownerUid)' 글만 생성/조회/삭제 가능 → 센터 간 문의 격리.
+    // 답변(reply)·상태(status) 갱신은 관리자가 콘솔에서 수행하므로 클라이언트 update 차단.
+    match /feedbackInquiries/{docId} {
+      // 익명 공개 쓰기 경로이므로 서버측 무결성 강제가 유일한 방어선.
+      // ownerUid 위조 방지 + status/reply 초기값 고정 + 제목/본문 크기 제한.
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(
+                         ['ownerUid', 'org', 'type', 'title', 'body', 'contact', 'status', 'reply', 'createdAt'])
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.status == '접수'
+                    && request.resource.data.reply == ''
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() <= 200
+                    && request.resource.data.body is string
+                    && request.resource.data.body.size() <= 2000
+                    && request.resource.data.org is string
+                    && request.resource.data.org.size() <= 100
+                    && request.resource.data.contact is string
+                    && request.resource.data.contact.size() <= 100;
+      allow read, delete: if request.auth != null
+                    && resource.data.ownerUid == request.auth.uid;
+      allow update: if false;
+    }
+  }
+}

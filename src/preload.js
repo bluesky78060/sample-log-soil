@@ -75,6 +75,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // 인증 파일 읽기
     readAuthFile: () => ipcRenderer.invoke('read-auth-file'),
 
+    // 게시판 전용 Firebase 설정 읽기 (SLS-1-151, 렌더러 번들에 키 미포함)
+    readFeedbackConfig: () => ipcRenderer.invoke('read-feedback-config'),
+
     // 인증 파일 저장
     saveAuthFile: (content) => ipcRenderer.invoke('save-auth-file', content),
 

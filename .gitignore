@@ -96,6 +96,9 @@ firebase-auth.key
 firebase-auth.json
 *.key
 
+# 게시판 전용 Firebase 설정 (키 비공개 — feedback-auth.example.json 만 커밋, SLS-1-151)
+feedback-auth.json
+
 # 네트워크 접근 제어 설정 (내부 IP 정보)
 **/network-config.js
 .gstack/
@@ -103,6 +106,9 @@ firebase-auth.json
 # Claude/OMC session state
 .omc/
 .claude/*
+.omc-review-*.md
+.playwright-mcp/
+.vscode/
 # AI PM 가드 시스템은 공유 (모든 환경에서 강제 동작)
 !.claude/hooks/
 !.claude/settings.json

@@ -50,6 +50,18 @@ jobs:
           "@ | Out-File -FilePath ".env" -Encoding utf8 -NoNewline
         shell: pwsh
 
+      # SLS-1-151: 게시판 전용 Firebase 설정(feedback-auth.json)을 secret에서 생성.
+      # 렌더러 번들엔 키가 없고, forge.config.js extraResource로 패키지 resources/에만 동봉됨
+      # (웹/docs 미포함 = 공개 저장소에 키 노출 없음). 시료 데이터용 firebase-auth.json과는 별개.
+      # 시크릿 FEEDBACK_FIREBASE_AUTH_JSON 에 feedback-auth.json 전체 JSON을 저장해 둘 것.
+      # (미설정 시 게시판은 자동으로 로컬 모드로 동작)
+      - name: Create feedback-auth.json with secrets
+        run: |
+          @"
+          ${{ secrets.FEEDBACK_FIREBASE_AUTH_JSON }}
+          "@ | Out-File -FilePath "feedback-auth.json" -Encoding utf8 -NoNewline
+        shell: pwsh
+
       - name: Build Windows package
         run: npm run make
 

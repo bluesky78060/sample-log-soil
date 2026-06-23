@@ -17,6 +17,23 @@ const STORAGE_KEY = 'soilSampleLogs';
 const AUTO_SAVE_FILE = 'soil-autosave.json';
 
 /**
+ * 시·도 탐지 폴백 정규식 — constants.js의 SIDO_PATTERN(window.SIDO_PATTERN) SSOT가
+ * 미로드일 때만 사용. 실제 사용처는 항상 `window.SIDO_PATTERN || SIDO_DETECT_FALLBACK`로
+ * 호출 시점에 lazy 해석하므로 로드 순서 영향 없음. (특별자치도 표기 포함, 전체 명칭)
+ * g 플래그 없음 → 인스턴스 공유 시 lastIndex 부작용 없음.
+ * @type {RegExp}
+ */
+const SIDO_DETECT_FALLBACK = /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|경기도|강원도|강원특별자치도|충청북도|충청남도|전라북도|전북특별자치도|전라남도|경상북도|경상남도|제주도|제주특별자치도)\s*/;
+
+/**
+ * 선두 약어 시·도(공백 포함) 확장용 정규식 — 약어를 정식명으로 펼칠 때 사용.
+ * 정식명/장음 표기는 뒤 글자가 공백이 아니어서 매칭되지 않음(no-op).
+ * constants.js에 단축 패턴 SSOT가 없어 모듈 상수로 통일. g 플래그 없음 → 공유 안전.
+ * @type {RegExp}
+ */
+const SHORT_SIDO_RE = /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(\s)/;
+
+/**
  * 경지구분 1차 선택지 (12개)
  * @type {string[]}
  */
@@ -3233,8 +3250,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         let defaultSido = '';
         try { defaultSido = (localStorage.getItem('app_default_sido') || '').trim(); } catch { defaultSido = ''; }
         if (!defaultSido) {
-            const SIDO_RE = window.SIDO_PATTERN
-                || /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|경기도|강원도|강원특별자치도|충청북도|충청남도|전라북도|전북특별자치도|전라남도|경상북도|경상남도|제주도|제주특별자치도)\s*/;
+            const SIDO_RE = window.SIDO_PATTERN || SIDO_DETECT_FALLBACK;
             const hasAddrWithoutSido = logs.some(log => {
                 const addrs = (log.parcels && log.parcels.length > 0)
                     ? log.parcels.map(p => p.lotAddress)
@@ -3612,7 +3628,7 @@ class SoilSampleManager extends window.BaseSampleManager {
             // 시도 약어→전체명 매핑은 address-parser SSOT(window.SIDO_SHORT_MAP) 재사용
             const sidoMap = window.SIDO_SHORT_MAP || {};
             const copyAddress = addressOnly.replace(
-                /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(\s)/,
+                SHORT_SIDO_RE,
                 (_, sido, sp) => (sidoMap[sido] || sido) + sp
             );
             tdAddress.style.cursor = 'pointer';
@@ -4986,13 +5002,12 @@ class SoilSampleManager extends window.BaseSampleManager {
         //     (예: '경북 봉화군…' → '경상북도 봉화군…')
         //  2) 시·도가 없으면 설정의 '기본 시·도'(app_default_sido)로 prefix
         //  3) 설정값도 없으면 시·도 미상 → null 반환(검증 스킵). 강제 prefix로 인한 오검증 방지.
-        // 탐지는 constants.js의 완전한 SIDO_PATTERN 재사용(특별자치도 표기 포함). 누락 시 폴백 정규식.
-        const SIDO_RE = window.SIDO_PATTERN
-            || /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|경기도|강원도|강원특별자치도|충청북도|충청남도|전라북도|전북특별자치도|전라남도|경상북도|경상남도|제주도|제주특별자치도)\s*/;
+        // 탐지는 constants.js의 완전한 SIDO_PATTERN 재사용(특별자치도 표기 포함). 누락 시 모듈 폴백.
+        const SIDO_RE = window.SIDO_PATTERN || SIDO_DETECT_FALLBACK;
         // 선두 약어 시·도 → 정식명 매핑은 address-parser SSOT(window.SIDO_SHORT_MAP) 재사용
         // (정식명/장음 표기는 뒤 글자가 공백이 아니어서 매칭되지 않음 → no-op)
+        // SHORT_SIDO_RE는 모듈 상수(파일 상단)로 통일됨
         const SHORT_SIDO_EXPAND = window.SIDO_SHORT_MAP || {};
-        const SHORT_SIDO_RE = /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(\s)/;
         let fullAddress;
         if (SIDO_RE.test(lotAddress)) {
             fullAddress = lotAddress.replace(SHORT_SIDO_RE, (_, sido, sp) => (SHORT_SIDO_EXPAND[sido] || sido) + sp);

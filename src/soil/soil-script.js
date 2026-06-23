@@ -2253,9 +2253,12 @@ class SoilSampleManager extends window.BaseSampleManager {
             this.navSubmitBtn.classList.remove('btn-edit-mode');
         }
 
+        const _prevLandClass1 = this.getCurrentLandClass1();
         this.form.reset();
         // yearSelect 복원: form.reset()이 yearSelect를 첫 옵션(2025)으로 되돌리므로 복원
         { const _yearSelect = document.getElementById('yearSelect'); if (_yearSelect && this.selectedYear) _yearSelect.value = this.selectedYear; }
+        // landClass1Select 복원: form.reset() 후 리셋되면 generateNextReceptionNumber()가 잘못된 카테고리 기준으로 계산됨
+        if (this.landClass1Select && _prevLandClass1) this.landClass1Select.value = _prevLandClass1;
         const subCatSelect = document.getElementById('subCategory');
         if (subCatSelect) {
             subCatSelect.disabled = false;

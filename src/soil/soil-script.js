@@ -3212,6 +3212,43 @@ class SoilSampleManager extends window.BaseSampleManager {
     /**
      * 등록 완료 모달에서 주소 검증 실행 후 결과 반영
      */
+    /**
+     * 필지 검증이 전부 스킵됐을 때(addressVerified === undefined) 원인별 안내 메시지 생성.
+     * "API 키 또는 네트워크"는 흔한 오해 — 실제로는 기본 시·도 미설정으로 API 호출 전에
+     * 스킵되는 경우가 대부분이다(validateParcelAddress의 시·도 prefix 로직 참고).
+     * @param {Array} logs 검증 대상 레코드
+     * @returns {string} 사용자 안내 메시지
+     */
+    _buildVerificationSkipMessage(logs) {
+        // 1) 오프라인
+        if (!navigator.onLine) {
+            return '주소 검증을 수행할 수 없습니다 (인터넷 연결을 확인하세요)';
+        }
+        // 2) 웹 환경: VWORLD는 데스크톱 앱(IPC, main 프로세스)에서만 동작 → 항상 스킵.
+        //    validateParcelAddress가 window.electronAPI.vworldGeocode 없으면 null 반환하는 것과 동일 조건.
+        if (!window.electronAPI?.vworldGeocode) {
+            return '웹 환경에서는 주소 검증이 지원되지 않습니다 (데스크톱 앱에서 검증하세요)';
+        }
+        // 3) 기본 시·도 미설정 + 시·도가 없는 필지 주소가 하나라도 있으면 → 가장 흔한 원인
+        let defaultSido = '';
+        try { defaultSido = (localStorage.getItem('app_default_sido') || '').trim(); } catch { defaultSido = ''; }
+        if (!defaultSido) {
+            const SIDO_RE = window.SIDO_PATTERN
+                || /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|경기도|강원도|강원특별자치도|충청북도|충청남도|전라북도|전북특별자치도|전라남도|경상북도|경상남도|제주도|제주특별자치도)\s*/;
+            const hasAddrWithoutSido = logs.some(log => {
+                const addrs = (log.parcels && log.parcels.length > 0)
+                    ? log.parcels.map(p => p.lotAddress)
+                    : [log.lotAddress];
+                return addrs.some(a => a && a !== '-' && !SIDO_RE.test(a));
+            });
+            if (hasAddrWithoutSido) {
+                return '주소 검증을 건너뛰었습니다 — 설정에서 기본 시·도를 지정하세요 (설정 → 기본 시·도 설정)';
+            }
+        }
+        // 4) 그 외 — 실제 API 키/네트워크 문제
+        return '주소 검증을 수행할 수 없습니다 (API 키 또는 네트워크 확인)';
+    }
+
     async runVerificationForModal(newLogs) {
         this._verificationInProgress = true;
         const verifySpinner = document.getElementById('verifySpinner');
@@ -3252,7 +3289,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                     (invalidAddresses.length > 0 ? `<div class="verify-addresses">${escapeHTML(invalidAddresses.join(', '))}</div>` : '');
             } else if (skipLogs.length === newLogs.length) {
                 verifyResult.className = 'verify-result verify-skip';
-                verifyResult.innerHTML = '<span>&#9888; 주소 검증을 수행할 수 없습니다 (API 키 또는 네트워크 확인)</span>';
+                verifyResult.innerHTML = `<span>&#9888; ${escapeHTML(this._buildVerificationSkipMessage(newLogs))}</span>`;
             } else {
                 verifyResult.className = 'verify-result verify-pass';
                 verifyResult.innerHTML = `<span>&#9989; 필지 주소 ${validLogs.length}건 검증 완료</span>`;

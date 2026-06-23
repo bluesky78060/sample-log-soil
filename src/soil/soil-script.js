@@ -2047,17 +2047,19 @@ class SoilSampleManager extends window.BaseSampleManager {
             this.sampleLogs = this.sampleLogs.filter(l => l.groupId !== groupId); // 방금 추가한 새 레코드 제거
             this.sampleLogs.push(...oldGroupLogs);                                // 원본 그룹 복원
             this.saveLogs(); // 위에서 이미 새 상태가 저장됐으므로 localStorage도 원본으로 되돌림
+            this.cancelEditMode();
             this.filterAndRenderLogs();
+            this.switchView('list');
             return;
         }
 
         if (removedIds.length > 0) this.firebaseDeleteRecords(removedIds);
         this.firebaseSaveRecords(newLogs);
+        this.cancelEditMode();
         this.filterAndRenderLogs();
         this.validateAndMarkLogs(newLogs).catch(err => // 그룹 수정 후 재검증 (백그라운드)
             (window.logger?.error || console.error)('VWORLD 재검증 오류:', err)
         );
-        this.cancelEditMode();
         this.showToast(`${newLogs.length}건의 시료가 수정되었습니다.`, 'success');
         this.switchView('list');
     }
@@ -2069,6 +2071,8 @@ class SoilSampleManager extends window.BaseSampleManager {
         const logIndex = this.sampleLogs.findIndex(l => l.id === this.editingLogId);
         if (logIndex === -1) {
             this.showToast('수정할 데이터를 찾을 수 없습니다.', 'error');
+            this.cancelEditMode();
+            this.switchView('list');
             return;
         }
 
@@ -2117,11 +2121,11 @@ class SoilSampleManager extends window.BaseSampleManager {
         delete updatedLog.addressVerified; // 주소 편집 시 검증 초기화
         this.sampleLogs[logIndex] = updatedLog;
         this.persistRecords(updatedLog);
+        this.cancelEditMode();
         this.filterAndRenderLogs();
         this.validateAndMarkLogs([updatedLog]).catch(err => // 편집 후 재검증 (백그라운드)
             (window.logger?.error || console.error)('VWORLD 재검증 오류:', err)
         );
-        this.cancelEditMode();
         this.showToast('수정이 완료되었습니다.', 'success');
         this.switchView('list');
     }

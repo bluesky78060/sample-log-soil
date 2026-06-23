@@ -3227,12 +3227,15 @@ class SoilSampleManager extends window.BaseSampleManager {
     }
 
     /**
-     * 등록 완료 모달에서 주소 검증 실행 후 결과 반영
-     */
-    /**
      * 필지 검증이 전부 스킵됐을 때(addressVerified === undefined) 원인별 안내 메시지 생성.
      * "API 키 또는 네트워크"는 흔한 오해 — 실제로는 기본 시·도 미설정으로 API 호출 전에
      * 스킵되는 경우가 대부분이다(validateParcelAddress의 시·도 prefix 로직 참고).
+     *
+     * ⚠️ 분기 순서는 validateParcelAddress의 실제 스킵 순서(offline → 기본시도 → 웹)와
+     * 의도적으로 다르다(offline → 웹 → 기본시도). 웹 환경은 어떤 경우든 항상 스킵되므로
+     * 웹을 기본시도보다 먼저 판정하는 편이 메시지가 더 정확하다(웹에선 기본시도 설정이 무의미).
+     * 단, 향후 웹 검증(서버 프록시, validateParcelAddress 말미 TODO)이 도입되면
+     * 이 순서를 재검토할 것.
      * @param {Array} logs 검증 대상 레코드
      * @returns {string} 사용자 안내 메시지
      */
@@ -3265,6 +3268,9 @@ class SoilSampleManager extends window.BaseSampleManager {
         return '주소 검증을 수행할 수 없습니다 (API 키 또는 네트워크 확인)';
     }
 
+    /**
+     * 등록 완료 모달에서 주소 검증 실행 후 결과 반영
+     */
     async runVerificationForModal(newLogs) {
         this._verificationInProgress = true;
         const verifySpinner = document.getElementById('verifySpinner');

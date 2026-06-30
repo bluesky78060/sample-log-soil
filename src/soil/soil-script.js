@@ -2376,16 +2376,24 @@ class SoilSampleManager extends window.BaseSampleManager {
         if (this.parcelsContainer) this.parcelsContainer.innerHTML = '';
 
         if (log.parcels && log.parcels.length > 0) {
+            const R = window.SoilLogRecord || {};
+            // crops/lotAddress 폴백은 단일 필지 로그에서만 — 최상위 cropsDisplay/area/lotAddress는
+            // 레코드 단위 권위필드라 다필지 레코드에선 어느 필지 것인지 모호(방어적 게이트)
+            const singleParcel = log.parcels.length === 1;
             log.parcels.forEach(parcel => {
                 const parcelId = `parcel-${this.parcelIdCounter++}`;
+                let crops = parcel.crops ? parcel.crops.map(c => ({ ...c })) : [];
+                if (crops.length === 0 && singleParcel && R.cropsFromDisplay) {
+                    crops = R.cropsFromDisplay(log);
+                }
                 const newParcel = {
                     id: parcelId,
-                    lotAddress: parcel.lotAddress || '',
+                    lotAddress: parcel.lotAddress || (singleParcel ? (log.lotAddress || '') : ''),
                     isMountain: parcel.isMountain || false,
                     subLots: parcel.subLots ? [...parcel.subLots] : [],
-                    crops: parcel.crops ? parcel.crops.map(c => ({ ...c })) : [],
-                    category: parcel.category || '',
-                    purpose: parcel.purpose || '',
+                    crops,
+                    category: R.resolveParcelCategory ? R.resolveParcelCategory(parcel.category, log) : (parcel.category || ''),
+                    purpose: R.resolveParcelPurpose ? R.resolveParcelPurpose(parcel.purpose, log) : (parcel.purpose || ''),
                     note: parcel.note || ''
                 };
                 this.parcels.push(newParcel);
@@ -2494,30 +2502,35 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         // parcelIndex 순서대로 필지 카드 생성
         const sortedParcelIndices = [...parcelMap.keys()].sort((a, b) => a - b);
+        const R = window.SoilLogRecord || {};
         sortedParcelIndices.forEach(pIdx => {
             const logsForParcel = parcelMap.get(pIdx);
-            const firstLog = logsForParcel[0];
-            const parcel = firstLog.parcels?.[0];
-            if (!parcel) return;
+            // 해당 필지 대표 레코드 — 폴백 권위필드 소스(외부 firstLog=groupLogs[0]와 구분)
+            const parcelRepLog = logsForParcel[0];
+            // SLS-1-164: parcels[0]이 빈 stub여도 카드를 누락하지 않도록 빈 객체로 합성
+            const parcel = parcelRepLog.parcels?.[0] || {};
 
-            // 같은 필지의 여러 작물을 합침
+            // 같은 필지의 여러 작물을 합침 — 멤버 로그의 parcels[0].crops가 비면
+            // 최상위 cropsDisplay/area로 보강(방어적, 멤버 로그마다 호출 → 분할 모드 정확)
             const mergedCrops = [];
             logsForParcel.forEach(log => {
                 const logParcel = log.parcels?.[0];
-                if (logParcel?.crops) {
-                    logParcel.crops.forEach(c => mergedCrops.push({ ...c }));
+                let crops = (logParcel && logParcel.crops) ? logParcel.crops : [];
+                if (crops.length === 0 && R.cropsFromDisplay) {
+                    crops = R.cropsFromDisplay(log);
                 }
+                crops.forEach(c => mergedCrops.push({ ...c }));
             });
 
             const parcelId = `parcel-${this.parcelIdCounter++}`;
             const newParcel = {
                 id: parcelId,
-                lotAddress: parcel.lotAddress || '',
+                lotAddress: parcel.lotAddress || parcelRepLog.lotAddress || '',
                 isMountain: parcel.isMountain || false,
                 subLots: parcel.subLots ? [...parcel.subLots] : [],
                 crops: mergedCrops.length > 0 ? mergedCrops : [{ name: '', area: '' }],
-                category: parcel.category || '',
-                purpose: parcel.purpose || '',
+                category: R.resolveParcelCategory ? R.resolveParcelCategory(parcel.category, parcelRepLog) : (parcel.category || ''),
+                purpose: R.resolveParcelPurpose ? R.resolveParcelPurpose(parcel.purpose, parcelRepLog) : (parcel.purpose || ''),
                 note: parcel.note || ''
             };
             this.parcels.push(newParcel);
@@ -3393,9 +3406,15 @@ class SoilSampleManager extends window.BaseSampleManager {
         logs.forEach(log => {
             if (log.parcels && log.parcels.length > 0) {
                 let subLotIndex = 1;
-                log.parcels.forEach(parcel => {
-                    const cropsDisplay = parcel.crops && parcel.crops.length > 0
+                const R = window.SoilLogRecord || {};
+                log.parcels.forEach((parcel, pIndex) => {
+                    // 최상위 권위필드는 parcels[0]을 기술 → 대표 필지에만 폴백(방어적)
+                    const isPrimary = pIndex === 0;
+                    let cropsDisplay = parcel.crops && parcel.crops.length > 0
                         ? parcel.crops.map(c => c.name).join(', ') : '-';
+                    if (cropsDisplay === '-' && isPrimary && log.cropsDisplay && log.cropsDisplay !== '-') {
+                        cropsDisplay = log.cropsDisplay;
+                    }
                     let m2Total = 0;
                     let pyeongTotal = 0;
                     if (parcel.crops) {
@@ -3407,9 +3426,16 @@ class SoilSampleManager extends window.BaseSampleManager {
                     const areaParts = [];
                     if (m2Total > 0) areaParts.push(`${m2Total.toLocaleString()}㎡`);
                     if (pyeongTotal > 0) areaParts.push(`${pyeongTotal.toLocaleString()}평`);
-                    const areaDisplay = areaParts.length > 0 ? areaParts.join(' / ') : '-';
-                    const lotAddressDisplay = parcel.lotAddress
+                    let areaDisplay = areaParts.length > 0 ? areaParts.join(' / ') : '-';
+                    if (areaDisplay === '-' && isPrimary && log.area) {
+                        const a = parseFloat(log.area);
+                        if (!isNaN(a)) areaDisplay = a.toLocaleString();
+                    }
+                    let lotAddressDisplay = parcel.lotAddress
                         ? (parcel.isMountain ? `${parcel.lotAddress} (산)` : parcel.lotAddress) : '-';
+                    if (lotAddressDisplay === '-' && isPrimary && log.lotAddress) {
+                        lotAddressDisplay = parcel.isMountain ? `${log.lotAddress} (산)` : log.lotAddress;
+                    }
 
                     rows.push({
                         ...log,
@@ -3419,7 +3445,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                         _lotAddress: lotAddressDisplay,
                         _cropsDisplay: cropsDisplay,
                         _areaDisplay: areaDisplay,
-                        _parcelPurpose: parcel.purpose || ''
+                        _parcelPurpose: R.resolveParcelPurpose ? R.resolveParcelPurpose(parcel.purpose, isPrimary ? log : {}) : (parcel.purpose || '')
                     });
                     subLotIndex++;
 

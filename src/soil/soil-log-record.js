@@ -87,5 +87,47 @@
         return rec;
     }
 
-    window.SoilLogRecord = { buildSoilLogRecord };
+    /**
+     * 필지 구분(category) 폴백 해석. 필지별 값 우선, 없으면 최상위 권위필드(subCategory).
+     * 빌더 비대칭(parcels[0].category는 폼레벨 폴백이 없어 stub 가능)으로 생긴 빈 값을
+     * 읽기측에서 복원한다. SLS-1-164의 검증된 1차 수정 대상.
+     * @param {string} parcelCategory - parcels[0].category
+     * @param {Object} log - 권위필드 보유 레코드(log.subCategory)
+     * @returns {string}
+     */
+    function resolveParcelCategory(parcelCategory, log) {
+        const v = (parcelCategory || '').trim();
+        if (v) return v;
+        const top = ((log && log.subCategory) || '').trim();
+        return (top && top !== '-') ? top : '';
+    }
+
+    /**
+     * 필지 용도(purpose) 폴백 해석. 필지별 값 우선, 없으면 최상위 권위필드(purpose).
+     * @param {string} parcelPurpose - parcels[0].purpose
+     * @param {Object} log - 권위필드 보유 레코드(log.purpose)
+     * @returns {string}
+     */
+    function resolveParcelPurpose(parcelPurpose, log) {
+        const v = (parcelPurpose || '').trim();
+        if (v) return v;
+        const top = ((log && log.purpose) || '').trim();
+        return (top && top !== '-') ? top : '';
+    }
+
+    /**
+     * 최상위 cropsDisplay/area로부터 작물 배열 복원(방어적 — 현재 정상 producer 없음).
+     * 레거시/크로스프로젝트 on-disk stub(parcels[0].crops가 비었으나 최상위엔 값 존재)에서만
+     * 발동. 면적은 합산값이라 단위 미보존·첫 작물 집중(best-effort).
+     * @param {Object} log - log.cropsDisplay(쉼표구분 또는 '-'), log.area(숫자 문자열)
+     * @returns {Array<{name:string, area:string}>}
+     */
+    function cropsFromDisplay(log) {
+        const disp = ((log && log.cropsDisplay) || '').trim();
+        if (!disp || disp === '-') return [];
+        const names = disp.split(',').map(s => s.trim()).filter(Boolean);
+        return names.map((name, i) => ({ name, area: i === 0 ? ((log && log.area) || '') : '' }));
+    }
+
+    window.SoilLogRecord = { buildSoilLogRecord, resolveParcelCategory, resolveParcelPurpose, cropsFromDisplay };
 })();

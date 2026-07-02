@@ -44,10 +44,11 @@ let firebaseConfigData = null;
 const FIREBASE_CONFIG_KEY = 'firebase_config';
 
 /**
- * 간단한 Base64 인코딩/디코딩 (민감 정보 난독화용)
- * 참고: 이것은 암호화가 아니며, 단순 난독화 목적
+ * localStorage 저장용 단순 Base64 인코딩/디코딩.
+ * 암호화가 아님 — Firebase 웹 API 키는 설계상 클라이언트에 노출되는 값이라
+ * 보안 목적이 아니라 저장 형식 통일(특수문자 이스케이프)이 목적.
  */
-const obfuscate = {
+const base64Codec = {
     encode: (str) => {
         try {
             return btoa(encodeURIComponent(str));
@@ -108,7 +109,7 @@ async function loadFirebaseConfigFromAuthFile() {
 
 /**
  * localStorage에서 Firebase 설정 로드 (백업용)
- * 난독화된 데이터와 레거시 평문 데이터 모두 지원
+ * Base64 인코딩된 데이터와 레거시 평문 데이터 모두 지원
  * @returns {Object|null}
  */
 function loadFirebaseConfigFromStorage() {
@@ -116,10 +117,10 @@ function loadFirebaseConfigFromStorage() {
         const saved = localStorage.getItem(FIREBASE_CONFIG_KEY);
         if (saved) {
             let config;
-            // 난독화된 데이터인지 확인 (Base64 인코딩된 JSON은 'eyJ'로 시작)
+            // Base64 인코딩된 데이터인지 확인 (인코딩된 JSON은 'eyJ'로 시작)
             if (saved.startsWith('eyJ')) {
                 try {
-                    config = JSON.parse(obfuscate.decode(saved));
+                    config = JSON.parse(base64Codec.decode(saved));
                 } catch {
                     // 디코딩 실패 시 레거시 평문으로 시도
                     config = JSON.parse(saved);
@@ -352,14 +353,14 @@ function getCurrentUserId() {
 
 /**
  * Firebase 설정 저장 (설정 페이지에서 사용)
- * 난독화하여 저장 (평문 노출 방지)
+ * Base64로 인코딩하여 저장(저장 형식 통일 목적, 암호화 아님)
  * @param {Object} config
  */
 function saveFirebaseConfig(config) {
     try {
-        const encoded = obfuscate.encode(JSON.stringify(config));
+        const encoded = base64Codec.encode(JSON.stringify(config));
         localStorage.setItem(FIREBASE_CONFIG_KEY, encoded);
-        logFirebase('설정 저장됨 (난독화)');
+        logFirebase('설정 저장됨 (Base64 인코딩)');
     } catch (e) {
         (window.logger?.error || console.error)('Firebase 설정 저장 실패:', e);
     }

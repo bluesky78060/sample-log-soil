@@ -7,7 +7,7 @@
   "messagingSenderId": "000000000000",
   "appId": "1:000000000000:web:0000000000000000000000",
 
-  "_notify_comment": "(선택) 새 문의 알림. 빈 값이면 해당 채널 미전송. 자격증명은 설치본에 동봉됨(공개는 아님).",
+  "_notify_comment": "(선택) 새 문의 알림. 빈 값이면 해당 채널 미전송. ⚠️ 자격증명은 설치본에 동봉되어 추출 가능(SLS-1-170, 인지된 트레이드오프 — CLAUDE.md 알려진 함정 참고). 반드시 이 알림 전용으로 발급한 최소 권한 봇/서비스 계정만 사용하세요(다른 용도 겸용 금지) — 유출 시 피해를 이 채널 하나로 국한하기 위함.",
   "notify": {
     "telegram": { "botToken": "", "chatId": "" },
     "emailjs": { "serviceId": "", "templateId": "", "publicKey": "", "toEmail": "", "accessToken": "" }

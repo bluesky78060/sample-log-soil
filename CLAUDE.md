@@ -236,3 +236,23 @@ GitHub Actions에서는 워크플로우의 "Create network-config with secrets" 
 사용자 요청 시 **중간 확인 없이 전 단계 자동 완료**:
 1. 티켓 발행 → start_work → 구현 → 빌드 → submit_test → 코드리뷰 → approve_review 연속 실행
 2. CHANGES_REQUESTED 시만 수정 후 재진행
+
+### 문의게시판 알림 자격증명 클라이언트 동봉 (수용된 리스크, SLS-1-170)
+
+`feedback-auth.json`의 `notify` 블록(Telegram 봇 토큰, EmailJS 키)은 `forge.config.js`의
+`extraResource`로 **Electron 설치본에 그대로 동봉**된다(`src/feedback/feedback-notify.js`가
+런타임에 읽어 Telegram/EmailJS REST API를 직접 호출). asar/resources는 난독화가 아니라 단순
+아카이브라, 전국에 배포되는 설치 파일을 받은 사람은 누구나 자격증명을 추출할 수 있다.
+
+- **영향 범위**: 봇 토큰 탈취 시 해당 봇으로 메시지 전송/삭제, EmailJS 키 탈취 시 스팸 발송·쿼터
+  소진 정도. **시료 데이터는 영향 없음**(문의게시판은 별도 Firebase 프로젝트로 격리, `firestore.rules`가
+  서버측으로 쓰기 스키마·소유자를 강제함 — 이 자격증명과는 무관한 방어선).
+- **정석 해법**: 알림 발송을 Firebase Cloud Functions(Firestore `feedbackInquiries` onCreate 트리거)
+  등 서버측으로 이전해 클라이언트에 시크릿을 두지 않는 것. 2026-07-02 보안 분석에서 이 방안이
+  제시됐으나, 배포·운영 부담(Blaze 요금제 활성화, `firebase deploy` 등은 Firebase 콘솔/CLI 접근 권한이
+  있는 사람이 별도로 수행해야 함) 대비 실이익이 낮다고 판단해 **의도적으로 보류**했다(SLS-1-170).
+- **완화책(현재 적용됨)**: 알림용 Telegram 봇/EmailJS 계정은 반드시 **전용·최소 권한**으로 발급한다
+  (다른 용도로 겸용하지 않는 별도 봇, 발신 전용 EmailJS 서비스). 자격증명이 유출되어도 피해가 해당
+  알림 채널 하나로 국한되도록 하는 것이 핵심.
+- **재검토 시점**: 문의게시판 알림 채널이 늘어나거나(예: Slack/카카오 등 추가), 자격증명이 실제로
+  악용된 정황이 있으면 서버 이전을 재검토한다.

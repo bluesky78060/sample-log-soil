@@ -801,7 +801,7 @@ ipcMain.handle('get-auto-save-path', async (event, type, year) => {
     if (type && (typeof type !== 'string' || !ALLOWED_TYPES.includes(type))) {
         throw new Error(`허용되지 않는 시료 타입: ${type}`);
     }
-    if (year && (typeof year !== 'number' && typeof year !== 'string' || !/^\d{4}$/.test(String(year)))) {
+    if (year && ((typeof year !== 'number' && typeof year !== 'string') || !/^\d{4}$/.test(String(year)))) {
         throw new Error(`유효하지 않은 연도: ${year}`);
     }
 

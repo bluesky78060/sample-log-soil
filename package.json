@@ -17,8 +17,6 @@
     "build": "npm run build:css && npm run sync-version && npx vite build",
     "publish": "electron-forge publish",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit",
-    "typecheck:watch": "tsc --noEmit --watch",
     "test": "npx playwright test",
     "test:ui": "npx playwright test --ui",
     "test:report": "npx playwright show-report",

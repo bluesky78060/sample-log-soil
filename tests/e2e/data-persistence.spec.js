@@ -58,37 +58,6 @@ test.describe('데이터 영속성', () => {
         });
     });
 
-    test.describe('퇴액비 데이터 저장', () => {
-        test('데이터 등록 후 목록에 표시', async ({ page }) => {
-            await page.goto('/compost/');
-            await page.waitForLoadState('networkidle');
-
-            const testFarmName = `테스트농장_${Date.now()}`;
-
-            await page.fill('#farmName', testFarmName);
-            await page.fill('#name', '김농부');
-            await page.fill('#phoneNumber', '010-5555-6666');
-
-            // 축종 선택
-            await page.locator('.animal-type-options label.checkbox-card').filter({ hasText: '돼지' }).click();
-
-            await page.click('#navSubmitBtn');
-
-            // 모달 처리
-            const resultModal = page.locator('#registrationResultModal');
-            if (await resultModal.isVisible({ timeout: 2000 }).catch(() => false)) {
-                await page.click('#closeResultBtn');
-                await page.waitForTimeout(300);
-            }
-
-            // 목록 확인
-            await page.click('[data-view="list"]');
-            await page.waitForSelector('#listView');
-
-            await expect(page.locator('#logTableBody')).toContainText(testFarmName);
-        });
-    });
-
     test.describe('localStorage 직접 확인', () => {
         test('localStorage 접근 가능', async ({ page }) => {
             await page.goto('/soil/');

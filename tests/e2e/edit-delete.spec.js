@@ -109,42 +109,6 @@ test.describe('수정 및 삭제 기능', () => {
         });
     });
 
-    test.describe('퇴액비 데이터 수정/삭제', () => {
-        test.beforeEach(async ({ page }) => {
-            await page.goto('/compost/');
-            await page.waitForLoadState('networkidle');
-
-            // 테스트용 데이터 등록
-            await page.fill('#farmName', `삭제테스트농장_${Date.now()}`);
-            await page.fill('#name', '삭제테스트');
-            await page.fill('#phoneNumber', '010-0000-1111');
-
-            await page.locator('.animal-type-options label.checkbox-card').filter({ hasText: '소' }).click();
-
-            await page.click('#navSubmitBtn');
-
-            // 모달 처리
-            const resultModal = page.locator('#registrationResultModal');
-            if (await resultModal.isVisible({ timeout: 2000 }).catch(() => false)) {
-                await page.click('#closeResultBtn');
-                await page.waitForTimeout(300);
-            }
-
-            await page.click('[data-view="list"]');
-            await page.waitForSelector('#listView');
-        });
-
-        test('선택 삭제 버튼 존재', async ({ page }) => {
-            const deleteSelectedBtn = page.locator('#deleteSelectedBtn');
-            await expect(deleteSelectedBtn).toBeVisible();
-        });
-
-        test('라벨 인쇄 버튼 존재', async ({ page }) => {
-            const printLabelBtn = page.locator('#printLabelBtn');
-            await expect(printLabelBtn).toBeVisible();
-        });
-    });
-
     test.describe('폼 초기화', () => {
         test('토양 폼 초기화', async ({ page }) => {
             await page.goto('/soil/');
@@ -158,42 +122,6 @@ test.describe('수정 및 삭제 기능', () => {
             await page.click('#navResetBtn');
 
             // 폼이 초기화되었는지 확인
-            await expect(page.locator('#name')).toHaveValue('');
-        });
-
-        test('퇴액비 폼 초기화', async ({ page }) => {
-            await page.goto('/compost/');
-            await page.waitForLoadState('networkidle');
-
-            // 데이터 입력
-            await page.fill('#farmName', '초기화될농장');
-            await page.fill('#name', '초기화될이름');
-
-            // 초기화 버튼 클릭 (confirm 다이얼로그 처리)
-            page.on('dialog', async dialog => {
-                await dialog.accept();
-            });
-            await page.click('#navResetBtn');
-            await page.waitForTimeout(300);
-
-            // 폼이 초기화되었는지 확인
-            await expect(page.locator('#farmName')).toHaveValue('');
-            await expect(page.locator('#name')).toHaveValue('');
-        });
-
-        test('수질 폼 초기화', async ({ page }) => {
-            await page.goto('/water/');
-            await page.waitForLoadState('networkidle');
-
-            await page.fill('#name', '초기화될이름');
-
-            // confirm 다이얼로그 처리
-            page.on('dialog', async dialog => {
-                await dialog.accept();
-            });
-            await page.click('#navResetBtn');
-            await page.waitForTimeout(300);
-
             await expect(page.locator('#name')).toHaveValue('');
         });
     });

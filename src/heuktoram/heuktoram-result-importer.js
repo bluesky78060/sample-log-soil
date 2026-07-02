@@ -464,9 +464,10 @@
         // ============================================================
         async _handleFile(file) {
             if (!file) return;
-            // 외부 엑셀 파싱(읽기)은 보안 패치판(window.XLSXRead, SheetJS 0.20.x)을 우선 사용.
-            // window.XLSX(xlsx-js-style, 0.18 기반)는 스타일 내보내기 전용으로 유지 (SLS-1-131 H-1)
-            const XLSX = window.XLSXRead || window.XLSX;
+            // 외부 엑셀 파싱(읽기)은 반드시 보안 패치판(window.XLSXRead, SheetJS 0.20.x)만 사용.
+            // window.XLSX(xlsx-js-style, 0.18 기반, prototype pollution/ReDoS 취약)로는 절대 폴백하지 않음
+            // — 스타일 내보내기(쓰기) 전용으로만 별도 사용 (SLS-1-131 H-1, SLS-1-172)
+            const XLSX = window.XLSXRead;
             if (!XLSX) {
                 window.showToast?.('엑셀 라이브러리(XLSX)를 사용할 수 없습니다.', 'error');
                 return;

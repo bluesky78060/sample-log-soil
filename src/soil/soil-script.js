@@ -124,6 +124,14 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.tempSelectedCrops = [];
         this.confirmedCrops = [];
 
+        this._initDomRefPlaceholders();
+        this._initSoilFileHelpers();
+    }
+
+    /**
+     * DOM 참조 필드 초기화 (실제 참조는 cacheElements에서 설정).
+     */
+    _initDomRefPlaceholders() {
         // Soil-specific DOM refs (set in cacheElements)
         this.dateInput = null;
         this.parcelsContainer = null;
@@ -173,7 +181,12 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.statisticsModal = null;
         this.mailDateModal = null;
         this.regionSelectionModal = null;
+    }
 
+    /**
+     * 면적 포맷터·soil 전용 엑셀 저장 함수 초기화.
+     */
+    _initSoilFileHelpers() {
         // Area formatting from shared utils
         if (window.SampleUtils) {
             this.formatArea = window.SampleUtils.formatArea;
@@ -1142,9 +1155,30 @@ class SoilSampleManager extends window.BaseSampleManager {
 
     // 필지 카드 마크업 문자열을 생성한다 (sanitizeHTML 적용 전 원본)
     _buildParcelCardHTML(parcel, parcelNumber) {
-        const firstCrop = parcel.crops[0] || { name: '', area: '' };
-        const safeLotAddress = escapeHTML(parcel.lotAddress);
-        const safeCropName = escapeHTML(firstCrop.name);
+        return `
+            ${this._buildParcelCardHeader(parcel, parcelNumber)}
+            <div class="parcel-form-grid">
+                ${this._buildParcelCardLeftColumn(parcel)}
+                ${this._buildParcelCardRightColumn(parcel, parcelNumber)}
+                <div class="parcel-note-row">
+                    <div class="parcel-form-group parcel-note-group">
+                        <label for="parcel-note-${parcel.id}">기타주소</label>
+                        <input type="text" class="parcel-note-input"
+                               id="parcel-note-${parcel.id}"
+                               name="parcel-note-${parcel.id}"
+                               data-id="${parcel.id}"
+                               placeholder="예: 1동, 2동"
+                               value="${escapeHTML(parcel.note || '')}">
+                    </div>
+                </div>
+                <div class="parcel-summary" id="summary-${parcel.id}">
+                    ${this.renderParcelSummary(parcel)}
+                </div>
+            </div>
+        `;
+    }
+
+    _buildParcelCardHeader(parcel, parcelNumber) {
         const parcelCategory = parcel.category || '';
         const parcelPurpose = parcel.purpose || '';
         return `
@@ -1171,7 +1205,14 @@ class SoilSampleManager extends window.BaseSampleManager {
                 </div>
                 <button type="button" class="btn-remove-parcel" data-id="${parcel.id}">삭제</button>
             </div>
-            <div class="parcel-form-grid">
+        `;
+    }
+
+    _buildParcelCardLeftColumn(parcel) {
+        const firstCrop = parcel.crops[0] || { name: '', area: '' };
+        const safeLotAddress = escapeHTML(parcel.lotAddress);
+        const safeCropName = escapeHTML(firstCrop.name);
+        return `
                 <div class="parcel-left-column">
                     <div class="parcel-form-group">
                         <label for="lot-address-${parcel.id}">
@@ -1226,6 +1267,11 @@ class SoilSampleManager extends window.BaseSampleManager {
                         ${this._renderAdditionalCrops(parcel)}
                     </div>
                 </div>
+        `;
+    }
+
+    _buildParcelCardRightColumn(parcel, parcelNumber) {
+        return `
                 <div class="parcel-right-column">
                     <div class="parcel-form-group">
                         <label for="sub-lot-${parcel.id}">하위 필지</label>
@@ -1245,21 +1291,6 @@ class SoilSampleManager extends window.BaseSampleManager {
                         </div>
                     </div>
                 </div>
-                <div class="parcel-note-row">
-                    <div class="parcel-form-group parcel-note-group">
-                        <label for="parcel-note-${parcel.id}">기타주소</label>
-                        <input type="text" class="parcel-note-input"
-                               id="parcel-note-${parcel.id}"
-                               name="parcel-note-${parcel.id}"
-                               data-id="${parcel.id}"
-                               placeholder="예: 1동, 2동"
-                               value="${escapeHTML(parcel.note || '')}">
-                    </div>
-                </div>
-                <div class="parcel-summary" id="summary-${parcel.id}">
-                    ${this.renderParcelSummary(parcel)}
-                </div>
-            </div>
         `;
     }
 
@@ -2433,6 +2464,33 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.editingGroupId = firstLog.groupId;
         this.editingGroupLogs = groupLogs;
 
+        this._populateGroupEditHeaderFields(firstLog);
+        this._populateGroupEditParcelCards(groupLogs);
+
+        this.updateParcelsData();
+
+        // 버튼 상태 변경
+        if (this.navSubmitBtn) {
+            this.navSubmitBtn.title = '수정 완료';
+            this.navSubmitBtn.classList.add('btn-edit-mode');
+        }
+
+        // 폼 뷰로 전환
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById('formView').classList.add('active');
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('.nav-btn[data-view="form"]').classList.add('active');
+
+        setTimeout(() => {
+            this.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    }
+
+    /**
+     * 그룹 수정 시 상단 헤더 필드(접수번호·날짜·이름·주소·구분·용도 등)를 채운다.
+     * @param {Object} firstLog 그룹 대표 레코드 (groupLogs[0])
+     */
+    _populateGroupEditHeaderFields(firstLog) {
         // 접수번호 (기본번호만, 서브넘버 -1,-2 제외)
         const baseRecNum = (firstLog.receptionNumber || '').split('-')[0];
         this.receptionNumberInput.value = baseRecNum;
@@ -2484,7 +2542,13 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         const noteInput = document.getElementById('note');
         if (noteInput) noteInput.value = firstLog.note || '';
+    }
 
+    /**
+     * 그룹 수정 시 parcelIndex 기준으로 필지 카드를 합성·렌더링한다 (SLS-1-164).
+     * @param {Object[]} groupLogs 그룹 내 모든 레코드
+     */
+    _populateGroupEditParcelCards(groupLogs) {
         // 필지 카드 렌더링 - 같은 parcelIndex의 서브넘버 레코드는 하나의 필지로 합침
         this.parcels = [];
         this.parcelIdCounter = 0;
@@ -2539,24 +2603,6 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         // 필지가 하나도 없으면 빈 카드 추가
         if (this.parcels.length === 0) this.addParcel();
-
-        this.updateParcelsData();
-
-        // 버튼 상태 변경
-        if (this.navSubmitBtn) {
-            this.navSubmitBtn.title = '수정 완료';
-            this.navSubmitBtn.classList.add('btn-edit-mode');
-        }
-
-        // 폼 뷰로 전환
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById('formView').classList.add('active');
-        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelector('.nav-btn[data-view="form"]').classList.add('active');
-
-        setTimeout(() => {
-            this.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
     }
 
     // ========================================
@@ -3564,6 +3610,17 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         tr.dataset.id = row.id;
 
+        this._appendRowLeadingCells(tr, row, isComplete);
+        this._appendRowAddressCells(tr, row, zipcode, displayAddress, addressOnly);
+        this._appendRowContentCells(tr, row, methodText, combinedNote);
+
+        return tr;
+    }
+
+    /**
+     * 접수번호~경영체등록번호까지의 선두 sticky 셀들을 tr에 추가.
+     */
+    _appendRowLeadingCells(tr, row, isComplete) {
         // 체크박스
         const tdCheckbox = document.createElement('td');
         tdCheckbox.className = 'col-checkbox sticky-col';
@@ -3645,7 +3702,12 @@ class SoilSampleManager extends window.BaseSampleManager {
         tdBizReg.className = 'col-bizreg gongik-col';
         tdBizReg.textContent = row.businessRegNo || '-';
         tr.appendChild(tdBizReg);
+    }
 
+    /**
+     * 우편번호·주소·필지주소·기타주소 셀들을 tr에 추가.
+     */
+    _appendRowAddressCells(tr, row, zipcode, displayAddress, addressOnly) {
         // 우편번호
         const tdZipcode = document.createElement('td');
         tdZipcode.className = 'col-zipcode';
@@ -3690,7 +3752,12 @@ class SoilSampleManager extends window.BaseSampleManager {
         const parcelNoteText = row.parcels && row.parcels[0] ? (row.parcels[0].note || '-') : '-';
         tdParcelNote.textContent = parcelNoteText;
         tr.appendChild(tdParcelNote);
+    }
 
+    /**
+     * 작물~액션 버튼까지의 나머지 콘텐츠 셀들을 tr에 추가.
+     */
+    _appendRowContentCells(tr, row, methodText, combinedNote) {
         // 작물
         const tdCrops = document.createElement('td');
         tdCrops.className = 'text-truncate';
@@ -3766,7 +3833,6 @@ class SoilSampleManager extends window.BaseSampleManager {
         actionsDiv.appendChild(btnDelete);
         tdAction.appendChild(actionsDiv);
         tr.appendChild(tdAction);
-        return tr;
     }
 
     updatePaginationUI() {
@@ -3979,78 +4045,7 @@ class SoilSampleManager extends window.BaseSampleManager {
     _bindParcelContainerEvents() {
         // 필지 컨테이너 이벤트 위임
         if (this.parcelsContainer) {
-            this.parcelsContainer.addEventListener('click', (e) => {
-                const target = e.target;
-                if (target.classList.contains('btn-remove-parcel')) {
-                    this.removeParcel(target.dataset.id);
-                }
-                if (target.classList.contains('btn-add-sub-lot-icon')) {
-                    const parcelId = target.dataset.id;
-                    const input = document.querySelector(`.sub-lot-input[data-id="${parcelId}"]`);
-                    const value = input.value.trim();
-                    if (value) {
-                        const parcel = this.parcels.find(p => p.id === parcelId);
-                        parcel.subLots.push({ lotAddress: value, crops: [] });
-                        this.updateSubLotsDisplay(parcelId);
-                        this.updateParcelSummary(parcelId);
-                        this.updateParcelsData();
-                        input.value = '';
-                    }
-                }
-                if (target.classList.contains('remove-sub-lot')) {
-                    const subLotIndex = parseInt(target.dataset.index, 10);
-                    const container = target.closest('.sub-lots-container');
-                    const parcelId = container.id.replace('subLots-', '');
-                    const parcel = this.parcels.find(p => p.id === parcelId);
-                    parcel.subLots.splice(subLotIndex, 1);
-                    this.updateSubLotsDisplay(parcelId);
-                    this.updateParcelSummary(parcelId);
-                    this.updateParcelsData();
-                }
-                if (target.classList.contains('btn-add-sublot-crop')) {
-                    this.openSubLotCropModal(target.dataset.parcelId, parseInt(target.dataset.sublotIndex, 10));
-                }
-                if (target.classList.contains('remove-sublot-crop')) {
-                    const subLotIndex = parseInt(target.dataset.sublotIndex, 10);
-                    const cropIndex = parseInt(target.dataset.cropIndex, 10);
-                    const container = target.closest('.sub-lots-container');
-                    const parcelId = container.id.replace('subLots-', '');
-                    const parcel = this.parcels.find(p => p.id === parcelId);
-                    if (parcel.subLots[subLotIndex] && parcel.subLots[subLotIndex].crops) {
-                        parcel.subLots[subLotIndex].crops.splice(cropIndex, 1);
-                        this.updateSubLotsDisplay(parcelId);
-                        this.updateParcelSummary(parcelId);
-                        this.updateParcelsData();
-                    }
-                }
-                if (target.classList.contains('btn-add-crop-area') || target.classList.contains('btn-add-crop-compact')) {
-                    this.openCropAreaModal(target.dataset.id);
-                }
-                if (target.classList.contains('remove-crop-area')) {
-                    const item = target.closest('.crop-area-item');
-                    const container = target.closest('.crops-area-container');
-                    if (!container) return;
-                    const parcelId = container.id.replace('cropsArea-', '');
-                    const index = parseInt(item.dataset.index, 10);
-                    const parcel = this.parcels.find(p => p.id === parcelId);
-                    if (parcel && parcel.crops[index]) {
-                        parcel.crops.splice(index, 1);
-                        this.updateCropsAreaDisplay(parcelId);
-                        this.updateParcelSummary(parcelId);
-                        this.updateParcelsData();
-                    }
-                }
-                // 산 필지 토글 버튼 (한 번 누르면 ON, 다시 누르면 OFF)
-                const mountainBtn = target.closest('.mountain-btn');
-                if (mountainBtn) {
-                    e.preventDefault();
-                    const parcelId = mountainBtn.dataset.id;
-                    const next = mountainBtn.dataset.active !== 'true';
-                    const parcel = this.parcels.find(p => p.id === parcelId);
-                    if (parcel) { parcel.isMountain = next; this.updateParcelsData(); }
-                    this.applyMountainToggleStyle(parcelId, next);
-                }
-            });
+            this.parcelsContainer.addEventListener('click', (e) => this._onParcelContainerClick(e));
 
             this.parcelsContainer.addEventListener('input', (e) => {
                 if (e.target.classList.contains('lot-address-input')) {
@@ -4094,6 +4089,82 @@ class SoilSampleManager extends window.BaseSampleManager {
 
     }
 
+    /**
+     * 필지 컨테이너 click 위임 핸들러 (필지/하위필지/작물 삭제·추가, 산 토글).
+     */
+    _onParcelContainerClick(e) {
+        const target = e.target;
+        if (target.classList.contains('btn-remove-parcel')) {
+            this.removeParcel(target.dataset.id);
+        }
+        if (target.classList.contains('btn-add-sub-lot-icon')) {
+            const parcelId = target.dataset.id;
+            const input = document.querySelector(`.sub-lot-input[data-id="${parcelId}"]`);
+            const value = input.value.trim();
+            if (value) {
+                const parcel = this.parcels.find(p => p.id === parcelId);
+                parcel.subLots.push({ lotAddress: value, crops: [] });
+                this.updateSubLotsDisplay(parcelId);
+                this.updateParcelSummary(parcelId);
+                this.updateParcelsData();
+                input.value = '';
+            }
+        }
+        if (target.classList.contains('remove-sub-lot')) {
+            const subLotIndex = parseInt(target.dataset.index, 10);
+            const container = target.closest('.sub-lots-container');
+            const parcelId = container.id.replace('subLots-', '');
+            const parcel = this.parcels.find(p => p.id === parcelId);
+            parcel.subLots.splice(subLotIndex, 1);
+            this.updateSubLotsDisplay(parcelId);
+            this.updateParcelSummary(parcelId);
+            this.updateParcelsData();
+        }
+        if (target.classList.contains('btn-add-sublot-crop')) {
+            this.openSubLotCropModal(target.dataset.parcelId, parseInt(target.dataset.sublotIndex, 10));
+        }
+        if (target.classList.contains('remove-sublot-crop')) {
+            const subLotIndex = parseInt(target.dataset.sublotIndex, 10);
+            const cropIndex = parseInt(target.dataset.cropIndex, 10);
+            const container = target.closest('.sub-lots-container');
+            const parcelId = container.id.replace('subLots-', '');
+            const parcel = this.parcels.find(p => p.id === parcelId);
+            if (parcel.subLots[subLotIndex] && parcel.subLots[subLotIndex].crops) {
+                parcel.subLots[subLotIndex].crops.splice(cropIndex, 1);
+                this.updateSubLotsDisplay(parcelId);
+                this.updateParcelSummary(parcelId);
+                this.updateParcelsData();
+            }
+        }
+        if (target.classList.contains('btn-add-crop-area') || target.classList.contains('btn-add-crop-compact')) {
+            this.openCropAreaModal(target.dataset.id);
+        }
+        if (target.classList.contains('remove-crop-area')) {
+            const item = target.closest('.crop-area-item');
+            const container = target.closest('.crops-area-container');
+            if (!container) return;
+            const parcelId = container.id.replace('cropsArea-', '');
+            const index = parseInt(item.dataset.index, 10);
+            const parcel = this.parcels.find(p => p.id === parcelId);
+            if (parcel && parcel.crops[index]) {
+                parcel.crops.splice(index, 1);
+                this.updateCropsAreaDisplay(parcelId);
+                this.updateParcelSummary(parcelId);
+                this.updateParcelsData();
+            }
+        }
+        // 산 필지 토글 버튼 (한 번 누르면 ON, 다시 누르면 OFF)
+        const mountainBtn = target.closest('.mountain-btn');
+        if (mountainBtn) {
+            e.preventDefault();
+            const parcelId = mountainBtn.dataset.id;
+            const next = mountainBtn.dataset.active !== 'true';
+            const parcel = this.parcels.find(p => p.id === parcelId);
+            if (parcel) { parcel.isMountain = next; this.updateParcelsData(); }
+            this.applyMountainToggleStyle(parcelId, next);
+        }
+    }
+
     _bindCropAreaModalEvents() {
         // 작물 모달 이벤트
         if (this.closeCropAreaModalBtn) this.closeCropAreaModalBtn.addEventListener('click', () => this.closeCropAreaModalFn());
@@ -4113,112 +4184,10 @@ class SoilSampleManager extends window.BaseSampleManager {
     _bindTableEvents() {
         // 테이블 이벤트 위임
         if (this.tableBody) {
-            this.tableBody.addEventListener('click', (e) => {
-                const completeBtn = e.target.closest('.btn-complete');
-                if (completeBtn) {
-                    const id = completeBtn.dataset.id;
-                    const log = this.sampleLogs.find(l => String(l.id) === id);
-                    if (log) {
-                        const newCompletedStatus = !log.isComplete;
-                        const receptionNumber = log.receptionNumber || '';
-                        // 본필지+하위필지 연동: 같은 본번(F접두/일반 분리) 그룹 전체를 함께 토글.
-                        // 503, 503-1, 503-2 → 같은 그룹 / 503 ↔ F503 → 별개 그룹 (ReceptionGroup SSOT)
-                        const relatedLogs = window.ReceptionGroup.findRelatedLogs(this.sampleLogs, receptionNumber);
-                        relatedLogs.forEach(relatedLog => {
-                            relatedLog.isComplete = newCompletedStatus;
-                            relatedLog.updatedAt = new Date().toISOString();
-                            const relatedRows = this.tableBody.querySelectorAll(`tr[data-id="${relatedLog.id}"]`);
-                            relatedRows.forEach(relatedRow => {
-                                const relatedButton = relatedRow?.querySelector('.btn-complete');
-                                if (relatedButton) {
-                                    if (newCompletedStatus) {
-                                        relatedRow.classList.add('row-completed');
-                                        relatedButton.classList.add('completed');
-                                        relatedButton.textContent = '✔';
-                                        relatedButton.title = '완료 취소';
-                                    } else {
-                                        relatedRow.classList.remove('row-completed');
-                                        relatedButton.classList.remove('completed');
-                                        relatedButton.textContent = '';
-                                        relatedButton.title = '완료';
-                                    }
-                                }
-                            });
-                        });
-                        this.persistRecords(relatedLogs);
-                        const count = relatedLogs.length;
-                        if (newCompletedStatus) {
-                            this.showToast(count > 1 ? `${count}개 시료가 완료 처리되었습니다` : '완료 처리되었습니다', 'success');
-                        } else {
-                            this.showToast(count > 1 ? `${count}개 시료가 완료 취소되었습니다` : '완료 취소되었습니다', 'success');
-                        }
-                    }
-                }
-
-                const deleteBtn = e.target.closest('.btn-delete');
-                if (deleteBtn) {
-                    const id = deleteBtn.dataset.id;
-                    const targetLog = this.sampleLogs.find(log => String(log.id) === String(id));
-
-                    if (targetLog?.groupId) {
-                        const groupLogs = this.sampleLogs.filter(log => log.groupId === targetLog.groupId);
-
-                        if (groupLogs.length > 1) {
-                            const baseNumber = (targetLog.receptionNumber || '').split('-')[0];
-                            const numbers = groupLogs.map(l => l.receptionNumber).join(', ');
-                            const choice = confirm(
-                                `같은 접수 그룹(${numbers})이 ${groupLogs.length}건 있습니다.\n` +
-                                `[확인] 그룹 전체 삭제 (삭제 후 ${baseNumber}번으로 재입력 가능)\n` +
-                                `[취소] 이 항목만 삭제`
-                            );
-
-                            if (choice) {
-                                this.deleteGroup(targetLog.groupId, baseNumber);
-                            } else {
-                                this.deleteSample(id, targetLog.receptionNumber);
-                            }
-                            return;
-                        }
-                    }
-
-                    if (confirm('정말 삭제하시겠습니까?')) {
-                        this.deleteSample(id, targetLog?.receptionNumber);
-                    }
-                }
-
-                const editBtn = e.target.closest('.btn-edit');
-                if (editBtn) {
-                    this.editSample(editBtn.dataset.id);
-                }
-            });
+            this.tableBody.addEventListener('click', (e) => this._onTableBodyClick(e));
 
             // 체크박스 이벤트
-            this.tableBody.addEventListener('change', (e) => {
-                if (e.target.classList.contains('row-checkbox')) {
-                    this.updateSelectAllState();
-                    this.updateSelectedCount();
-                    return;
-                }
-                // 공익직불제 전용: 차수/기준년도 행별 편집
-                const isOrder = e.target.classList.contains('gongik-order-select');
-                const isBaseYear = e.target.classList.contains('gongik-baseyear-select');
-                if (isOrder || isBaseYear) {
-                    const id = e.target.dataset.id;
-                    const log = this.sampleLogs.find(l => l.id === id);
-                    if (log) {
-                        const val = e.target.value;
-                        if (isOrder) log.gongikOrder = val;
-                        else log.gongikBaseYear = val;
-                        log.updatedAt = new Date().toISOString();
-                        this.persistRecords(log);
-                        // 같은 log가 여러 행(필지)으로 펼쳐진 경우 형제 select 값 동기화
-                        const cls = isOrder ? 'gongik-order-select' : 'gongik-baseyear-select';
-                        this.tableBody.querySelectorAll(`.${cls}[data-id="${id}"]`).forEach(sel => {
-                            if (sel !== e.target) sel.value = val;
-                        });
-                    }
-                }
-            });
+            this.tableBody.addEventListener('change', (e) => this._onTableBodyChange(e));
         }
 
         // 전체 선택 체크박스
@@ -4244,6 +4213,118 @@ class SoilSampleManager extends window.BaseSampleManager {
         // 전역 등록
         window.getSelectedIds = () => this.getSelectedIds();
 
+    }
+
+    /**
+     * 테이블 body click 위임 핸들러 (완료 토글·삭제·수정).
+     */
+    _onTableBodyClick(e) {
+        const completeBtn = e.target.closest('.btn-complete');
+        if (completeBtn) {
+            const id = completeBtn.dataset.id;
+            const log = this.sampleLogs.find(l => String(l.id) === id);
+            if (log) {
+                const newCompletedStatus = !log.isComplete;
+                const receptionNumber = log.receptionNumber || '';
+                // 본필지+하위필지 연동: 같은 본번(F접두/일반 분리) 그룹 전체를 함께 토글.
+                // 503, 503-1, 503-2 → 같은 그룹 / 503 ↔ F503 → 별개 그룹 (ReceptionGroup SSOT)
+                const relatedLogs = window.ReceptionGroup.findRelatedLogs(this.sampleLogs, receptionNumber);
+                relatedLogs.forEach(relatedLog => {
+                    relatedLog.isComplete = newCompletedStatus;
+                    relatedLog.updatedAt = new Date().toISOString();
+                    const relatedRows = this.tableBody.querySelectorAll(`tr[data-id="${relatedLog.id}"]`);
+                    relatedRows.forEach(relatedRow => {
+                        const relatedButton = relatedRow?.querySelector('.btn-complete');
+                        if (relatedButton) {
+                            if (newCompletedStatus) {
+                                relatedRow.classList.add('row-completed');
+                                relatedButton.classList.add('completed');
+                                relatedButton.textContent = '✔';
+                                relatedButton.title = '완료 취소';
+                            } else {
+                                relatedRow.classList.remove('row-completed');
+                                relatedButton.classList.remove('completed');
+                                relatedButton.textContent = '';
+                                relatedButton.title = '완료';
+                            }
+                        }
+                    });
+                });
+                this.persistRecords(relatedLogs);
+                const count = relatedLogs.length;
+                if (newCompletedStatus) {
+                    this.showToast(count > 1 ? `${count}개 시료가 완료 처리되었습니다` : '완료 처리되었습니다', 'success');
+                } else {
+                    this.showToast(count > 1 ? `${count}개 시료가 완료 취소되었습니다` : '완료 취소되었습니다', 'success');
+                }
+            }
+        }
+
+        const deleteBtn = e.target.closest('.btn-delete');
+        if (deleteBtn) {
+            const id = deleteBtn.dataset.id;
+            const targetLog = this.sampleLogs.find(log => String(log.id) === String(id));
+
+            if (targetLog?.groupId) {
+                const groupLogs = this.sampleLogs.filter(log => log.groupId === targetLog.groupId);
+
+                if (groupLogs.length > 1) {
+                    const baseNumber = (targetLog.receptionNumber || '').split('-')[0];
+                    const numbers = groupLogs.map(l => l.receptionNumber).join(', ');
+                    const choice = confirm(
+                        `같은 접수 그룹(${numbers})이 ${groupLogs.length}건 있습니다.\n` +
+                        `[확인] 그룹 전체 삭제 (삭제 후 ${baseNumber}번으로 재입력 가능)\n` +
+                        `[취소] 이 항목만 삭제`
+                    );
+
+                    if (choice) {
+                        this.deleteGroup(targetLog.groupId, baseNumber);
+                    } else {
+                        this.deleteSample(id, targetLog.receptionNumber);
+                    }
+                    return;
+                }
+            }
+
+            if (confirm('정말 삭제하시겠습니까?')) {
+                this.deleteSample(id, targetLog?.receptionNumber);
+            }
+        }
+
+        const editBtn = e.target.closest('.btn-edit');
+        if (editBtn) {
+            this.editSample(editBtn.dataset.id);
+        }
+    }
+
+    /**
+     * 테이블 body change 위임 핸들러 (행 체크박스·공익직불제 차수/기준년도).
+     */
+    _onTableBodyChange(e) {
+        if (e.target.classList.contains('row-checkbox')) {
+            this.updateSelectAllState();
+            this.updateSelectedCount();
+            return;
+        }
+        // 공익직불제 전용: 차수/기준년도 행별 편집
+        const isOrder = e.target.classList.contains('gongik-order-select');
+        const isBaseYear = e.target.classList.contains('gongik-baseyear-select');
+        if (isOrder || isBaseYear) {
+            const id = e.target.dataset.id;
+            const log = this.sampleLogs.find(l => l.id === id);
+            if (log) {
+                const val = e.target.value;
+                if (isOrder) log.gongikOrder = val;
+                else log.gongikBaseYear = val;
+                log.updatedAt = new Date().toISOString();
+                this.persistRecords(log);
+                // 같은 log가 여러 행(필지)으로 펼쳐진 경우 형제 select 값 동기화
+                const cls = isOrder ? 'gongik-order-select' : 'gongik-baseyear-select';
+                this.tableBody.querySelectorAll(`.${cls}[data-id="${id}"]`).forEach(sel => {
+                    if (sel !== e.target) sel.value = val;
+                });
+            }
+        }
     }
 
     _bindViewToggle() {
@@ -4285,40 +4366,10 @@ class SoilSampleManager extends window.BaseSampleManager {
         const clearSearchLotBtn = document.getElementById('clearSearchLot');
         const resetSearchBtn = document.getElementById('resetSearchBtn');
         const applySearchBtn = document.getElementById('applySearchBtn');
-
         const purposeFilter = document.getElementById('purposeFilter');
-        if (purposeFilter) {
-            purposeFilter.addEventListener('change', (e) => {
-                this.currentSearchFilter.purpose = e.target.value;
-                this.filterAndRenderLogs();
-            });
-        }
-
         const completedFilter = document.getElementById('completedFilter');
-        if (completedFilter) {
-            completedFilter.addEventListener('change', (e) => {
-                this.currentSearchFilter.completed = e.target.value;
-                this.filterAndRenderLogs();
-            });
-        }
 
-        // 경지구분 1차 목록 탭
-        const landClass1Tab = document.getElementById('landClass1Tab');
-        if (landClass1Tab) {
-            landClass1Tab.addEventListener('change', (e) => {
-                this.currentSearchFilter.landClass1 = e.target.value;
-                this.filterAndRenderLogs();
-            });
-        }
-
-        // 공익직불제 일괄 적용 바: 기준년도 옵션 채우기 + 적용 버튼
-        const gbBaseYear = document.getElementById('gongikBulkBaseYear');
-        if (gbBaseYear) {
-            gbBaseYear.innerHTML = '<option value="">기준년도(선택)</option>'
-                + GONGIK_BASE_YEAR_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('');
-        }
-        const gbApplyBtn = document.getElementById('gongikBulkApplyBtn');
-        if (gbApplyBtn) gbApplyBtn.addEventListener('click', () => this.applyGongikBulk());
+        this._bindSearchFilterControls(purposeFilter, completedFilter);
 
         if (openSearchModalBtn) {
             openSearchModalBtn.addEventListener('click', () => {
@@ -4391,6 +4442,43 @@ class SoilSampleManager extends window.BaseSampleManager {
             }
         });
 
+    }
+
+    /**
+     * 검색 모달의 목적/완료/경지구분 필터 및 공익직불제 일괄 적용 컨트롤 바인딩.
+     */
+    _bindSearchFilterControls(purposeFilter, completedFilter) {
+        if (purposeFilter) {
+            purposeFilter.addEventListener('change', (e) => {
+                this.currentSearchFilter.purpose = e.target.value;
+                this.filterAndRenderLogs();
+            });
+        }
+
+        if (completedFilter) {
+            completedFilter.addEventListener('change', (e) => {
+                this.currentSearchFilter.completed = e.target.value;
+                this.filterAndRenderLogs();
+            });
+        }
+
+        // 경지구분 1차 목록 탭
+        const landClass1Tab = document.getElementById('landClass1Tab');
+        if (landClass1Tab) {
+            landClass1Tab.addEventListener('change', (e) => {
+                this.currentSearchFilter.landClass1 = e.target.value;
+                this.filterAndRenderLogs();
+            });
+        }
+
+        // 공익직불제 일괄 적용 바: 기준년도 옵션 채우기 + 적용 버튼
+        const gbBaseYear = document.getElementById('gongikBulkBaseYear');
+        if (gbBaseYear) {
+            gbBaseYear.innerHTML = '<option value="">기준년도(선택)</option>'
+                + GONGIK_BASE_YEAR_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join('');
+        }
+        const gbApplyBtn = document.getElementById('gongikBulkApplyBtn');
+        if (gbApplyBtn) gbApplyBtn.addEventListener('click', () => this.applyGongikBulk());
     }
 
     _bindBulkActions() {
@@ -4466,7 +4554,13 @@ class SoilSampleManager extends window.BaseSampleManager {
             });
         }
 
-        // 일괄 우편발송일자
+        this._bindBulkMailDate();
+    }
+
+    /**
+     * 일괄 우편발송일자 모달 관련 이벤트 바인딩.
+     */
+    _bindBulkMailDate() {
         const btnBulkMailDate = document.getElementById('btnBulkMailDate');
         const closeMailDateModal = document.getElementById('closeMailDateModal');
         const cancelMailDateBtn = document.getElementById('cancelMailDateBtn');
@@ -4521,7 +4615,6 @@ class SoilSampleManager extends window.BaseSampleManager {
                 if (this.mailDateModal) this.mailDateModal.classList.remove('hidden');
             });
         }
-
     }
 
     _bindStatisticsAndLegacyModals() {
@@ -4856,6 +4949,17 @@ class SoilSampleManager extends window.BaseSampleManager {
 
     initExcelImporter() {
         const excelImporter = new ExcelImportManager({
+            ...this._excelImporterFieldConfig(),
+            ...this._excelImporterBehaviorConfig()
+        });
+        excelImporter.init();
+    }
+
+    /**
+     * 엑셀 가져오기: 필드·자동매핑·서식·미리보기 등 정적 설정.
+     */
+    _excelImporterFieldConfig() {
+        return {
             appFields: [
                 { key: 'receptionNumber', label: '접수번호' }, { key: 'date', label: '접수일자' },
                 { key: 'subCategory', label: '구분(논/밭)' }, { key: 'purpose', label: '목적(용도)' },
@@ -4890,7 +4994,15 @@ class SoilSampleManager extends window.BaseSampleManager {
                 { key: 'subCategory', label: '구분' }, { key: 'name', label: '성명' },
                 { key: 'lotAddress', label: '필지 주소' }, { key: 'cropsDisplay', label: '작물' },
                 { key: 'area', label: '면적(m2)' }, { key: 'note', label: '비고' }
-            ],
+            ]
+        };
+    }
+
+    /**
+     * 엑셀 가져오기: 레코드 생성·자동번호·완료 콜백 등 동작 설정.
+     */
+    _excelImporterBehaviorConfig() {
+        return {
             getCommonData: () => {
                 const groupId = crypto.randomUUID();
                 return {
@@ -4966,8 +5078,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                 this.filterAndRenderLogs();
                 this.log('엑셀 가져오기 완료:', records.length, '건');
             }
-        });
-        excelImporter.init();
+        };
     }
 
     // ========================================

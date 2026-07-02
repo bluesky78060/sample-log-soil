@@ -7,6 +7,69 @@
 const isElectron = window.electronAPI?.isElectron === true;
 
 /**
+ * Web 환경 파일 저장 (File System Access API → Blob 다운로드 폴백)
+ * @param {string} content - 저장할 내용
+ * @param {string} suggestedName - 제안 파일명
+ * @returns {Promise<boolean>} 성공 여부
+ */
+async function saveFileWeb(content, suggestedName) {
+    if ('showSaveFilePicker' in window && window.showSaveFilePicker) {
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName,
+                types: [{
+                    description: 'JSON Files',
+                    accept: { 'application/json': ['.json'] }
+                }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(content);
+            await writable.close();
+            return true;
+        } catch (e) {
+            if (e.name !== 'AbortError') console.error(e);
+            return false;
+        }
+    } else {
+        // 폴백: Blob 다운로드
+        const blob = new Blob([content], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        // 파일명 보안 검증
+        const safeName = suggestedName.replace(/[<>:"|?*\x00-\x1f]/g, '_');
+        a.download = safeName;
+        a.click();
+        URL.revokeObjectURL(url);
+        return true;
+    }
+}
+
+/**
+ * Web 환경 파일 열기 (File System Access API)
+ * @returns {Promise<string|null>} 파일 내용 또는 null
+ */
+async function openFileWeb() {
+    if ('showOpenFilePicker' in window && window.showOpenFilePicker) {
+        try {
+            const [handle] = await window.showOpenFilePicker({
+                types: [{
+                    description: 'JSON Files',
+                    accept: { 'application/json': ['.json'] }
+                }]
+            });
+            const file = await handle.getFile();
+            return await file.text();
+        } catch (e) {
+            if (e.name !== 'AbortError') console.error(e);
+            return null;
+        }
+    } else {
+        return null;
+    }
+}
+
+/**
  * 파일 API 팩토리 함수
  * @param {string} sampleType - 시료 타입 (soil, water, pesticide, compost, heavy-metal)
  * @returns {Object} FileAPI 인스턴스
@@ -59,36 +122,7 @@ function createFileAPI(sampleType) {
                 return false;
             } else {
                 // Web 환경: File System Access API 사용
-                if ('showSaveFilePicker' in window && window.showSaveFilePicker) {
-                    try {
-                        const handle = await window.showSaveFilePicker({
-                            suggestedName,
-                            types: [{
-                                description: 'JSON Files',
-                                accept: { 'application/json': ['.json'] }
-                            }]
-                        });
-                        const writable = await handle.createWritable();
-                        await writable.write(content);
-                        await writable.close();
-                        return true;
-                    } catch (e) {
-                        if (e.name !== 'AbortError') console.error(e);
-                        return false;
-                    }
-                } else {
-                    // 폴백: Blob 다운로드
-                    const blob = new Blob([content], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    // 파일명 보안 검증
-                    const safeName = suggestedName.replace(/[<>:"|?*\x00-\x1f]/g, '_');
-                    a.download = safeName;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    return true;
-                }
+                return await saveFileWeb(content, suggestedName);
             }
         },
 
@@ -114,23 +148,7 @@ function createFileAPI(sampleType) {
                 return null;
             } else {
                 // Web 환경: File System Access API 사용
-                if ('showOpenFilePicker' in window && window.showOpenFilePicker) {
-                    try {
-                        const [handle] = await window.showOpenFilePicker({
-                            types: [{
-                                description: 'JSON Files',
-                                accept: { 'application/json': ['.json'] }
-                            }]
-                        });
-                        const file = await handle.getFile();
-                        return await file.text();
-                    } catch (e) {
-                        if (e.name !== 'AbortError') console.error(e);
-                        return null;
-                    }
-                } else {
-                    return null;
-                }
+                return await openFileWeb();
             }
         },
 

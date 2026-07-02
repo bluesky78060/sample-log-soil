@@ -424,6 +424,84 @@
     document.getElementById('labelDataPreview').classList.remove('hidden');
   }
 
+  // 데이터 행 1건 → 라벨 아이템 HTML
+  function buildLabelItemHtml(rowData, headers, nameSuffix) {
+    let name = '', address = '', postalCode = '';
+
+    if (typeof rowData === 'object' && !Array.isArray(rowData)) {
+      name = fieldMappings.name ? (rowData[fieldMappings.name] ?? '') : '';
+      address = fieldMappings.address ? (rowData[fieldMappings.address] ?? '') : '';
+      postalCode = fieldMappings.postalCode ? (rowData[fieldMappings.postalCode] ?? '') : '';
+    } else if (Array.isArray(rowData)) {
+      const nameIndex = headers.indexOf(fieldMappings.name);
+      const addressIndex = headers.indexOf(fieldMappings.address);
+      const postalCodeIndex = headers.indexOf(fieldMappings.postalCode);
+      name = nameIndex >= 0 ? (rowData[nameIndex] ?? '') : '';
+      address = addressIndex >= 0 ? (rowData[addressIndex] ?? '') : '';
+      postalCode = postalCodeIndex >= 0 ? (rowData[postalCodeIndex] ?? '') : '';
+    }
+
+    const combinedAddress = address;
+
+    const displayNameParts = [];
+    if (name) displayNameParts.push(name);
+    if (nameSuffix) displayNameParts.push(nameSuffix);
+    const displayName = displayNameParts.join(' ');
+    // 100mm 폭, 12pt 한글 기준 약 23자에서 줄바꿈 → 24자 초과 시 long-content 적용
+    const isLong = combinedAddress.length > 24 || displayName.length > 18 || `${postalCode}`.length > 8;
+
+    const addressBlock = combinedAddress
+      ? `<div class="label-address-line">${combinedAddress}</div>`
+      : '<div class="label-address-line"></div>';
+
+    return `
+            <div class="label-item${isLong ? ' long-content' : ''}">
+              <div class="label-address-block">
+                ${addressBlock}
+              </div>
+              <div class="label-name-line">${displayName}</div>
+              <div class="label-postal-line">${postalCode ?? ''}</div>
+            </div>
+          `;
+  }
+
+  // 라벨 모달 표시 + 포커스 트랩 설정
+  function showLabelModal() {
+    const modal = document.getElementById('labelModal');
+    const appContainer = document.querySelector('.container');
+    if (appContainer) appContainer.setAttribute('inert', '');
+    if (modal) {
+      lastFocusedElement = (document.activeElement && document.activeElement.focus) ? document.activeElement : null;
+      modal.setAttribute('aria-hidden', 'false');
+      modal.classList.add('active');
+      requestAnimationFrame(() => {
+        const first = document.getElementById('btnModalClose') || modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (first && first.focus) first.focus();
+      });
+      // 탭 포커스 트랩
+      modalKeydownHandler = (e) => {
+        if (e.key !== 'Tab') return;
+        const focusables = Array.from(modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+          .filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
+        if (focusables.length === 0) return;
+        const firstEl = focusables[0];
+        const lastEl = focusables[focusables.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === firstEl) {
+            e.preventDefault();
+            lastEl.focus();
+          }
+        } else {
+          if (document.activeElement === lastEl) {
+            e.preventDefault();
+            firstEl.focus();
+          }
+        }
+      };
+      modal.addEventListener('keydown', modalKeydownHandler);
+    }
+  }
+
   // 라벨 생성
   function generateLabels() {
     if (!labelData || Object.keys(fieldMappings).length === 0) {
@@ -491,43 +569,7 @@
 
         if (dataIndex < total) {
           const rowData = dataRows[dataIndex];
-          let name = '', address = '', postalCode = '';
-
-          if (typeof rowData === 'object' && !Array.isArray(rowData)) {
-            name = fieldMappings.name ? (rowData[fieldMappings.name] ?? '') : '';
-            address = fieldMappings.address ? (rowData[fieldMappings.address] ?? '') : '';
-            postalCode = fieldMappings.postalCode ? (rowData[fieldMappings.postalCode] ?? '') : '';
-          } else if (Array.isArray(rowData)) {
-            const nameIndex = headers.indexOf(fieldMappings.name);
-            const addressIndex = headers.indexOf(fieldMappings.address);
-            const postalCodeIndex = headers.indexOf(fieldMappings.postalCode);
-            name = nameIndex >= 0 ? (rowData[nameIndex] ?? '') : '';
-            address = addressIndex >= 0 ? (rowData[addressIndex] ?? '') : '';
-            postalCode = postalCodeIndex >= 0 ? (rowData[postalCodeIndex] ?? '') : '';
-          }
-
-          const combinedAddress = address;
-
-          const displayNameParts = [];
-          if (name) displayNameParts.push(name);
-          if (nameSuffix) displayNameParts.push(nameSuffix);
-          const displayName = displayNameParts.join(' ');
-          // 100mm 폭, 12pt 한글 기준 약 23자에서 줄바꿈 → 24자 초과 시 long-content 적용
-          const isLong = combinedAddress.length > 24 || displayName.length > 18 || `${postalCode}`.length > 8;
-
-          const addressBlock = combinedAddress
-            ? `<div class="label-address-line">${combinedAddress}</div>`
-            : '<div class="label-address-line"></div>';
-
-          sheetHtml += `
-            <div class="label-item${isLong ? ' long-content' : ''}">
-              <div class="label-address-block">
-                ${addressBlock}
-              </div>
-              <div class="label-name-line">${displayName}</div>
-              <div class="label-postal-line">${postalCode ?? ''}</div>
-            </div>
-          `;
+          sheetHtml += buildLabelItemHtml(rowData, headers, nameSuffix);
           dataIndex++;
         } else {
           sheetHtml += `<div class="label-item empty"></div>`;
@@ -541,39 +583,7 @@
     }
 
     // 모달 표시
-    const modal = document.getElementById('labelModal');
-    const appContainer = document.querySelector('.container');
-    if (appContainer) appContainer.setAttribute('inert', '');
-    if (modal) {
-      lastFocusedElement = (document.activeElement && document.activeElement.focus) ? document.activeElement : null;
-      modal.setAttribute('aria-hidden', 'false');
-      modal.classList.add('active');
-      requestAnimationFrame(() => {
-        const first = document.getElementById('btnModalClose') || modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        if (first && first.focus) first.focus();
-      });
-      // 탭 포커스 트랩
-      modalKeydownHandler = (e) => {
-        if (e.key !== 'Tab') return;
-        const focusables = Array.from(modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
-          .filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
-        if (focusables.length === 0) return;
-        const firstEl = focusables[0];
-        const lastEl = focusables[focusables.length - 1];
-        if (e.shiftKey) {
-          if (document.activeElement === firstEl) {
-            e.preventDefault();
-            lastEl.focus();
-          }
-        } else {
-          if (document.activeElement === lastEl) {
-            e.preventDefault();
-            firstEl.focus();
-          }
-        }
-      };
-      modal.addEventListener('keydown', modalKeydownHandler);
-    }
+    showLabelModal();
     document.getElementById('labelPreview').classList.remove('hidden');
   }
 

@@ -153,6 +153,19 @@
         // 초기화
         // ============================================================
         init() {
+            this._cacheElements();
+
+            if (!this._els.modal) {
+                (window.logger?.warn || console.warn)('HeuktoramResultImporter: 모달 마크업 없음');
+                return;
+            }
+
+            this._bindInputControls();
+            this._bindOptionControls();
+        }
+
+        /** 모달 DOM 요소 캐시 (this._els 구성) */
+        _cacheElements() {
             this._els = {
                 modal:        document.getElementById('resultImporterModal'),
                 openBtn:      document.getElementById('importResultBtn'),
@@ -189,12 +202,10 @@
                 summary:      document.getElementById('importerSummary'),
                 previewList:  document.getElementById('importerPreviewList'),
             };
+        }
 
-            if (!this._els.modal) {
-                (window.logger?.warn || console.warn)('HeuktoramResultImporter: 모달 마크업 없음');
-                return;
-            }
-
+        /** 열기/닫기 · 텍스트 입력 · 모드 토글 · 파일 선택/드롭 이벤트 바인딩 */
+        _bindInputControls() {
             this._els.openBtn?.addEventListener('click', () => this.open());
             this._els.closeBtn?.addEventListener('click', () => this.close());
             this._els.cancelBtn?.addEventListener('click', () => this.close());
@@ -244,7 +255,10 @@
                     }
                 });
             }
+        }
 
+        /** 시트/헤더 · 매핑키 · 옵션 · 액션 버튼 · ESC 이벤트 바인딩 */
+        _bindOptionControls() {
             // 시트 변경 / 헤더 행 / 헤더 없음
             this._els.sheetSelect?.addEventListener('change', () => {
                 this._state.activeSheet = this._els.sheetSelect.value;

@@ -208,12 +208,7 @@
     // 스코프드 스타일 (1회 주입)
     // ============================================================
     const STYLE_ID = 'soil-importer-style';
-    function injectStyle() {
-        if (document.querySelector(`style[data-soil-importer]`)) return;
-        const style = document.createElement('style');
-        style.id = STYLE_ID;
-        style.setAttribute('data-soil-importer', '');
-        style.textContent = `
+    const SRI_STYLE_CSS = `
 .sri-overlay{position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;
   background:rgba(15,23,42,.55);backdrop-filter:blur(3px);padding:24px 14px;overflow-y:auto}
 .sri-overlay[hidden]{display:none}
@@ -377,6 +372,12 @@
 [data-theme="dark"] .sri-btn-dlerr:hover{background:#3f1a1a;border-color:#ef4444}
 [data-theme="dark"] .sri-mapgrid.gongik-active .sri-maprow--gongik{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.5)}
 `;
+    function injectStyle() {
+        if (document.querySelector(`style[data-soil-importer]`)) return;
+        const style = document.createElement('style');
+        style.id = STYLE_ID;
+        style.setAttribute('data-soil-importer', '');
+        style.textContent = SRI_STYLE_CSS;
         document.head.appendChild(style);
     }
 
@@ -384,22 +385,8 @@
     // 모달 마크업 (1회 주입)
     // ============================================================
     const MODAL_ID = 'soilImporterModal';
-    function buildModal() {
-        let modal = document.getElementById(MODAL_ID);
-        if (modal) return modal;
-
-        const landOpts = LAND_CLASS1_OPTIONS.map(v =>
-            `<option value="${v}"${v === LAND_CLASS1_DEFAULT ? ' selected' : ''}>${v}</option>`
-        ).join('');
-
-        modal = document.createElement('div');
-        modal.id = MODAL_ID;
-        modal.className = 'sri-overlay';
-        modal.hidden = true;
-        modal.setAttribute('role', 'dialog');
-        modal.setAttribute('aria-modal', 'true');
-        modal.setAttribute('aria-labelledby', 'sriTitle');
-        modal.innerHTML = `
+    function soilModalInnerHtml(landOpts) {
+        return `
 <div class="sri-dialog" role="document">
   <header class="sri-header">
     <h2 id="sriTitle">📥 토양 시료 엑셀 가져오기</h2>
@@ -500,6 +487,23 @@
     <button type="button" class="sri-btn-import" data-act="import" disabled>📥 가져오기</button>
   </footer>
 </div>`;
+    }
+    function buildModal() {
+        let modal = document.getElementById(MODAL_ID);
+        if (modal) return modal;
+
+        const landOpts = LAND_CLASS1_OPTIONS.map(v =>
+            `<option value="${v}"${v === LAND_CLASS1_DEFAULT ? ' selected' : ''}>${v}</option>`
+        ).join('');
+
+        modal = document.createElement('div');
+        modal.id = MODAL_ID;
+        modal.className = 'sri-overlay';
+        modal.hidden = true;
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'sriTitle');
+        modal.innerHTML = soilModalInnerHtml(landOpts);
         document.body.appendChild(modal);
         return modal;
     }

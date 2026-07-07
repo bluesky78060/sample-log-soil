@@ -872,7 +872,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                 const opt = document.createElement('option');
                 opt.value = value;
                 opt.textContent = value;
-                if (value === LAND_CLASS1_DEFAULT) opt.selected = true;
+                if (value === LAND_CLASS1_DEFAULT) opt.defaultSelected = true;
                 frag.appendChild(opt);
             });
             this.landClass1Select.appendChild(frag);
@@ -905,6 +905,19 @@ class SoilSampleManager extends window.BaseSampleManager {
      */
     getCurrentLandClass1() {
         return (this.landClass1Select?.value) || LAND_CLASS1_DEFAULT;
+    }
+
+    /**
+     * form.reset()은 동적으로 옵션을 채우는 select(연도, 경지구분 1차)를
+     * 첫 번째 옵션으로 되돌리므로, 리셋 전후로 값을 캡처·복원한다.
+     * (동일 버그가 세 호출부에서 반복 발생해 SLS-1-176에서 공유 헬퍼로 통합)
+     */
+    _resetFormPreservingSelects() {
+        const prevLandClass1 = this.getCurrentLandClass1();
+        this.form.reset();
+        const yearSelect = document.getElementById('yearSelect');
+        if (yearSelect && this.selectedYear) yearSelect.value = this.selectedYear;
+        if (this.landClass1Select && prevLandClass1) this.landClass1Select.value = prevLandClass1;
     }
 
     /**
@@ -2228,9 +2241,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         newLogs.forEach(log => this.sampleLogs.push(log));
         this.persistRecords(newLogs);
         this.filterAndRenderLogs();
-        this.form.reset();
-        // yearSelect 복원: form.reset()이 yearSelect를 첫 옵션(2025)으로 되돌리므로 복원
-        { const _yearSelect = document.getElementById('yearSelect'); if (_yearSelect && this.selectedYear) _yearSelect.value = this.selectedYear; }
+        this._resetFormPreservingSelects();
         if (this.dateInput) this.dateInput.valueAsDate = new Date();
 
         // 주소 필드 초기화
@@ -2301,12 +2312,7 @@ class SoilSampleManager extends window.BaseSampleManager {
             this.navSubmitBtn.classList.remove('btn-edit-mode');
         }
 
-        const _prevLandClass1 = this.getCurrentLandClass1();
-        this.form.reset();
-        // yearSelect 복원: form.reset()이 yearSelect를 첫 옵션(2025)으로 되돌리므로 복원
-        { const _yearSelect = document.getElementById('yearSelect'); if (_yearSelect && this.selectedYear) _yearSelect.value = this.selectedYear; }
-        // landClass1Select 복원: form.reset() 후 리셋되면 generateNextReceptionNumber()가 잘못된 카테고리 기준으로 계산됨
-        if (this.landClass1Select && _prevLandClass1) this.landClass1Select.value = _prevLandClass1;
+        this._resetFormPreservingSelects();
         const subCatSelect = document.getElementById('subCategory');
         if (subCatSelect) {
             subCatSelect.disabled = false;
@@ -3942,9 +3948,7 @@ class SoilSampleManager extends window.BaseSampleManager {
     resetFormKeepReceptionInfo() {
         const receptionNumber = this.receptionNumberInput?.value;
         const date = this.dateInput?.value;
-        this.form.reset();
-        // yearSelect 복원: form.reset()이 yearSelect를 첫 옵션(2025)으로 되돌리므로 복원
-        { const _yearSelect = document.getElementById('yearSelect'); if (_yearSelect && this.selectedYear) _yearSelect.value = this.selectedYear; }
+        this._resetFormPreservingSelects();
         setTimeout(() => {
             if (receptionNumber && this.receptionNumberInput) this.receptionNumberInput.value = receptionNumber;
             if (date && this.dateInput) this.dateInput.value = date;

@@ -3666,6 +3666,13 @@ input[type="number"] {
     text-align: left;
 }
 
+/* 필지 주소는 왼쪽 정렬 (SLS-1-182 — 클래스 기반으로 안정적 타깃.
+   위 nth-child(9)/(10)은 실제로는 성명/경영체등록번호를 가리키는 기존 오정렬이라
+   필지주소(13번째)에는 적용되지 않는다. 이 규칙은 그 버그를 건드리지 않고 별도로 추가) */
+.data-table td.col-lot-address {
+    text-align: left;
+}
+
 .data-table td:last-child {
     border-right: none;
 }

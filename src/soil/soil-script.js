@@ -3453,6 +3453,22 @@ class SoilSampleManager extends window.BaseSampleManager {
     // 데이터 평탄화
     // ========================================
 
+    /**
+     * 필지 주소 표시용 문자열 — 선두 시도(전체/약어) 토큰을 제거한다.
+     * 실제 데이터(parcel.lotAddress/log.lotAddress, flattenLogsForTable이 만드는
+     * row._lotAddress)는 변경하지 않고 DOM 렌더링 시점에만 사용한다(SLS-1-182).
+     * @param {string} address
+     * @returns {string}
+     */
+    formatLotAddressForDisplay(address) {
+        if (!address || address === '-') return address || '-';
+        if (!window.parseAddressParts) return address; // 방어: 파서 미로드
+        const { sido, sigungu, eupmyeondong, rest } = window.parseAddressParts(address);
+        if (!sido) return address; // 시도로 시작하지 않으면 원본 유지
+        const remainder = [sigungu, eupmyeondong, rest].filter(Boolean).join(' ');
+        return remainder || address; // 방어: 시도만 있고 나머지가 없으면 원본 유지
+    }
+
     flattenLogsForTable(logs) {
         const rows = [];
         logs.forEach(log => {
@@ -3746,7 +3762,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         // 필지 주소
         const tdLotAddress = document.createElement('td');
         tdLotAddress.className = 'col-lot-address';
-        tdLotAddress.textContent = row._lotAddress;
+        tdLotAddress.textContent = this.formatLotAddressForDisplay(row._lotAddress);
         if (row.addressVerified === false) {
             tdLotAddress.classList.add('address-invalid');
             tdLotAddress.title = '지번 주소가 VWORLD에서 확인되지 않았습니다';

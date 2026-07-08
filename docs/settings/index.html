@@ -409,15 +409,58 @@
             background: #2D1515 !important;
             color: #F4A4A4 !important;
         }
+
+        /* 토스트 알림 (SLS-1-179: 설정 페이지 자체완결 — style.css 미로드로 인라인, CSS 변수 미사용) */
+        .toast-container {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: #292524;
+            color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            animation: toastIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 280px;
+            border: 1px solid #44403C;
+        }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(100%); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .toast.success { background: #16A34A; border-color: #16A34A; }
+        .toast.error { background: #DC2626; border-color: #DC2626; }
+        .toast.warning { background: #D97706; border-color: #D97706; color: #fff; }
+        .toast.info { background: #2563EB; border-color: #2563EB; }
+
+        .toast-icon { font-size: 1.25rem; }
+        .toast-message { flex: 1; font-size: 0.875rem; font-weight: 500; }
+
+        /* 진행 표시 토글 (tailwind .hidden 미로드 대비 — SLS-1-179) */
+        .hidden { display: none !important; }
     </style>
-  <script type="module" crossorigin src="../assets/settings-B_jBgwF0.js"></script>
+  <script type="module" crossorigin src="../assets/settings-D0rcYruU.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
+  <link rel="modulepreload" crossorigin href="../assets/xlsx-DqDnpwVQ.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-D6gMnemd.js">
   <link rel="modulepreload" crossorigin href="../assets/theme-2kqPfXg0.js">
   <link rel="modulepreload" crossorigin href="../assets/index.esm-k5uDoaEq.js">
-  <link rel="modulepreload" crossorigin href="../assets/storage-manager-F775Xue-.js">
+  <link rel="modulepreload" crossorigin href="../assets/storage-manager-7f1scv_V.js">
   <link rel="modulepreload" crossorigin href="../assets/toast-CYVUzQgW.js">
   <link rel="modulepreload" crossorigin href="../assets/cache-manager-nqFa1f2l.js">
+  <link rel="modulepreload" crossorigin href="../assets/crop-data-loader-BIMSExQQ.js">
   <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
 </head>
 
@@ -735,7 +778,54 @@
                 캐시를 삭제하면 다음 앱 실행 시 Firebase에서 데이터를 다시 불러옵니다.
             </p>
         </div>
+
+        <!-- 작물 데이터 관리 (SLS-1-179) -->
+        <div class="settings-card">
+            <h2>
+                <span>🌾</span>
+                작물 데이터 관리
+            </h2>
+
+            <div class="alert alert-info">
+                <strong>비료사용처방(흙토람) 작물 목록을 최신 파일로 직접 갱신</strong>합니다.<br>
+                <small style="color: #64748b;">
+                    농촌진흥청에서 내려받은 작물정보 .xlsx 파일을 업로드하면 앱 재설치·업데이트 없이 작물 목록이 갱신됩니다.
+                    클라우드(Firebase) 연결 시 다른 PC에도 자동 동기화됩니다.
+                </small>
+            </div>
+
+            <!-- 상태 -->
+            <div id="cropDataStatus" style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="font-size: 0.85rem; color: #64748b;">
+                    <div style="margin-bottom: 0.5rem;">현재 버전: <strong id="cropDataVersion">-</strong></div>
+                    <div style="margin-bottom: 0.5rem;">작물 수: <strong id="cropDataCount">-</strong></div>
+                    <div style="margin-bottom: 0.5rem;">마지막 갱신: <strong id="cropDataUpdatedAt">-</strong></div>
+                    <div>저장 위치: <strong id="cropDataSource">-</strong></div>
+                </div>
+            </div>
+
+            <!-- 업로드 -->
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 1rem;">
+                <input type="file" id="cropDataFile" accept=".xlsx"
+                       style="flex: 1; min-width: 200px; font-size: 0.85rem; padding: 0.4rem;">
+                <button type="button" id="cropDataUploadBtn" class="btn btn-primary">📤 업로드</button>
+            </div>
+
+            <!-- 진행 표시 -->
+            <div id="cropDataProgress" class="hidden" style="margin-top: 1rem;">
+                <div style="font-size: 0.8rem; color: #64748b; text-align: center;">⏳ 파일을 처리하는 중...</div>
+            </div>
+
+            <p class="help-text" style="margin-top: 0.75rem;">
+                업로드한 파일 자체는 저장되지 않으며, 파싱된 작물 목록만 로컬(및 클라우드)에 보관됩니다.
+                문제가 있으면 앱 내장 기본 데이터로 자동 복원됩니다.<br>
+                <small style="color: #94a3b8;">데스크톱 앱에서는 로컬에 영구 저장되며, 웹(브라우저)에서는 Firebase 연결 시에만 다른 기기와 동기화됩니다.</small>
+            </p>
+        </div>
     </div>
+
+    <!-- 토스트 메시지 (SLS-1-179) -->
+    <div id="toastContainer" class="toast-container"></div>
 
 </body>
 

@@ -448,6 +448,62 @@ function isFirestoreOfflineEnabled() {
     return window.firebaseConfig?.isOfflineSupported() === true;
 }
 
+/**
+ * 작물 데이터 설정 저장 (appConfig/cropData) — SLS-1-179
+ * sample-type+year 스코프와 무관한 전역 설정 문서. updatedAt은 로컬 envelope와
+ * 문자열 비교가 가능하도록 ISO8601 문자열로 저장(serverTimestamp 미사용).
+ * @param {Array<{code,name,category}>} data - 파싱된 작물 배열
+ * @param {string} version - 업로드 버전 라벨
+ * @param {string} [updatedAt] - 로컬 envelope와 공유할 ISO8601 타임스탬프.
+ *   미지정 시 새로 생성. 로컬과 동일 값을 넘겨야 업로드한 PC에서 매 기동마다
+ *   remote>local 로 판정되어 로컬을 재기록하는 낭비를 막는다(SLS-1-179 리뷰 MINOR-1).
+ * @returns {Promise<{success:boolean, updatedAt?:string, reason?:string, error?:string}>}
+ */
+async function saveCropDataConfig(data, version, updatedAt) {
+    if (!window.firebaseConfig?.isEnabled()) {
+        return { success: false, reason: 'disabled' };
+    }
+
+    try {
+        const db = window.firebaseConfig.getDb();
+        if (!db) return { success: false, reason: 'no-db' };
+
+        const ts = updatedAt || new Date().toISOString();
+        await db.collection('appConfig').doc('cropData').set({ data, version, updatedAt: ts });
+
+        logFirestore(`작물 데이터 저장 완료: ${Array.isArray(data) ? data.length : 0}건`);
+        return { success: true, updatedAt: ts };
+    } catch (error) {
+        (window.logger?.error || console.error)('작물 데이터 Firestore 저장 실패:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 작물 데이터 설정 조회 (appConfig/cropData) — SLS-1-179
+ * @returns {Promise<{data:Array, version:string, updatedAt:string}|null>}
+ */
+async function getCropDataConfig() {
+    if (!window.firebaseConfig?.isEnabled()) {
+        return null;
+    }
+
+    try {
+        const db = window.firebaseConfig.getDb();
+        if (!db) return null;
+
+        const docSnap = await db.collection('appConfig').doc('cropData').get();
+        if (docSnap.exists) {
+            const d = docSnap.data();
+            return { data: d.data, version: d.version, updatedAt: d.updatedAt };
+        }
+        return null;
+    } catch (error) {
+        (window.logger?.error || console.error)('작물 데이터 Firestore 조회 실패:', error);
+        return null;
+    }
+}
+
 // 전역으로 내보내기
 window.firestoreDb = {
     // init은 호환성을 위해 빈 함수 (실제 초기화는 firebase-config에서 수행)
@@ -465,5 +521,7 @@ window.firestoreDb = {
     subscribe: subscribeToChanges,
     isEnabled: isFirestoreEnabled,
     isOfflineEnabled: isFirestoreOfflineEnabled,
-    getCollectionName: getCollectionName
+    getCollectionName: getCollectionName,
+    saveCropDataConfig: saveCropDataConfig,
+    getCropDataConfig: getCropDataConfig
 };

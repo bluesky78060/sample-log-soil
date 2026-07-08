@@ -32,6 +32,9 @@ import '../shared/excel-import-manager.js';
 
 // Data
 import '../cropData.js';
+// 작물 데이터 자체 업로드 로더 (SLS-1-179): cropData.js 뒤에 로드해 window.CROP_DATA 교체 가능
+import '../shared/crop-data-loader.js';
+window.CropDataLoader?.loadCropDataOnStartup?.(); // fire-and-forget (await 금지)
 // 정적 시·군 데이터(bonghwaData.js) 제거 - 자동완성은 juso API만 사용
 
 // 채번 순수 로직 (soil-script.js 전 — window.ReceptionNumber 준비)

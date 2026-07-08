@@ -1076,10 +1076,45 @@ class HeuktoramManager {
         }
     }
 
+    /**
+     * contentEditable 셀에서 (선택) 시작 경계 앞에 텍스트가 없으면(맨 앞) true.
+     * moveFocus 진입 시 전체 선택 상태여도 시작 경계가 셀 앞이면 true → 좌측 즉시 이동.
+     */
+    _caretAtCellStart(el) {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return false;
+        try {
+            const r = sel.getRangeAt(0);
+            const pre = r.cloneRange();
+            pre.selectNodeContents(el);
+            pre.setEnd(r.startContainer, r.startOffset);
+            return pre.toString().length === 0;
+        } catch { return false; }
+    }
+
+    /**
+     * contentEditable 셀에서 (선택) 끝 경계 뒤에 텍스트가 없으면(맨 뒤) true.
+     * 전체 선택 상태여도 끝 경계가 셀 뒤면 true → 우측 즉시 이동.
+     */
+    _caretAtCellEnd(el) {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return false;
+        try {
+            const r = sel.getRangeAt(0);
+            const post = r.cloneRange();
+            post.selectNodeContents(el);
+            post.setStart(r.endContainer, r.endOffset);
+            return post.toString().length === 0;
+        } catch { return false; }
+    }
+
     handleKeydown(e) {
         // Arrow key navigation in editable cells
         const activeEl = document.activeElement;
         if (!activeEl || !activeEl.classList.contains('editable-cell')) return;
+
+        // IME(한글 등) 조합 중 방향키는 후보/조합 확정용이므로 셀 이동으로 가로채지 않음
+        if (e.isComposing) return;
 
         if (!this.focusedCell) return;
 
@@ -1093,6 +1128,21 @@ class HeuktoramManager {
             e.preventDefault();
             activeEl.blur();
             this.moveFocus(rowIdx - 1, colIdx);
+        } else if (e.key === 'ArrowLeft') {
+            // 커서(또는 선택 시작)가 셀 맨 앞일 때만 왼쪽 셀로 이동.
+            // 값 중간의 collapsed 커서는 기본 동작(텍스트 커서 좌로 이동) 유지 → 오타 수정 가능.
+            if (this._caretAtCellStart(activeEl)) {
+                e.preventDefault();
+                activeEl.blur();
+                this.moveFocus(rowIdx, colIdx - 1, -1);
+            }
+        } else if (e.key === 'ArrowRight') {
+            // 커서(또는 선택 끝)가 셀 맨 뒤일 때만 오른쪽 셀로 이동.
+            if (this._caretAtCellEnd(activeEl)) {
+                e.preventDefault();
+                activeEl.blur();
+                this.moveFocus(rowIdx, colIdx + 1, 1);
+            }
         }
     }
 
@@ -2209,6 +2259,9 @@ class HeuktoramManager {
     }
 
 }
+
+// 유닛 테스트에서 프로토타입 메서드(_caretAtCell* 등) 접근용 노출 (SLS-1-180)
+window.HeuktoramManager = HeuktoramManager;
 
 // ========================================
 // 페이지 초기화

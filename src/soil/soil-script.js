@@ -4236,6 +4236,23 @@ class SoilSampleManager extends window.BaseSampleManager {
     }
 
     /**
+     * 완료 상태 변경을 해당 id의 테이블 행(들)에 즉시 반영한다 (row-completed 클래스, 완료 버튼 아이콘/타이틀).
+     * 재필터링(filterAndRenderLogs) 없이 DOM만 패치하므로, 완료 필터가 "미완료"인 화면에서도
+     * 방금 처리한 행이 즉시 사라지지 않는다. 개별 완료·일괄 완료 두 경로가 공유하는 SSOT.
+     */
+    _patchCompletionDom(logId, newStatus) {
+        const rows = this.tableBody.querySelectorAll(`tr[data-id="${logId}"]`);
+        rows.forEach(row => {
+            const button = row.querySelector('.btn-complete');
+            if (!button) return;
+            row.classList.toggle('row-completed', newStatus);
+            button.classList.toggle('completed', newStatus);
+            button.textContent = newStatus ? '✔' : '';
+            button.title = newStatus ? '완료 취소' : '완료';
+        });
+    }
+
+    /**
      * 테이블 body click 위임 핸들러 (완료 토글·삭제·수정).
      */
     _onTableBodyClick(e) {
@@ -4252,23 +4269,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                 relatedLogs.forEach(relatedLog => {
                     relatedLog.isComplete = newCompletedStatus;
                     relatedLog.updatedAt = new Date().toISOString();
-                    const relatedRows = this.tableBody.querySelectorAll(`tr[data-id="${relatedLog.id}"]`);
-                    relatedRows.forEach(relatedRow => {
-                        const relatedButton = relatedRow?.querySelector('.btn-complete');
-                        if (relatedButton) {
-                            if (newCompletedStatus) {
-                                relatedRow.classList.add('row-completed');
-                                relatedButton.classList.add('completed');
-                                relatedButton.textContent = '✔';
-                                relatedButton.title = '완료 취소';
-                            } else {
-                                relatedRow.classList.remove('row-completed');
-                                relatedButton.classList.remove('completed');
-                                relatedButton.textContent = '';
-                                relatedButton.title = '완료';
-                            }
-                        }
-                    });
+                    this._patchCompletionDom(relatedLog.id, newCompletedStatus);
                 });
                 this.persistRecords(relatedLogs);
                 const count = relatedLogs.length;
@@ -4551,8 +4552,11 @@ class SoilSampleManager extends window.BaseSampleManager {
                     }
                 });
                 this.persistRecords(changedLogs);
-                this.filterAndRenderLogs();
-                if (this.selectAllCheckbox) { this.selectAllCheckbox.checked = false; this.selectAllCheckbox.indeterminate = false; }
+                changedLogs.forEach(log => this._patchCompletionDom(log.id, newStatus));
+                this.updateRecordCount();
+                this.tableBody.querySelectorAll('.row-checkbox:checked').forEach(cb => { cb.checked = false; });
+                this.updateSelectAllState();
+                this.updateSelectedCount();
                 this.showToast(`${changedLogs.length}건이 ${actionLabel}되었습니다.`, 'success');
             });
         }

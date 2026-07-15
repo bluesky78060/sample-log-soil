@@ -60,55 +60,44 @@ const SIGUNGU_TO_SIDO = {
 };
 
 // ========================================
-// 흙토람 일괄입력 양식 — 헤더 템플릿 (56열, 흙토람 서식.xlsx 기준)
+// 흙토람 일괄입력 양식 — 헤더 템플릿 (41열, 2026-07-14 개인정보 일괄삭제 이후 흙토람 서식 기준)
 // 컬럼 인덱스→값 맵으로 헤더를 정의(매직 인덱스 가시화). buildWorksheetData가 재사용.
 // ========================================
-const HEUKTORAM_WS_COLS = 56;
+const HEUKTORAM_WS_COLS = 41;
 const HEUKTORAM_WS_TITLE = '토양검정 일괄입력 양식';
 const HEUKTORAM_WS_GUIDE = '아래 형식과 같이 입력되어야만 일괄입력을 할 수 있습니다. \n'
-    + '  - 필지구분은 "필지" 또는 "하위필지" 로 입력 (1,2,3,4 = 필지) (1-1, 2-1, 2-2 = 하위필지)\n'
+    + '  - 필지구분은 "필지" 또는 "하위필지" 로 입력\n'
     + '  - 하위필지는 반드시 대표필지 아래에 연속으로 입력하고 채취년도,경지구분,시료번호,검정대상지 시도 및 시군구 주소를 대표필지와 일치\n'
     + '  - 채취년도는 숫자(4자리)를 입력\n'
     + '  - 경지구분은 1차와 2차를 나눠 입력\n'
-    + '  - 분석의뢰일(접수일자)는 숫자(4)-숫자(2)-숫자(2)로 정의하며 \'-\'로 구분하며, 필수 입력\n'
+    + '  - 분석의뢰일(접수일자)과 토양검정일은 숫자(4)-숫자(2)-숫자(2)로 정의하며 \'-\'로 구분하며, 필수 입력\n'
     + '  - 검정 대상지는 시도, 시군구, 읍면동, 리를 나눠 입력\n'
     + '  - 지번구분은 일반은 빈공백으로 산은 산이라고 명시하며 검정대상지번은 지번1과 지번2로 나눠 입력(지번2가 없을 경우 비워놓음)\n'
     + '  - 주소매핑여부는 자동으로 체크 됩니다. 작성하지 마세요.\n'
     + '  - 면적의 단위는 ㎡로, 숫자 형태로 입력\n'
-    + '  - 토양검정일은 숫자(4)-숫자(2)-숫자(2)로 정의하며 \'-\'로 구분\n'
     + '  - 작물을 입력할 시에는 작물명 또는 숫자 5자리로 이루어진 작물코드 입력\n'
     + '  - 용도구분은 코드를 [일반적인토양검정-0] 선택 시에는 시행(재배) 전후를 선택 하지 마세요.(추가 내용)\n'
-    + '  - 성토여부는 미해당, 해당으로 입력\n'
-    + '  - 경작자 주소(추가내용)는 선택사항이므로 생략하셔도 입력에는 문제가 없습니다.\n'
-    + '  - 신청인 전화번호는 \'-\' 없이 입력하세요(예:01023456789)\n'
-    + '  - 경영체등록번호/농업인번호를 조회하기 위해서는 개인(경작자명, 생년월일 모두 입력) / 법인(법인번호) 중 한 항목만 입력하세요. (해당 필드 필수입력 항목 아님)\n'
-    + '  - 생년월일은 숫자(8자리), 법인번호는 숫자(13자리)를 입력\n'
-    + '  - 생년월일, 법인번호 항목은 경영체등록번호/농업인번호 조회 목적으로만 사용함 (흙토람에 등록되지 않는 정보)\n\n'
+    + '  - 성토여부는 미해당, 해당으로 입력\n\n'
     + '원활한 일괄입력을 위하여 1회당 300건 이하의 자료 입력을 권장드립니다.';
 
-// 3행: 대분류 헤더 (A~AV = 48열, AY~BD = 코드 범례)
+// 3행: 대분류 헤더 (A~AH = 데이터 영역 0~33, AI = 스페이서(34, 무색), AJ~AO = 코드 범례 35~40)
 const HEUKTORAM_WS_HEADER3 = {
-    0: '필지구분', 1: ' 채취년도', 2: '시료채취자', 3: '분석의뢰일(접수일자)',
-    4: ' 경지구분', 6: '용도구분', 8: '시료번호', 9: '대상지 주소',
-    13: '지번 구분', 14: '지번', 16: '주소매핑여부', 17: '기타주소',
-    18: '면적(㎡)', 19: '토양검정일', 20: '경작자', 21: '경작자 주소(이전주소기준)',
-    29: '개인 (Agrix 조회용)', 31: '법인 (Agrix 조회용)', 32: ' 작물명 또는\n작물코드',
-    33: '성토여부', 34: '점토함량', 35: ' pH', 36: ' 유기물', 37: '유효인산',
-    38: '교환성 칼륨', 39: '교환성 칼슘', 40: '교환성\n마그네슘', 41: '유효규산',
-    42: '전기전도도', 43: '석회소요량', 44: '질산태질소', 45: '양이온\n치환용량',
-    46: '암모니아태\n질소', 47: '신청인 전화번호', 48: '개인정보\n수집·이용 동의',
-    49: '개인정보\n제3자 제공동의',
-    // [50~55] 코드 범례 — 헤더(3행) 전용. 데이터 행(0~49)에는 존재하지 않음.
-    50: '일반적인토양검정-0', 51: '토양개량제 규산-1', 52: '토양개량제 석회질-2',
-    53: '녹비작물-3', 54: '전-N', 55: '후-Y'
+    0: '필지구분', 1: ' 채취년도', 2: '분석의뢰일(접수일자)',
+    3: ' 경지구분', 5: '용도구분', 7: '시료번호', 8: '대상지 주소',
+    12: '지번 구분', 13: '지번', 15: '주소매핑여부', 16: '기타주소',
+    17: '면적(㎡)', 18: '토양검정일', 19: ' 작물명 또는\n작물코드',
+    20: '성토여부', 21: '점토함량', 22: ' pH', 23: ' 유기물', 24: '유효인산',
+    25: '교환성 칼륨', 26: '교환성 칼슘', 27: '교환성\n마그네슘', 28: '유효규산',
+    29: '전기전도도', 30: '석회소요량', 31: '질산태질소', 32: '양이온\n치환용량',
+    33: '암모니아태\n질소',
+    35: '일반적인토양검정-0', 36: '토양개량제 규산-1', 37: '토양개량제 석회질-2',
+    38: '녹비작물-3', 39: '전-N', 40: '후-Y'
 };
 
 // 4행: 소분류 헤더
 const HEUKTORAM_WS_HEADER4 = {
-    4: '1차', 5: '2차', 6: '코드', 7: '시행(재배)전후',
-    9: '시도', 10: '시군구', 11: '읍면동', 12: '리', 14: '지번1', 15: '지번2',
-    21: '시도', 22: '시군구', 23: '읍면동', 24: '도로명', 25: '본번', 26: '부번',
-    27: '동/층/호', 28: '(법정동, 공동주택명)', 29: '경작자명', 30: '생년월일', 31: '법인번호'
+    3: '1차', 4: '2차', 5: '코드', 6: '시행(재배)전후',
+    8: '시도', 9: '시군구', 10: '읍면동', 11: '리', 13: '지번1', 14: '지번2'
 };
 
 // 용도코드 → 라벨 (데이터 행 [6])
@@ -120,8 +109,8 @@ const HEUKTORAM_WS_USAGE_LABELS = {
 };
 
 /**
- * 56열 행 생성 + 컬럼 인덱스→값 맵 적용.
- * 외부(흙토람) 양식이 컬럼 수에 민감하므로, 0~55 범위를 벗어난 키는 무시하고 경고한다.
+ * 41열 행 생성 + 컬럼 인덱스→값 맵 적용.
+ * 외부(흙토람) 양식이 컬럼 수에 민감하므로, 0~40 범위를 벗어난 키는 무시하고 경고한다.
  */
 function makeWsRow(map) {
     const r = new Array(HEUKTORAM_WS_COLS).fill('');
@@ -1300,53 +1289,6 @@ class HeuktoramManager {
         return result;
     }
 
-    /**
-     * 경작자 주소 파싱 (도로명주소 또는 지번주소)
-     * 시도/시군구/읍면동/도로명/본번/부번 분리
-     */
-    parsePersonAddress(address, addressDetail) {
-        const result = {
-            sido: '', sigungu: '', eupmyeondong: '',
-            roadName: '', mainNum: '', subNum: '',
-            dongFloorHo: '', note: ''
-        };
-
-        if (!address || address === '-') return result;
-
-        // address-parser.js의 parseAddressParts 활용
-        if (typeof window.parseAddressParts === 'function') {
-            const parsed = window.parseAddressParts(address);
-            result.sido = parsed.sido || '';
-            result.sigungu = parsed.sigungu || '';
-            result.eupmyeondong = parsed.eupmyeondong || '';
-
-            // rest에서 도로명/번호 파싱 시도
-            const rest = parsed.rest || '';
-            const roadMatch = rest.match(/^(.+?)\s+(\d+)(?:-(\d+))?/);
-            if (roadMatch) {
-                result.roadName = roadMatch[1];
-                result.mainNum = roadMatch[2];
-                result.subNum = roadMatch[3] || '';
-            }
-        }
-
-        // addressDetail에서 동/층/호와 (법정동, 공동주택명) 파싱
-        if (addressDetail) {
-            const detail = addressDetail.trim();
-            const bracketMatch = detail.match(/(\([^)]+\))/);
-            if (bracketMatch) {
-                result.note = bracketMatch[1];
-                // 괄호를 제거한 나머지가 동/층/호
-                const rest = detail.replace(bracketMatch[1], '').trim();
-                if (rest) result.dongFloorHo = rest;
-            } else {
-                result.dongFloorHo = detail;
-            }
-        }
-
-        return result;
-    }
-
     // ========================================
     // 용도구분/경지구분 변환
     // ========================================
@@ -1588,7 +1530,6 @@ class HeuktoramManager {
 
     buildWorksheetData(rows) {
         const collectYear = this.collectYearInput?.value || this.selectedYear;
-        const collector = this.collectorInput?.value || '';
 
         // 헤더 4행(제목·안내문·대분류·소분류)은 정적 템플릿 상수에서 생성
         const data = [
@@ -1600,19 +1541,18 @@ class HeuktoramManager {
 
         // 5행부터 데이터
         for (const row of rows) {
-            data.push(this._buildHeuktoramDataRow(row, collectYear, collector));
+            data.push(this._buildHeuktoramDataRow(row, collectYear));
         }
         return data;
     }
 
     /**
-     * 흙토람 양식 데이터 행 1건 생성 (열 0~49).
+     * 흙토람 양식 데이터 행 1건 생성 (열 0~33, 34는 스페이서 공백).
      * @param {Object} row - { key, isSubLot, parcel, subLot, log, crop, baseReceptionNumber }
      * @param {string} collectYear
-     * @param {string} collector
-     * @returns {Array} 50열 데이터 행
+     * @returns {Array} 41열 데이터 행
      */
-    _buildHeuktoramDataRow(row, collectYear, collector) {
+    _buildHeuktoramDataRow(row, collectYear) {
         const result = this.testResults[row.key] || {};
         const lotAddr = row.isSubLot && row.subLot
             ? (row.subLot.lotAddress || row.parcel?.lotAddress || '')
@@ -1629,7 +1569,6 @@ class HeuktoramManager {
         const lotParsed = this.parseLotAddress(lotAddr);
         if (isMountain) lotParsed.isMountain = true;
 
-        const personAddr = this.parsePersonAddress(row.log.addressRoad || row.log.address || '', row.log.addressDetail || '');
         const category = row.parcel?.category || row.log.subCategory || '';
         const purpose = row.parcel?.purpose || row.log.purpose || '';
         const usageCode = this.getUsageCode(purpose, result.usageCode, this.bulkUsageCodeSelect?.value);
@@ -1642,57 +1581,42 @@ class HeuktoramManager {
             if (!isNaN(parsed)) areaM2 = Math.round(parsed * PYEONG_TO_SQM);
         }
 
-        const dataRow = new Array(50).fill('');
+        const dataRow = new Array(HEUKTORAM_WS_COLS).fill('');
         dataRow[0] = row.isSubLot ? '하위필지' : '필지';
         dataRow[1] = collectYear;
-        dataRow[2] = collector || row.log.name || '';
-        dataRow[3] = row.log.date || '';
-        dataRow[4] = (row.log.landClass1 && String(row.log.landClass1).trim()) || '농가의뢰';
-        dataRow[5] = this.getCategoryCode(category);
-        dataRow[6] = HEUKTORAM_WS_USAGE_LABELS[usageCode] || '일반적인토양검정-0';
-        dataRow[7] = this.getBeforeAfter(usageCode);
-        dataRow[8] = row.baseReceptionNumber || String(row.log.receptionNumber || '').replace(/-\d+$/, '') || '';
-        dataRow[9] = lotParsed.sido;
-        dataRow[10] = lotParsed.sigungu;
-        dataRow[11] = lotParsed.eupmyeondong;
-        dataRow[12] = lotParsed.ri;
-        dataRow[13] = lotParsed.isMountain ? '산' : '';
-        dataRow[14] = lotParsed.jibun1;
-        dataRow[15] = lotParsed.jibun2;
-        dataRow[16] = ''; // 주소매핑여부
-        dataRow[17] = row.parcel?.note || ''; // 기타주소
-        dataRow[18] = areaM2;
-        dataRow[19] = result.testDate || '';
-        dataRow[20] = row.log.name || '';
-        dataRow[21] = personAddr.sido;
-        dataRow[22] = personAddr.sigungu;
-        dataRow[23] = personAddr.eupmyeondong;
-        dataRow[24] = personAddr.roadName;
-        dataRow[25] = personAddr.mainNum;
-        dataRow[26] = personAddr.subNum;
-        dataRow[27] = personAddr.dongFloorHo;
-        dataRow[28] = personAddr.note;
-        dataRow[29] = ''; // Agrix 경작자명 (비움)
-        dataRow[30] = ''; // 생년월일
-        dataRow[31] = ''; // 법인번호
-        dataRow[32] = row.crop?.name || row.crop?.code || '';
-        dataRow[33] = soiling;
-        dataRow[34] = result.clay || '';
-        dataRow[35] = result.pH || '';
-        dataRow[36] = result.organicMatter || '';
-        dataRow[37] = result.availableP || '';
-        dataRow[38] = result.exK || '';
-        dataRow[39] = result.exCa || '';
-        dataRow[40] = result.exMg || '';
-        dataRow[41] = result.silica || '';
-        dataRow[42] = result.ec || '';
-        dataRow[43] = result.limeReq || '';
-        dataRow[44] = result.NO3N || '';
-        dataRow[45] = result.cec || '';
-        dataRow[46] = result.NH4N || '';
-        dataRow[47] = (row.log.phoneNumber || '').replace(/-/g, '');
-        dataRow[48] = 'Y'; // 개인정보 수집·이용 동의
-        dataRow[49] = 'Y'; // 개인정보 제3자 제공동의
+        dataRow[2] = row.log.date || '';
+        dataRow[3] = (row.log.landClass1 && String(row.log.landClass1).trim()) || '농가의뢰';
+        dataRow[4] = this.getCategoryCode(category);
+        dataRow[5] = HEUKTORAM_WS_USAGE_LABELS[usageCode] || '일반적인토양검정-0';
+        dataRow[6] = this.getBeforeAfter(usageCode);
+        dataRow[7] = row.baseReceptionNumber || String(row.log.receptionNumber || '').replace(/-\d+$/, '') || '';
+        dataRow[8] = lotParsed.sido;
+        dataRow[9] = lotParsed.sigungu;
+        dataRow[10] = lotParsed.eupmyeondong;
+        dataRow[11] = lotParsed.ri;
+        dataRow[12] = lotParsed.isMountain ? '산' : '';
+        dataRow[13] = lotParsed.jibun1;
+        dataRow[14] = lotParsed.jibun2;
+        dataRow[15] = ''; // 주소매핑여부
+        dataRow[16] = row.parcel?.note || ''; // 기타주소
+        dataRow[17] = areaM2;
+        dataRow[18] = result.testDate || '';
+        dataRow[19] = row.crop?.name || row.crop?.code || '';
+        dataRow[20] = soiling;
+        dataRow[21] = result.clay || '';
+        dataRow[22] = result.pH || '';
+        dataRow[23] = result.organicMatter || '';
+        dataRow[24] = result.availableP || '';
+        dataRow[25] = result.exK || '';
+        dataRow[26] = result.exCa || '';
+        dataRow[27] = result.exMg || '';
+        dataRow[28] = result.silica || '';
+        dataRow[29] = result.ec || '';
+        dataRow[30] = result.limeReq || '';
+        dataRow[31] = result.NO3N || '';
+        dataRow[32] = result.cec || '';
+        dataRow[33] = result.NH4N || '';
+        // [34]~[40]은 스페이서/코드범례 전용 — 데이터 행에는 항상 공백(배열 초기화값 유지)
         return dataRow;
     }
 
@@ -1700,60 +1624,45 @@ class HeuktoramManager {
         return [
             { wch: 12 }, // [0]  필지구분
             { wch: 10 }, // [1]  채취년도
-            { wch: 12 }, // [2]  시료채취자
-            { wch: 20 }, // [3]  분석의뢰일(접수일자)
-            { wch: 10 }, // [4]  경지구분 1차
-            { wch: 8 },  // [5]  경지구분 2차
-            { wch: 20 }, // [6]  용도구분 코드
-            { wch: 16 }, // [7]  시행(재배)전후
-            { wch: 10 }, // [8]  시료번호
-            { wch: 12 }, // [9]  대상지 시도
-            { wch: 10 }, // [10] 시군구
-            { wch: 10 }, // [11] 읍면동
-            { wch: 8 },  // [12] 리
-            { wch: 10 }, // [13] 지번 구분
-            { wch: 8 },  // [14] 지번1
-            { wch: 8 },  // [15] 지번2
-            { wch: 14 }, // [16] 주소매핑여부
-            { wch: 10 }, // [17] 기타주소
-            { wch: 10 }, // [18] 면적(㎡)
-            { wch: 14 }, // [19] 토양검정일
-            { wch: 10 }, // [20] 경작자
-            { wch: 12 }, // [21] 경작자주소 시도
-            { wch: 10 }, // [22] 경작자주소 시군구
-            { wch: 10 }, // [23] 경작자주소 읍면동
-            { wch: 12 }, // [24] 도로명
-            { wch: 6 },  // [25] 본번
-            { wch: 6 },  // [26] 부번
-            { wch: 10 }, // [27] 동/층/호
-            { wch: 20 }, // [28] (법정동, 공동주택명)
-            { wch: 12 }, // [29] Agrix 경작자명
-            { wch: 12 }, // [30] 생년월일
-            { wch: 18 }, // [31] 법인번호
-            { wch: 22 }, // [32] 작물명 또는 작물코드
-            { wch: 12 }, // [33] 성토여부
-            { wch: 10 }, // [34] 점토함량
-            { wch: 6 },  // [35] pH
-            { wch: 8 },  // [36] 유기물
-            { wch: 10 }, // [37] 유효인산
-            { wch: 12 }, // [38] 교환성 칼륨
-            { wch: 12 }, // [39] 교환성 칼슘
-            { wch: 12 }, // [40] 교환성 마그네슘
-            { wch: 10 }, // [41] 유효규산
-            { wch: 12 }, // [42] 전기전도도
-            { wch: 12 }, // [43] 석회소요량
-            { wch: 12 }, // [44] 질산태질소
-            { wch: 12 }, // [45] 양이온 치환용량
-            { wch: 12 }, // [46] 암모니아태 질소
-            { wch: 16 }, // [47] 신청인 전화번호
-            { wch: 16 }, // [48] 개인정보 수집·이용 동의
-            { wch: 16 }, // [49] 개인정보 제3자 제공동의
-            { wch: 22 }, // [50] 일반적인토양검정-0
-            { wch: 18 }, // [51] 토양개량제 규산-1
-            { wch: 20 }, // [52] 토양개량제 석회질-2
-            { wch: 12 }, // [53] 녹비작물-3
-            { wch: 8 },  // [54] 전-N
-            { wch: 8 },  // [55] 후-Y
+            { wch: 20 }, // [2]  분석의뢰일(접수일자)
+            { wch: 10 }, // [3]  경지구분 1차
+            { wch: 8 },  // [4]  경지구분 2차
+            { wch: 20 }, // [5]  용도구분 코드
+            { wch: 16 }, // [6]  시행(재배)전후
+            { wch: 10 }, // [7]  시료번호
+            { wch: 12 }, // [8]  대상지 시도
+            { wch: 10 }, // [9]  시군구
+            { wch: 10 }, // [10] 읍면동
+            { wch: 8 },  // [11] 리
+            { wch: 10 }, // [12] 지번 구분
+            { wch: 8 },  // [13] 지번1
+            { wch: 8 },  // [14] 지번2
+            { wch: 14 }, // [15] 주소매핑여부
+            { wch: 10 }, // [16] 기타주소
+            { wch: 10 }, // [17] 면적(㎡)
+            { wch: 14 }, // [18] 토양검정일
+            { wch: 22 }, // [19] 작물명 또는 작물코드
+            { wch: 12 }, // [20] 성토여부
+            { wch: 10 }, // [21] 점토함량
+            { wch: 6 },  // [22] pH
+            { wch: 8 },  // [23] 유기물
+            { wch: 10 }, // [24] 유효인산
+            { wch: 12 }, // [25] 교환성 칼륨
+            { wch: 12 }, // [26] 교환성 칼슘
+            { wch: 12 }, // [27] 교환성 마그네슘
+            { wch: 10 }, // [28] 유효규산
+            { wch: 12 }, // [29] 전기전도도
+            { wch: 12 }, // [30] 석회소요량
+            { wch: 12 }, // [31] 질산태질소
+            { wch: 12 }, // [32] 양이온 치환용량
+            { wch: 12 }, // [33] 암모니아태 질소
+            { wch: 12 }, // [34] (스페이서)
+            { wch: 22 }, // [35] 일반적인토양검정-0
+            { wch: 18 }, // [36] 토양개량제 규산-1
+            { wch: 20 }, // [37] 토양개량제 석회질-2
+            { wch: 12 }, // [38] 녹비작물-3
+            { wch: 8 },  // [39] 전-N
+            { wch: 8 },  // [40] 후-Y
         ];
     }
 
@@ -1761,7 +1670,7 @@ class HeuktoramManager {
      * 엑셀 3행(대분류), 4행(소분류) 헤더에 배경색 적용
      */
     applyHeaderStyles(ws, wsData) {
-        const colCount = wsData[0]?.length || 48;
+        const colCount = wsData[0]?.length || HEUKTORAM_WS_COLS;
 
         // 3행 (인덱스 2): 대분류 - 회색 (서식.xlsx 원본 indexed=22 = #C0C0C0)
         const row3Style = {
@@ -1801,19 +1710,20 @@ class HeuktoramManager {
         };
 
         const rowCount = wsData.length;
-        // 데이터 영역은 A~AX(0~49)만, 코드 범례 영역(AY~BD=50~55)은 헤더 행에만 표시
-        const DATA_COL_END = 50;
+        // 데이터 영역은 0~33만 스타일 적용, 스페이서(34)/코드 범례 영역(35~40)은 무색
+        const DATA_COL_END = 34;
 
         for (let c = 0; c < colCount; c++) {
             const col = XLSX.utils.encode_col(c);
 
-            // 3행 (엑셀 행3 = 인덱스 2) — 헤더 스타일은 데이터 영역(0~49)에만 적용
+            // 3행 (엑셀 행3 = 인덱스 2) — 헤더 스타일은 데이터 영역(0~33)에만 적용
             const cell3Addr = col + '3';
             if (c < DATA_COL_END) {
                 if (!ws[cell3Addr]) ws[cell3Addr] = { v: '', t: 's' };
                 ws[cell3Addr].s = row3Style;
             } else if (ws[cell3Addr] && ws[cell3Addr].v !== '' && ws[cell3Addr].v !== undefined) {
-                // 코드 범례 영역(AY3~BD3): 배경/굵기/테두리 없이 일반 셀 (서식.xlsx 원본 기준)
+                // 코드 범례 영역(35~40): 배경/굵기/테두리 없이 일반 셀 (서식.xlsx 원본 기준)
+                // 스페이서(34)는 값이 항상 빈 문자열이라 이 분기를 타도 스타일이 부여되지 않음(무색 유지)
                 ws[cell3Addr].s = {
                     font: { sz: 11, name: '맑은 고딕' },
                     alignment: { horizontal: 'center', vertical: 'center' }
@@ -1827,7 +1737,7 @@ class HeuktoramManager {
                 ws[cell4Addr].s = row4Style;
             }
 
-            // 5행~ 데이터 행: 데이터 영역(0~47)만 스타일 적용
+            // 5행~ 데이터 행: 데이터 영역(0~33)만 스타일 적용
             if (c < DATA_COL_END) {
                 for (let r = 4; r < rowCount; r++) {
                     const addr = col + (r + 1);
@@ -1840,55 +1750,47 @@ class HeuktoramManager {
 
     /**
      * 엑셀 3-4행 헤더 셀 병합 적용
-     * 3행-4행 세로 병합: 단독 컬럼 (채취년도, 시료채취자 등)
+     * 3행-4행 세로 병합: 단독 컬럼 (채취년도, 분석의뢰일 등)
      * 3행 가로 병합: 하위 분류가 있는 그룹 (경지구분, 대상지 주소 등)
      */
     applyHeaderMerges(ws) {
         const merges = [
-            // 1행: 제목 A1:AV1 병합 (서식.xlsx 원본 기준)
-            { s: { r: 0, c: 0 }, e: { r: 0, c: 47 } },
-            // 2행: 안내 A2:AV2 병합 (서식.xlsx 원본 기준)
-            { s: { r: 1, c: 0 }, e: { r: 1, c: 47 } },
+            // 1행: 제목 A1:AH1 병합 (0~33, 스페이서 34는 제외)
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 33 } },
+            // 2행: 안내 A2:AH2 병합
+            { s: { r: 1, c: 0 }, e: { r: 1, c: 33 } },
 
             // 3행-4행 세로 병합 (단독 컬럼)
-            { s: { r: 2, c: 0 }, e: { r: 3, c: 0 } },   // A3:A4 필지구분
-            { s: { r: 2, c: 1 }, e: { r: 3, c: 1 } },   // B3:B4 채취년도
-            { s: { r: 2, c: 2 }, e: { r: 3, c: 2 } },   // C3:C4 시료채취자
-            { s: { r: 2, c: 3 }, e: { r: 3, c: 3 } },   // D3:D4 분석의뢰일
-            { s: { r: 2, c: 8 }, e: { r: 3, c: 8 } },   // I3:I4 시료번호
-            { s: { r: 2, c: 13 }, e: { r: 3, c: 13 } },  // N3:N4 지번 구분
-            { s: { r: 2, c: 16 }, e: { r: 3, c: 16 } },  // Q3:Q4 주소매핑여부
-            { s: { r: 2, c: 17 }, e: { r: 3, c: 17 } },  // R3:R4 기타주소
-            { s: { r: 2, c: 18 }, e: { r: 3, c: 18 } },  // S3:S4 면적
-            { s: { r: 2, c: 19 }, e: { r: 3, c: 19 } },  // T3:T4 토양검정일
-            { s: { r: 2, c: 20 }, e: { r: 3, c: 20 } },  // U3:U4 경작자
-            // AF3:AF4 세로 병합 없음 — AF3='법인 (Agrix 조회용)', AF4='법인번호' 각각 별도 셀 (서식.xlsx 원본 기준)
-            { s: { r: 2, c: 32 }, e: { r: 3, c: 32 } },  // AG3:AG4 작물명
-            { s: { r: 2, c: 33 }, e: { r: 3, c: 33 } },  // AH3:AH4 성토여부
-            { s: { r: 2, c: 34 }, e: { r: 3, c: 34 } },  // AI3:AI4 점토함량
-            { s: { r: 2, c: 35 }, e: { r: 3, c: 35 } },  // AJ3:AJ4 pH
-            { s: { r: 2, c: 36 }, e: { r: 3, c: 36 } },  // AK3:AK4 유기물
-            { s: { r: 2, c: 37 }, e: { r: 3, c: 37 } },  // AL3:AL4 유효인산
-            { s: { r: 2, c: 38 }, e: { r: 3, c: 38 } },  // AM3:AM4 교환성칼륨
-            { s: { r: 2, c: 39 }, e: { r: 3, c: 39 } },  // AN3:AN4 교환성칼슘
-            { s: { r: 2, c: 40 }, e: { r: 3, c: 40 } },  // AO3:AO4 교환성마그네슘
-            { s: { r: 2, c: 41 }, e: { r: 3, c: 41 } },  // AP3:AP4 유효규산
-            { s: { r: 2, c: 42 }, e: { r: 3, c: 42 } },  // AQ3:AQ4 전기전도도
-            { s: { r: 2, c: 43 }, e: { r: 3, c: 43 } },  // AR3:AR4 석회소요량
-            { s: { r: 2, c: 44 }, e: { r: 3, c: 44 } },  // AS3:AS4 질산태질소
-            { s: { r: 2, c: 45 }, e: { r: 3, c: 45 } },  // AT3:AT4 양이온치환용량
-            { s: { r: 2, c: 46 }, e: { r: 3, c: 46 } },  // AU3:AU4 암모니아태질소
-            { s: { r: 2, c: 47 }, e: { r: 3, c: 47 } },  // AV3:AV4 전화번호
-            { s: { r: 2, c: 48 }, e: { r: 3, c: 48 } },  // AW3:AW4 개인정보 수집·이용 동의
-            { s: { r: 2, c: 49 }, e: { r: 3, c: 49 } },  // AX3:AX4 개인정보 제3자 제공동의
+            { s: { r: 2, c: 0 }, e: { r: 3, c: 0 } },   // 필지구분
+            { s: { r: 2, c: 1 }, e: { r: 3, c: 1 } },   // 채취년도
+            { s: { r: 2, c: 2 }, e: { r: 3, c: 2 } },   // 분석의뢰일
+            { s: { r: 2, c: 7 }, e: { r: 3, c: 7 } },   // 시료번호
+            { s: { r: 2, c: 12 }, e: { r: 3, c: 12 } }, // 지번 구분
+            { s: { r: 2, c: 15 }, e: { r: 3, c: 15 } }, // 주소매핑여부
+            { s: { r: 2, c: 16 }, e: { r: 3, c: 16 } }, // 기타주소
+            { s: { r: 2, c: 17 }, e: { r: 3, c: 17 } }, // 면적
+            { s: { r: 2, c: 18 }, e: { r: 3, c: 18 } }, // 토양검정일
+            { s: { r: 2, c: 19 }, e: { r: 3, c: 19 } }, // 작물명
+            { s: { r: 2, c: 20 }, e: { r: 3, c: 20 } }, // 성토여부
+            { s: { r: 2, c: 21 }, e: { r: 3, c: 21 } }, // 점토함량
+            { s: { r: 2, c: 22 }, e: { r: 3, c: 22 } }, // pH
+            { s: { r: 2, c: 23 }, e: { r: 3, c: 23 } }, // 유기물
+            { s: { r: 2, c: 24 }, e: { r: 3, c: 24 } }, // 유효인산
+            { s: { r: 2, c: 25 }, e: { r: 3, c: 25 } }, // 교환성칼륨
+            { s: { r: 2, c: 26 }, e: { r: 3, c: 26 } }, // 교환성칼슘
+            { s: { r: 2, c: 27 }, e: { r: 3, c: 27 } }, // 교환성마그네슘
+            { s: { r: 2, c: 28 }, e: { r: 3, c: 28 } }, // 유효규산
+            { s: { r: 2, c: 29 }, e: { r: 3, c: 29 } }, // 전기전도도
+            { s: { r: 2, c: 30 }, e: { r: 3, c: 30 } }, // 석회소요량
+            { s: { r: 2, c: 31 }, e: { r: 3, c: 31 } }, // 질산태질소
+            { s: { r: 2, c: 32 }, e: { r: 3, c: 32 } }, // 양이온치환용량
+            { s: { r: 2, c: 33 }, e: { r: 3, c: 33 } }, // 암모니아태질소
 
             // 3행 가로 병합 (그룹 헤더)
-            { s: { r: 2, c: 4 }, e: { r: 2, c: 5 } },    // E3:F3 경지구분
-            { s: { r: 2, c: 6 }, e: { r: 2, c: 7 } },    // G3:H3 용도구분
-            { s: { r: 2, c: 9 }, e: { r: 2, c: 12 } },   // J3:M3 대상지 주소
-            { s: { r: 2, c: 14 }, e: { r: 2, c: 15 } },  // O3:P3 지번
-            { s: { r: 2, c: 21 }, e: { r: 2, c: 28 } },  // V3:AC3 경작자 주소
-            { s: { r: 2, c: 29 }, e: { r: 2, c: 30 } },  // AD3:AE3 개인(Agrix)
+            { s: { r: 2, c: 3 }, e: { r: 2, c: 4 } },   // 경지구분
+            { s: { r: 2, c: 5 }, e: { r: 2, c: 6 } },   // 용도구분
+            { s: { r: 2, c: 8 }, e: { r: 2, c: 11 } },  // 대상지 주소
+            { s: { r: 2, c: 13 }, e: { r: 2, c: 14 } }, // 지번
         ];
 
         ws['!merges'] = (ws['!merges'] || []).concat(merges);

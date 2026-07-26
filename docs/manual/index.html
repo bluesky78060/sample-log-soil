@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>토양 시료 접수 대장 - 사용 설명서</title>
+    <title>토양·퇴비 시료 접수 대장 - 사용 설명서</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -522,9 +522,9 @@
     </a>
     <div class="manual-container">
         <div class="header">
-            <h1>토양 시료 접수 대장 사용 설명서</h1>
-            <p>토양 분석 전용 시료 접수·관리 시스템</p>
-            <span class="version-badge">v1.10.14 - 2026년 7월 업데이트</span>
+            <h1>토양·퇴비 시료 접수 대장 사용 설명서</h1>
+            <p>토양·가축분뇨 퇴비 시료 접수·관리 시스템</p>
+            <span class="version-badge">v1.11.0 - 2026년 7월 업데이트</span>
         </div>
 
         <div class="toc">
@@ -539,7 +539,8 @@
                 <li><a href="#stats"><span class="toc-icon">📊</span> 7. 통계 및 라벨 인쇄</a></li>
                 <li style="display:none;"><a href="#cloud"><span class="toc-icon">☁️</span> 8. 클라우드 동기화</a></li>
                 <li><a href="#settings"><span class="toc-icon">⚙️</span> 9. 설정</a></li>
-                <li><a href="#faq"><span class="toc-icon">❓</span> 10. 자주 묻는 질문</a></li>
+                <li><a href="#compost"><span class="toc-icon">🐄</span> 10. 가축분뇨 퇴비 접수</a></li>
+                <li><a href="#faq"><span class="toc-icon">❓</span> 11. 자주 묻는 질문</a></li>
             </ul>
         </div>
 
@@ -548,7 +549,7 @@
             <!-- 1. 시작하기 -->
             <div class="section" id="start">
                 <h2><span class="icon">🏠</span> 1. 시작하기</h2>
-                <p>토양 시료 접수 대장은 <strong>토양 분석 전용</strong> 시료 접수·관리 프로그램입니다. 컴퓨터가 익숙하지 않아도 괜찮습니다. 이 설명서는 <strong>화면을 보면서 그대로 따라 하면</strong> 누구나 사용할 수 있도록 한 단계씩 안내합니다.</p>
+                <p>토양·퇴비 시료 접수 대장은 <strong>토양</strong>과 <strong>가축분뇨 퇴비(퇴·액비 부숙도)</strong> 시료를 접수·관리하는 프로그램입니다. 컴퓨터가 익숙하지 않아도 괜찮습니다. 이 설명서는 <strong>화면을 보면서 그대로 따라 하면</strong> 누구나 사용할 수 있도록 한 단계씩 안내합니다.</p>
 
                 <div class="term-box">
                     <p><span class="term-name">시료(試料)</span>란 검사를 받기 위해 가져온 흙 한 봉지를 말합니다. 이 프로그램은 누가, 언제, 어떤 흙을 맡겼는지 기록하고 관리하는 장부입니다.</p>
@@ -565,7 +566,7 @@
                 <p>프로그램을 실행하면 가운데에 <strong>토양 카드</strong>가, 그 오른쪽에 <strong>토양 통계 패널</strong>이 나타납니다. 아래 그림에서 ① 통계 패널에 올해 접수된 시료 현황이 표시됩니다.</p>
 
                 <div class="screenshot">
-                    <img src="../assets/step-01-main-Cb-wEjSn.png" alt="메인 화면 (토양 카드 + 통계 패널, 4건 데이터)">
+                    <img src="../assets/step-01-main-E10eZBvJ.png" alt="메인 화면 (토양 카드 + 통계 패널, 4건 데이터)">
                     <div class="screenshot-caption">메인 화면 — 왼쪽: 토양 카드, 오른쪽: ① 토양 통계 패널(올해 접수 현황)</div>
                 </div>
 
@@ -650,7 +651,7 @@
                 <h3>① 접수번호·접수일자·접수방법 입력</h3>
                 <p>아래 그림의 <strong>①②③ 번호</strong>는 <strong>기본 정보</strong> 묶음(화면 왼쪽, 토양 시료 정보 아래)에 있는 칸입니다. 번호 순서대로 따라 하세요.</p>
                 <div class="screenshot">
-                    <img src="../assets/step-02-register-fields-CiyEKQuJ.png" alt="접수 입력 필드 ①접수번호 ②접수일자 ③접수방법">
+                    <img src="../assets/step-02-register-fields-Bxtx_Kg0.png" alt="접수 입력 필드 ①접수번호 ②접수일자 ③접수방법">
                     <div class="screenshot-caption">접수 입력 — ① 접수번호  ② 접수일자  ③ 접수방법(수령방법)</div>
                 </div>
 
@@ -670,7 +671,7 @@
                 <p>토양 시료 정보 줄에는 <strong>경지구분 1차 · 구분 · 목적(용도)</strong>가 한 줄로 나란히 있으며, 이 묶음이 <strong>접수 화면 맨 위</strong>에 옵니다. 아래 그림의 <strong>①번 위치</strong>(줄 맨 앞)에서 경지구분 1차를 드롭다운으로 고릅니다.</p>
 
                 <div class="screenshot">
-                    <img src="../assets/step-11-landclass1-field-DCS6f9YQ.png" alt="접수 폼의 경지구분 1차 필드 ① — 줄 맨 앞, 구분·목적과 한 줄">
+                    <img src="../assets/step-11-landclass1-field-CTSvvuwd.png" alt="접수 폼의 경지구분 1차 필드 ① — 줄 맨 앞, 구분·목적과 한 줄">
                     <div class="screenshot-caption">① 경지구분 1차 — 토양 시료 정보 줄 맨 앞의 드롭다운(구분·목적과 같은 줄)</div>
                 </div>
 
@@ -698,7 +699,7 @@
                 </ol>
 
                 <div class="screenshot">
-                    <img src="../assets/step-03-submit-BqdceM1_.png" alt="접수 등록 버튼 위치 ①">
+                    <img src="../assets/step-03-submit-B6U_RVCe.png" alt="접수 등록 버튼 위치 ①">
                     <div class="screenshot-caption">① "등록" 버튼을 누르면 접수가 저장됩니다</div>
                 </div>
 
@@ -746,7 +747,7 @@
                 </ol>
 
                 <div class="screenshot">
-                    <img src="../assets/step-04-list-t2yoDwMj.png" alt="접수 목록 4건 전체">
+                    <img src="../assets/step-04-list-BEaNbV0P.png" alt="접수 목록 4건 전체">
                     <div class="screenshot-caption">접수 목록 화면 — 연도별 조회·필터·검색 기능이 위쪽에 모여 있습니다</div>
                 </div>
 
@@ -760,7 +761,7 @@
                 <p>목록 위쪽에는 <strong>경지구분 1차</strong> 드롭다운이 있습니다. 분류를 하나 고르면 그 분류로 접수한 시료만 보입니다. <strong>"전체 경지구분"</strong>을 고르면 모든 시료가 함께 나옵니다.</p>
 
                 <div class="screenshot">
-                    <img src="../assets/step-12-landclass1-tab-DA3Arckv.png" alt="접수 목록의 경지구분 1차 드롭다운 ① — 농가의뢰·개량제·직불 혼재 4건">
+                    <img src="../assets/step-12-landclass1-tab-BSGMwjK5.png" alt="접수 목록의 경지구분 1차 드롭다운 ① — 농가의뢰·개량제·직불 혼재 4건">
                     <div class="screenshot-caption">① 경지구분 1차 드롭다운 — 고른 분류의 시료만 모아서 보여줍니다</div>
                 </div>
 
@@ -828,7 +829,7 @@
                 </ol>
 
                 <div class="screenshot">
-                    <img src="../assets/step-05-heuktoram-DmOcpO6n.png" alt="흙토람 버튼 위치">
+                    <img src="../assets/step-05-heuktoram-C-YWGE_d.png" alt="흙토람 버튼 위치">
                     <div class="screenshot-caption">토양 화면 위쪽 도구 모음의 "흙토람" 버튼 위치</div>
                 </div>
 
@@ -841,7 +842,7 @@
                 <p>흙토람 화면을 열면 아래처럼 <strong>표 하나에 모든 시료가 한 줄씩</strong> 나타납니다. 앞서 접수해 둔 토양 시료가 자동으로 줄마다 채워지므로, 따로 옮겨 적을 필요가 없습니다. 화면 오른쪽 위에는 전체 <strong>건수</strong>가 표시됩니다.</p>
 
                 <div class="screenshot">
-                    <img src="../assets/step-09-heuktoram-list-Bc0iyPno.png" alt="흙토람 리스트 화면 — 접수 정보와 검정 결과 표, 상단 툴바">
+                    <img src="../assets/step-09-heuktoram-list-TA3vl6NW.png" alt="흙토람 리스트 화면 — 접수 정보와 검정 결과 표, 상단 툴바">
                     <div class="screenshot-caption">흙토람 리스트 화면 — ① 채취년도·시료채취자·토양검정일·용도구분 입력칸 / ② 일괄적용 / ③ 내보내기 양식(흙토람 서식·공익직불제) 선택 + 내보내기</div>
                 </div>
 
@@ -867,7 +868,7 @@
                 <p>흙토람에서 내려받은 검사 수치 엑셀을 시료에 채워 넣는 단계입니다. 화면 위쪽 도구 모음의 <strong>"엑셀 가져오기"</strong> 버튼을 누르면 아래 입력 창(작은 창)이 열립니다. 이 창에서 엑셀의 어느 칸이 어떤 검정 항목인지 연결해 줍니다.</p>
 
                 <div class="screenshot">
-                    <img src="../assets/step-10-heuktoram-input-DALb5I1T.png" alt="엑셀로 결과 입력 창 — 파일 업로드/붙여넣기, 매칭 키, 필드 매핑">
+                    <img src="../assets/step-10-heuktoram-input-D7JcXTHm.png" alt="엑셀로 결과 입력 창 — 파일 업로드/붙여넣기, 매칭 키, 필드 매핑">
                     <div class="screenshot-caption">"엑셀로 결과 입력" 창 — ① 엑셀 파일 업로드 / 텍스트 붙여넣기 선택 → 매칭 키(시료번호) → 흙토람 필드 매핑(소수점 지정)</div>
                 </div>
 
@@ -933,7 +934,7 @@
                 <p>접수한 내용을 고치거나, 엑셀로 저장하거나, 한꺼번에 등록하는 등 데이터를 다루는 방법을 모읍니다. 아래 그림은 ① 엑셀 내보내기, ② 엑셀 서식 다운로드 버튼의 위치를 보여줍니다.</p>
 
                 <div class="screenshot">
-                    <img src="../assets/step-06-data-mgmt-CCo2cS8G.png" alt="엑셀 내보내기①·서식 다운로드② 버튼 위치">
+                    <img src="../assets/step-06-data-mgmt-BXM3Ck-4.png" alt="엑셀 내보내기①·서식 다운로드② 버튼 위치">
                     <div class="screenshot-caption">데이터 관리 버튼 — ① 엑셀 내보내기  ② 엑셀 서식 다운로드</div>
                 </div>
 
@@ -1010,7 +1011,7 @@
                 </ol>
 
                 <div class="screenshot">
-                    <img src="../assets/step-13-import-modal-606uQfqK.png" alt="엑셀 가져오기 모달 — ①엑셀 데이터 입력·②컬럼 매핑·③경지구분 1차 일괄선택·④옵션·⑤미리보기">
+                    <img src="../assets/step-13-import-modal-ifC0BSZV.png" alt="엑셀 가져오기 모달 — ①엑셀 데이터 입력·②컬럼 매핑·③경지구분 1차 일괄선택·④옵션·⑤미리보기">
                     <div class="screenshot-caption">엑셀 가져오기 창 — ① 엑셀 데이터 입력 / ② 컬럼 매핑 / ③ 경지구분 1차 일괄선택 / ④ 옵션 / ⑤ 미리보기</div>
                 </div>
 
@@ -1210,7 +1211,7 @@
                 </ol>
 
                 <div class="screenshot">
-                    <img src="../assets/step-08-settings-CjEPqgwU.png" alt="설정 화면">
+                    <img src="../assets/step-08-settings-CMz7UedE.png" alt="설정 화면">
                     <div class="screenshot-caption">설정 화면 — 기관명·데이터 관리·캐시 관리</div>
                 </div>
 
@@ -1285,9 +1286,68 @@
                 </div>
             </div>
 
-            <!-- 10. 자주 묻는 질문 -->
+            <!-- 10. 가축분뇨 퇴비 접수 -->
+            <div class="section" id="compost">
+                <h2><span class="icon">🐄</span> 10. 가축분뇨 퇴비 접수</h2>
+
+                <p>가축분뇨 퇴비(퇴·액비)의 <strong>부숙도 검사 위탁서</strong>를 접수하는 화면입니다. 토양 접수와 사용법이 거의 같으므로, 앞의 <a href="#register" style="color:#16a34a;">2. 토양 시료 접수하기</a>를 먼저 읽으셨다면 금방 익숙해집니다.</p>
+
+                <div class="term-box">
+                    <strong>어디서 들어가나요?</strong><br>
+                    시작 화면에서 <strong>🐄 가축분뇨 퇴비</strong> 카드를 누르면 됩니다. 토양 화면 왼쪽 위의 메뉴(프로그램 이름 옆 ▼)에서도 이동할 수 있습니다.
+                </div>
+
+                <h3>접수 등록하기</h3>
+
+                <div class="screenshot">
+                    <img src="../assets/step-14-compost-register-wZxvJGvb.png" alt="퇴비 접수 입력 화면 ①접수번호 ②접수일자 ③개인/법인 구분">
+                    <div class="screenshot-caption">퇴비 접수 입력 — ① 접수번호(자동)  ② 접수일자  ③ 개인 / 법인 구분</div>
+                </div>
+
+                <ol>
+                    <li><strong>시료종류</strong>에서 <strong>가축분퇴비</strong> 또는 <strong>가축분뇨발효액</strong> 중 해당하는 것을 고릅니다. <strong>종류에 따라 부숙도·함수율 판정 기준이 달라지므로</strong> 반드시 먼저 정확히 선택해 주세요.</li>
+                    <li><strong>접수일자</strong>는 오늘 날짜가 자동으로 들어갑니다. 필요하면 바꿔 주세요.</li>
+                    <li><strong>접수번호</strong>도 자동으로 다음 번호가 매겨집니다.</li>
+                    <li><strong>성명·연락처·주소</strong>를 입력합니다. 주소는 <strong>🔍 주소 검색</strong> 버튼으로 찾을 수 있습니다.</li>
+                    <li><strong>개인 / 법인</strong>을 고릅니다. 개인이면 생년월일, 법인이면 법인등록번호 칸이 나타납니다.</li>
+                    <li><strong>축종</strong>을 고릅니다. 목록에 없으면 <strong>기타</strong>를 선택하고 직접 입력하면 됩니다.</li>
+                    <li>다 입력했으면 위쪽의 <strong>등록</strong> 버튼을 누릅니다.</li>
+                </ol>
+
+                <h3>접수 목록 보기</h3>
+                <p>위쪽 <strong>목록</strong> 버튼을 누르면 그해 접수한 퇴비 시료가 표로 나옵니다. 토양 목록과 마찬가지로 다음을 할 수 있습니다.</p>
+
+                <div class="screenshot">
+                    <img src="../assets/step-15-compost-list-C04mWPD6.png" alt="퇴비 접수 목록 화면">
+                    <div class="screenshot-caption">퇴비 접수 목록 — 검색·완료 표시·수정·삭제를 여기서 합니다</div>
+                </div>
+
+                <ul>
+                    <li><strong>검색</strong> — 성명, 접수번호 범위, 접수일자 범위로 찾을 수 있습니다.</li>
+                    <li><strong>완료 표시</strong> — 처리가 끝난 건은 완료로 바꿔 두면 목록에서 정리됩니다. 기본은 <strong>미완료만 보기</strong>입니다.</li>
+                    <li><strong>수정·삭제</strong> — 목록에서 해당 줄을 눌러 내용을 고치거나 지울 수 있습니다.</li>
+                </ul>
+
+                <h3>검정결과 입력</h3>
+                <p>분석이 끝나면 목록에서 해당 시료의 <strong>판정</strong>, <strong>함수율</strong>, <strong>부숙도</strong>를 바로 입력할 수 있습니다. 판정은 눌러서 <strong>미판정 → 적합 → 부적합</strong> 순으로 바뀝니다.</p>
+
+                <h3>라벨 인쇄</h3>
+                <p>목록에서 인쇄할 시료를 선택한 뒤 <strong>라벨 인쇄</strong>를 누르면 토양과 동일한 라벨 화면으로 넘어갑니다. 아무것도 선택하지 않으면 전체를 인쇄할지 물어봅니다.</p>
+
+                <div class="term-box">
+                    <strong>같은 농장에서 여러 건을 접수했다면</strong><br>
+                    라벨은 <strong>주소가 같으면 한 장으로 합쳐집니다</strong>. 한 농장이 시료를 여러 점 접수한 경우 라벨이 접수 건수만큼 나오지 않고 한 장만 나오는데, 이는 우편 발송용이라 의도된 동작입니다. 합쳐진 건수는 화면에 안내 메시지로 표시됩니다.
+                </div>
+
+                <div class="tip-box">
+                    <strong>알아두세요</strong><br>
+                    퇴비 자료는 토양과 <strong>따로 저장</strong>됩니다. 설정 화면의 전체 내보내기와 연도별 데이터 삭제는 두 종류를 <strong>함께</strong> 처리하므로, 백업을 받으면 퇴비 자료도 같이 저장됩니다.
+                </div>
+            </div>
+
+            <!-- 11. 자주 묻는 질문 -->
             <div class="section" id="faq">
-                <h2><span class="icon">❓</span> 10. 자주 묻는 질문</h2>
+                <h2><span class="icon">❓</span> 11. 자주 묻는 질문</h2>
 
                 <details class="faq-item">
                     <summary>입력한 내용이 안 보여요 / 데이터가 사라졌어요</summary>
@@ -1395,7 +1455,7 @@
         </div>
 
         <div class="footer">
-            <p>토양 시료 접수 대장 v1.10.14</p>
+            <p>토양·퇴비 시료 접수 대장 v1.11.0</p>
         </div>
     </div>
 </body>

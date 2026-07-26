@@ -1,6 +1,6 @@
-# 토양 시료 접수 대장 (Soil Sample Log)
+# 토양·퇴비 시료 접수 대장 (Soil Sample Log)
 
-**토양 분석 전용** 시료 접수·관리 시스템. 전국 농업기술센터·분석기관에서 사용할 수 있습니다.
+**토양**과 **가축분뇨 퇴비(퇴·액비 부숙도)** 시료 접수·관리 시스템. 전국 농업기술센터·분석기관에서 사용할 수 있습니다.
 Electron 데스크톱 + 웹 듀얼 환경.
 
 [![최신 버전 받기](https://img.shields.io/badge/⬇️_최신_버전_받기-Windows_설치파일-22c55e?style=for-the-badge)](https://github.com/bluesky78060/sample-log-soil/releases/latest/download/soil-sample-log-setup.exe)
@@ -22,6 +22,7 @@ Electron 데스크톱 + 웹 듀얼 환경.
 ## 주요 기능
 
 - 토양 시료 접수/관리 (논, 밭, 과수, 시설)
+- 가축분뇨 퇴비(퇴·액비 부숙도) 시료 접수/관리
 - 흙토람 검정결과 엑셀/텍스트 가져오기
 - 본필지/하위필지 자동 동기화
 - localStorage + Firebase Firestore 듀얼 스토리지 (오프라인 우선)
@@ -84,3 +85,4 @@ MIT
 ## 메인 프로젝트와의 관계
 
 본 프로젝트는 [`sample-log-electron`](https://github.com/bluesky78060/sample-log-electron) (5종 시료 통합본)에서 **토양 부분만 분리**한 독립 프로젝트입니다.
+이후 v1.11.0에서 **가축분뇨 퇴비(퇴·액비 부숙도)**를 다시 이식해 현재 지원 시료 종은 2종입니다.

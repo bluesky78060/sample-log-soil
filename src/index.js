@@ -797,7 +797,7 @@ function saveSettings(settings) {
 // 자동 저장 경로 가져오기 (타입별, 연도별로 다른 파일명 사용)
 ipcMain.handle('get-auto-save-path', async (event, type, year) => {
     // M-3: type/year 파라미터 검증
-    const ALLOWED_TYPES = ['soil'];
+    const ALLOWED_TYPES = ['soil', 'compost'];
     if (type && (typeof type !== 'string' || !ALLOWED_TYPES.includes(type))) {
         throw new Error(`허용되지 않는 시료 타입: ${type}`);
     }

@@ -1,8 +1,15 @@
 // Firebase 설정 저장 키 (firebase-config.js의 FIREBASE_CONFIG_KEY와 동일 값)
 const SETTINGS_FIREBASE_KEY = 'firebase_config';
-// 토양 전용 분리본 — 토양 한 종만 처리(데이터 마이그레이션·전체 내보내기 대상)
+// 데이터 마이그레이션·전체 내보내기 대상 (SLS-1-192: 퇴비 추가)
+// ⚠️ 여기에 빠진 시료 종은 백업/내보내기에서 조용히 제외된다. 사용자는 백업했다고 믿고
+//    PC 교체·캐시 정리를 하므로 누락 = 데이터 유실이다. 시료 종 추가 시 반드시 함께 갱신할 것.
 const SAMPLE_TYPES = [
-    { key: 'soil', name: '토양', icon: '🌱', storagePrefix: 'soilSampleLogs' }
+    { key: 'soil', name: '토양', icon: '🌱', storagePrefix: 'soilSampleLogs' },
+    // extraKeys: 시료 로그와 별개로 저장되는 부속 데이터. 전체 내보내기(백업)에만 포함한다.
+    // Firestore 마이그레이션 경로(storageManager.migrate)는 시료 타입 기준이라 여기에 넣으면
+    // 잘못된 컬렉션에 기록되므로 제외한다. 검정결과는 compost-script가 자체 동기화한다.
+    { key: 'compost', name: '가축분뇨퇴비', icon: '🐄', storagePrefix: 'compostSampleLogs',
+      extraKeys: ['compostTestResults'] }
 ];
 
 // Electron 환경 확인
@@ -525,6 +532,15 @@ document.getElementById('exportAllBtn').addEventListener('click', () => {
         if (data) {
             try { allData[type.key] = JSON.parse(data); } catch (e) { console.error(`${type.key} 파싱 오류:`, e); }
         }
+        // 부속 데이터(예: 퇴비 검정결과) — 빠지면 사용자가 백업했다고 믿고 PC를 교체할 때
+        // 해당 데이터만 조용히 사라진다 (SLS-1-195)
+        (type.extraKeys || []).forEach(prefix => {
+            const extraKey = `${prefix}_${currentYear}`;
+            const extraData = localStorage.getItem(extraKey);
+            if (extraData) {
+                try { allData[prefix] = JSON.parse(extraData); } catch (e) { console.error(`${prefix} 파싱 오류:`, e); }
+            }
+        });
     });
 
     const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
@@ -737,8 +753,12 @@ queueMicrotask(() => checkAuthFileStatus());
 // ========================================
 const YEAR_PURGE_RETENTION = 3;          // 보관 연수
 const YEAR_PURGE_MIN_YEAR = 2020;        // 조회 시작 연도 (마이그레이션 로직과 동일 기준)
-const YEAR_PURGE_PREFIX = 'soilSampleLogs';
-const YEAR_PURGE_SAMPLE_TYPE = 'soil';
+// SLS-1-195: 토양 전용 상수(YEAR_PURGE_PREFIX/YEAR_PURGE_SAMPLE_TYPE)를 제거하고
+// SAMPLE_TYPES에서 파생한다.
+// ⚠️ 이 삭제 기능은 보존기한 준수 목적이며, 퇴비 레코드는 성명·생년월일·법인번호·연락처·주소를
+//    담는다. 여기서 빠진 시료 종은 "삭제 완료" 안내 후에도 로컬·클라우드·자동저장 파일에
+//    그대로 남는다 = 컴플라이언스 오보. 시료 종 추가 시 반드시 SAMPLE_TYPES만 갱신하면 되도록
+//    개별 상수를 두지 말 것.
 
 /** 삭제 대상 임계 연도(이 연도 이하가 삭제 대상). 예: 2026년 → 2023 */
 function getYearPurgeThreshold() {
@@ -751,14 +771,17 @@ function collectYearInventory() {
     const threshold = getYearPurgeThreshold();
     const rows = [];
     for (let year = YEAR_PURGE_MIN_YEAR; year <= currentYear; year++) {
-        const raw = localStorage.getItem(`${YEAR_PURGE_PREFIX}_${year}`);
-        if (!raw) continue;
+        // 전 시료 종 합산 — 한 종이라도 데이터가 있으면 그 연도는 삭제 대상 목록에 올라야 한다
         let count = 0;
-        try {
-            const parsed = JSON.parse(raw);
-            count = Array.isArray(parsed) ? parsed.length : 0;
-        } catch (e) {
-            console.error(`${YEAR_PURGE_PREFIX}_${year} 파싱 오류:`, e);
+        for (const type of SAMPLE_TYPES) {
+            const raw = localStorage.getItem(`${type.storagePrefix}_${year}`);
+            if (!raw) continue;
+            try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) count += parsed.length;
+            } catch (e) {
+                console.error(`${type.storagePrefix}_${year} 파싱 오류:`, e);
+            }
         }
         if (count > 0) {
             rows.push({ year, count, deletable: year <= threshold, isCurrent: year === currentYear });
@@ -851,34 +874,39 @@ function renderYearPurgeList() {
 async function purgeYearData(year) {
     let cloudDeleted = 0;
 
-    // 1) Firestore 컬렉션 비우기 (클라우드 사용 시)
-    if (window.firestoreDb?.isEnabled?.()) {
-        try {
-            const docs = await window.firestoreDb.getAll(YEAR_PURGE_SAMPLE_TYPE, year);
-            for (const doc of docs) {
-                if (doc && doc.id != null) {
-                    await window.firestoreDb.delete(YEAR_PURGE_SAMPLE_TYPE, year, doc.id);
-                    cloudDeleted++;
+    // 전 시료 종을 순회한다 (SLS-1-195). 한 종이라도 빠지면 "삭제 완료" 안내 후 데이터가 남는다.
+    for (const type of SAMPLE_TYPES) {
+        // 1) Firestore 컬렉션 비우기 (클라우드 사용 시)
+        if (window.firestoreDb?.isEnabled?.()) {
+            try {
+                const docs = await window.firestoreDb.getAll(type.key, year);
+                for (const doc of docs) {
+                    if (doc && doc.id != null) {
+                        await window.firestoreDb.delete(type.key, year, doc.id);
+                        cloudDeleted++;
+                    }
                 }
+            } catch (e) {
+                console.error(`${year}년 ${type.name} 클라우드 삭제 오류:`, e);
+                throw new Error(`${year}년 ${type.name} 클라우드 삭제 중 오류: ${e.message}`);
             }
-        } catch (e) {
-            console.error(`${year}년 클라우드 삭제 오류:`, e);
-            throw new Error(`${year}년 클라우드 삭제 중 오류: ${e.message}`);
         }
-    }
 
-    // 2) localStorage 제거
-    localStorage.removeItem(`${YEAR_PURGE_PREFIX}_${year}`);
+        // 2) localStorage 제거 — 부속 데이터(extraKeys)까지 함께 지운다.
+        //    검정결과를 남겨두면 삭제된 시료의 연도별 결과만 잔존한다.
+        localStorage.removeItem(`${type.storagePrefix}_${year}`);
+        (type.extraKeys || []).forEach(prefix => localStorage.removeItem(`${prefix}_${year}`));
 
-    // 3) Electron 자동저장 파일 비우기 (best-effort — 실패해도 진행)
-    //    주의: window.isElectron은 file-api.js에서만 노출되며 설정 페이지는 미로드 → 모듈 최상위 isElectron(line 12) 사용.
-    //    이 비우기를 건너뛰면 토양 페이지 재진입 시 잔존 auto-save 파일에서 삭제분이 부활함.
-    if (isElectron && window.electronAPI?.getAutoSavePath && window.electronAPI?.writeFile) {
-        try {
-            const path = await window.electronAPI.getAutoSavePath(YEAR_PURGE_SAMPLE_TYPE, year);
-            if (path) await window.electronAPI.writeFile(path, '[]');
-        } catch (e) {
-            console.warn(`${year}년 자동저장 파일 정리 실패(무시):`, e);
+        // 3) Electron 자동저장 파일 비우기 (best-effort — 실패해도 진행)
+        //    주의: window.isElectron은 file-api.js에서만 노출되며 설정 페이지는 미로드 → 모듈 최상위 isElectron(line 12) 사용.
+        //    이 비우기를 건너뛰면 해당 시료 페이지 재진입 시 잔존 auto-save 파일에서 삭제분이 부활함.
+        if (isElectron && window.electronAPI?.getAutoSavePath && window.electronAPI?.writeFile) {
+            try {
+                const path = await window.electronAPI.getAutoSavePath(type.key, year);
+                if (path) await window.electronAPI.writeFile(path, '[]');
+            } catch (e) {
+                console.warn(`${year}년 ${type.name} 자동저장 파일 정리 실패(무시):`, e);
+            }
         }
     }
 

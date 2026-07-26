@@ -5,7 +5,9 @@
 
 /**
  * 시료 관리의 기본 클래스
- * 토양 전용 분리본에서는 soil 한 종만 사용 (범용 베이스 구조는 유지)
+ * 지원 시료 2종(soil, compost)이 공통으로 사용한다.
+ * SLS-1-192에서 5종 통합본의 공통 골격 20개를 백포트했다 — 편집/리셋 Template Method,
+ * 필터 매처, 폼 데이터 수집, 라벨 인쇄. 시료 종 추가 시 이 계층을 먼저 확인할 것.
  */
 class BaseSampleManager {
     /**
@@ -28,6 +30,15 @@ class BaseSampleManager {
         this.sampleLogs = [];
         this.selectedYear = new Date().getFullYear().toString();
         this.editingId = null;
+        // 그룹 묶음 수정용 멤버 ID 목록 (단건 편집 시 빈 배열)
+        // SLS-1-192: 백포트된 editSample/resetForm 본문이 참조하므로 복원
+        this.editingGroupIds = [];
+        // 검색 필터 상태 (서브클래스가 자체 기본값으로 덮어쓸 수 있음)
+        // SLS-1-192: 백포트된 필터 매처(matchesNameFilter 등)가 전제
+        this.currentSearchFilter = {
+            dateFrom: '', dateTo: '', name: '',
+            receptionFrom: '', receptionTo: '', completed: ''
+        };
         this.currentPage = 1;
         this.itemsPerPage = 100;
         this.totalPages = 1;
@@ -944,11 +955,114 @@ class BaseSampleManager {
     // ========================================
 
     /**
-     * 필터를 적용한 렌더링 (서브클래스에서 override)
-     * 기본 구현은 renderLogs를 직접 호출 (필터 없음)
+     * 필터를 적용한 렌더링 — 공통 4조건(성명/접수번호 범위/날짜 범위/완료 상태)
+     * + 타입 고유 필터 훅(matchesTypeSpecificFilters)
+     * SLS-1-192 백포트: 기존 구현은 필터 없이 전건 렌더였음
      */
     filterAndRenderLogs() {
-        this.renderLogs(this.sampleLogs);
+        const filtered = this.sampleLogs.filter(log =>
+            this.matchesNameFilter(log) &&
+            this.matchesReceptionFilter(log) &&
+            this.matchesDateFilter(log) &&
+            this.matchesCompletedFilter(log) &&
+            this.matchesTypeSpecificFilters(log)
+        );
+        this.renderLogs(filtered);
+        this.updateSearchButtonState();
+    }
+
+    /**
+     * 성명 검색 필터
+     * 검색어 소문자 정규화를 매처에서 수행한다 — 호출부(검색 모달 배선)가 정규화를
+     * 빠뜨리면 대문자 입력 시 조용히 결과 0건이 되고, 크래시가 없어 탐지되지 않는다.
+     */
+    matchesNameFilter(log) {
+        const needle = (this.currentSearchFilter.name || '').toLowerCase();
+        return !needle || (log.name || '').toLowerCase().includes(needle);
+    }
+
+    /** 접수번호 범위 필터 */
+    matchesReceptionFilter(log) {
+        if (!this.currentSearchFilter.receptionFrom && !this.currentSearchFilter.receptionTo) return true;
+        const logNum = this.extractReceptionNumber(log.receptionNumber || '');
+        const fromNum = this.currentSearchFilter.receptionFrom ? parseInt(this.currentSearchFilter.receptionFrom, 10) : 0;
+        const toNum = this.currentSearchFilter.receptionTo ? parseInt(this.currentSearchFilter.receptionTo, 10) : Infinity;
+        if (fromNum && logNum < fromNum) return false;
+        if (toNum !== Infinity && logNum > toNum) return false;
+        return true;
+    }
+
+    /** 날짜 범위 필터 */
+    matchesDateFilter(log) {
+        if (!this.currentSearchFilter.dateFrom && !this.currentSearchFilter.dateTo) return true;
+        const logDate = log.date;
+        if (this.currentSearchFilter.dateFrom && logDate < this.currentSearchFilter.dateFrom) return false;
+        if (this.currentSearchFilter.dateTo && logDate > this.currentSearchFilter.dateTo) return false;
+        return true;
+    }
+
+    /** 완료 상태 필터 */
+    matchesCompletedFilter(log) {
+        if (this.currentSearchFilter.completed === 'completed') return log.isComplete === true;
+        if (this.currentSearchFilter.completed === 'incomplete') return !log.isComplete;
+        return true;
+    }
+
+    /** 타입 고유 필터 훅 — soil이 필지(lot)/목적(purpose) 조건으로 오버라이드 */
+    matchesTypeSpecificFilters(log) {
+        return true;
+    }
+
+    /**
+     * 접수번호 문자열 끝의 숫자 추출 (필터 비교용)
+     * @param {string} receptionNumber
+     * @returns {number}
+     */
+    extractReceptionNumber(receptionNumber) {
+        const match = (receptionNumber || '').match(/(\d+)$/);
+        return match ? parseInt(match[1], 10) : 0;
+    }
+
+    /**
+     * 검색 버튼 상태 갱신 — 활성 필터 존재 시 has-filter 표시
+     * 검사할 필터 키 목록은 getFilterKeys() 훅으로 결정
+     */
+    updateSearchButtonState() {
+        const f = this.currentSearchFilter;
+        const hasFilter = this.getFilterKeys().some(key => f[key]) ||
+            (f.completed && f.completed !== 'incomplete');
+        const openSearchModalBtn = document.getElementById('openSearchModalBtn');
+        if (openSearchModalBtn) {
+            if (hasFilter) {
+                openSearchModalBtn.classList.add('has-filter');
+                openSearchModalBtn.innerHTML = window.sanitizeHTML('🔍 검색 중');
+            } else {
+                openSearchModalBtn.classList.remove('has-filter');
+                openSearchModalBtn.innerHTML = window.sanitizeHTML('🔍 검색');
+            }
+        }
+    }
+
+    /** 검색 버튼 상태 판정에 쓰는 필터 키 목록 훅 (completed는 별도 판정) */
+    getFilterKeys() {
+        return ['dateFrom', 'dateTo', 'name', 'receptionFrom', 'receptionTo'];
+    }
+
+    /**
+     * 레거시 address 문자열을 주소 입력 필드(addressPostcode/addressRoad)에 반영
+     * addressRoad가 이미 있으면 건드리지 않음
+     * @param {Object} log - 시료 레코드
+     */
+    applyLegacyAddress(log) {
+        if (log.addressRoad || !log.address) return;
+        // 이 파일의 컨벤션(:561 window.SampleUtils?.initAutoSave)에 맞춘 방어.
+        // utils.js가 뒤에 로드되는 진입점에서도 편집 진입이 죽지 않도록 한다.
+        const { postcode, road } = window.SampleUtils?.splitLegacyAddress?.(log.address)
+            ?? { postcode: null, road: log.address };
+        const postcodeEl = this.addressPostcode || document.getElementById('addressPostcode');
+        const roadEl = this.addressRoad || document.getElementById('addressRoad');
+        if (postcode && postcodeEl) postcodeEl.value = postcodeEl.value || postcode;
+        if (roadEl) roadEl.value = road;
     }
 
     /**
@@ -982,20 +1096,251 @@ class BaseSampleManager {
     }
 
     /**
-     * 샘플 편집
-     * @abstract
+     * 폼 공통 입력 필드 수집 — submitForm/updateSample의 commonData 리터럴 중복 흡수
+     * 반환: 10개 교집합(date/name/phoneNumber/주소4/purpose/receptionMethod/note) + 법인3(조건부).
+     * createdAt/updatedAt/isComplete/타입고유필드는 호출부 책임(신규/수정 정책이 다름).
+     * soil은 applicantType 요소가 없으므로 법인3 자동 스킵.
+     * @param {FormData} formData
+     * @returns {Object}
      */
-    editSample(id) {
-        throw new Error('editSample must be implemented by subclass');
+    collectCommonFormData(formData) {
+        const data = {
+            date: formData.get('date'),
+            name: formData.get('name'),
+            phoneNumber: formData.get('phoneNumber'),
+            address: formData.get('address'),
+            addressPostcode: formData.get('addressPostcode'),
+            addressRoad: formData.get('addressRoad'),
+            addressDetail: formData.get('addressDetail'),
+            purpose: formData.get('purpose'),
+            receptionMethod: formData.get('receptionMethod'),
+            note: formData.get('note')
+        };
+        // 법인/개인 구분 — applicantType 요소가 있는 타입만 (soil 자동 스킵)
+        if (this.applicantTypeSelect || document.getElementById('applicantType')) {
+            const applicantType = formData.get('applicantType') || '개인';
+            data.applicantType = applicantType;
+            data.birthDate = applicantType === '개인' ? formData.get('birthDate') : '';
+            data.corpNumber = applicantType === '법인' ? formData.get('corpNumber') : '';
+        }
+        return data;
     }
 
     /**
-     * 폼 초기화
-     * @abstract
+     * 라벨 인쇄 페이지로 선택 레코드 전달
+     * label-print 페이지는 [{name, address, postalCode}] 배열만 수용한다.
+     * 주소 매핑 2변형(분리필드 vs address 재파싱)은 getLabelAddressParts 훅으로 흡수.
+     * @param {Array} logs - 라벨로 인쇄할 레코드 배열
+     */
+    openLabelPrintWithData(logs) {
+        const labelData = (logs || []).map(log => {
+            const { address, postalCode } = this.getLabelAddressParts(log);
+            return { name: log.name || '', address: address, postalCode: postalCode };
+        });
+
+        // 중복 제거 (주소 기준)
+        const uniqueMap = new Map();
+        labelData.forEach(item => {
+            const key = `${item.address}|${item.postalCode}`;
+            if (!uniqueMap.has(key)) uniqueMap.set(key, item);
+        });
+        const uniqueLabelData = Array.from(uniqueMap.values());
+
+        const duplicateCount = labelData.length - uniqueLabelData.length;
+        if (duplicateCount > 0) {
+            this.showToast(`주소 중복 ${duplicateCount}건 제거됨 (총 ${uniqueLabelData.length}건)`, 'info');
+        }
+
+        localStorage.setItem('labelPrintData', JSON.stringify(uniqueLabelData));
+        window.location.href = '../label-print/index.html';
+    }
+
+    /**
+     * 라벨용 주소/우편번호 추출 훅 — 기본: 분리 필드(addressRoad/addressDetail/addressPostcode) 사용
+     * soil은 address 재파싱으로 오버라이드.
+     * @param {Object} log
+     * @returns {{address: string, postalCode: string}}
+     */
+    getLabelAddressParts(log) {
+        const addressParts = [];
+        if (log.addressRoad) addressParts.push(log.addressRoad);
+        if (log.addressDetail) addressParts.push(log.addressDetail);
+        return { address: addressParts.join(' '), postalCode: log.addressPostcode || '' };
+    }
+
+    /**
+     * 샘플 편집 — Template Method
+     * find → 편집상태 세팅 → 공통 필드 → 타입 고유 필드(훅) → 편집모드 UI
+     * SLS-1-192 백포트: 기존은 abstract thrower였음
+     * @param {string} id
+     */
+    editSample(id) {
+        const log = this.sampleLogs.find(l => String(l.id) === String(id));
+        if (!log) return;
+        this.editingId = log.id;
+        this.editingGroupIds = [];
+        this.populateCommonFields(log);
+        this.populateTypeSpecificFields(log);
+        this.enterEditModeUI();
+    }
+
+    /**
+     * 편집 폼 공통 필드 채우기
+     * 접수번호/날짜/성명/전화/주소4종(+레거시파싱)/법인토글/수령방법/비고
+     * 그룹 편집의 접수번호 합치기 등은 populateTypeSpecificFields에서 덮어씀
+     * @param {Object} log
+     */
+    populateCommonFields(log) {
+        // this 캐시가 없는 타입은 getElementById로 폴백
+        const recEl = this.receptionNumberInput || document.getElementById('receptionNumber');
+        const dateEl = this.dateInput || document.getElementById('date');
+        if (recEl) recEl.value = log.receptionNumber || '';
+        if (dateEl) dateEl.value = log.date || '';
+
+        const nameEl = document.getElementById('name');
+        const phoneEl = document.getElementById('phoneNumber');
+        if (nameEl) nameEl.value = log.name || '';
+        if (phoneEl) phoneEl.value = log.phoneNumber || '';
+
+        const postcodeEl = this.addressPostcode || document.getElementById('addressPostcode');
+        const roadEl = this.addressRoad || document.getElementById('addressRoad');
+        const detailEl = this.addressDetail || document.getElementById('addressDetail');
+        const hiddenEl = this.addressHidden || document.getElementById('address');
+        if (postcodeEl) postcodeEl.value = log.addressPostcode || '';
+        if (roadEl) roadEl.value = log.addressRoad || '';
+        if (detailEl) detailEl.value = log.addressDetail || '';
+        if (hiddenEl) hiddenEl.value = log.address || '';
+        this.applyLegacyAddress(log);
+
+        this.populateApplicantType(log);
+        this.populateReceptionMethod(log);
+
+        const noteEl = document.getElementById('note');
+        if (noteEl) noteEl.value = log.note || '';
+    }
+
+    /**
+     * 법인/개인 신청자 구분 토글
+     * soil은 applicantType 요소가 없으므로 스킵
+     * @param {Object} log
+     */
+    populateApplicantType(log) {
+        const select = this.applicantTypeSelect || document.getElementById('applicantType');
+        if (!select) return;
+        const applicantType = log.applicantType || '개인';
+        select.value = applicantType;
+        const birthDateField = this.birthDateField || document.getElementById('birthDateField');
+        const corpNumberField = this.corpNumberField || document.getElementById('corpNumberField');
+        const birthDateInput = this.birthDateInput || document.getElementById('birthDate');
+        const corpNumberInput = this.corpNumberInput || document.getElementById('corpNumber');
+        const isCorp = applicantType === '법인';
+        if (birthDateField) birthDateField.classList.toggle('hidden', isCorp);
+        if (corpNumberField) corpNumberField.classList.toggle('hidden', !isCorp);
+        if (isCorp) {
+            if (corpNumberInput) corpNumberInput.value = log.corpNumber || '';
+            if (birthDateInput) birthDateInput.value = '';
+        } else {
+            if (birthDateInput) birthDateInput.value = log.birthDate || '';
+            if (corpNumberInput) corpNumberInput.value = '';
+        }
+    }
+
+    /**
+     * 수령(통보)방법 버튼 active 토글 + hidden input 값 설정
+     * @param {Object} log
+     */
+    populateReceptionMethod(log) {
+        const btns = this.receptionMethodBtns || document.querySelectorAll('.reception-method-btn');
+        if (btns) btns.forEach(btn => btn.classList.toggle('active', btn.dataset.method === log.receptionMethod));
+        const input = this.receptionMethodInput || document.getElementById('receptionMethod');
+        if (input) input.value = log.receptionMethod || '';
+    }
+
+    /**
+     * 타입 고유 편집 필드 채우기 훅 (기본 no-op)
+     * @param {Object} log
+     */
+    populateTypeSpecificFields(log) {}
+
+    /**
+     * 편집 모드 UI 진입: navSubmitBtn '수정 완료' 표시 + 폼 뷰 전환
+     */
+    enterEditModeUI() {
+        const navSubmitBtn = this.navSubmitBtn || document.getElementById('navSubmitBtn');
+        if (navSubmitBtn) {
+            navSubmitBtn.title = '수정 완료';
+            navSubmitBtn.classList.add('btn-edit-mode');
+        }
+        this.switchToEditFormView();
+    }
+
+    /**
+     * 편집 시 폼 뷰 전환 훅 — 기본: switchView('form') + 안내 토스트
+     * (soil은 직접 DOM 토글 + scrollIntoView로 오버라이드)
+     */
+    switchToEditFormView() {
+        this.switchView('form');
+        this.showToast('수정 모드입니다. 변경 후 등록 버튼을 클릭하세요.', 'warning');
+    }
+
+    /**
+     * 폼 초기화 — Template Method
+     * form.reset() → yearSelect 복원 → 편집상태 해제 → navSubmitBtn 복원
+     * → 날짜(오늘/보존) → 접수번호 재생성 → onAfterFormReset() 훅
+     *
+     * ⚠️ 서브클래스 필수 구현 계약: generateNextReceptionNumber()
+     *    base에는 정의가 없으므로 이 메서드를 상속받는 서브클래스는 반드시 구현해야 한다.
+     *    실제 구현체는 인자를 받을 수 있다(soil-script.js:929는 landClass1 1-arg).
+     *    base는 인자 없이 호출하므로 구현체는 인자 없는 호출에서도 동작해야 한다.
+     * SLS-1-192 백포트: 기존은 abstract thrower였음
      */
     resetForm() {
-        throw new Error('resetForm must be implemented by subclass');
+        // 날짜 보존 정책: form.reset() 전에 현재 값을 저장
+        const dateEl = this.dateInput || document.getElementById('date');
+        const savedDate = (this.shouldPreserveDateOnReset() && dateEl) ? dateEl.value : null;
+
+        if (this.form) this.form.reset();
+        // yearSelect 복원: form.reset()이 yearSelect를 첫 옵션으로 되돌리므로 복원
+        const yearSelect = document.getElementById('yearSelect');
+        if (yearSelect && this.selectedYear) yearSelect.value = this.selectedYear;
+
+        // 편집 상태 해제
+        this.editingId = null;
+        this.editingGroupIds = [];
+
+        // navSubmitBtn 복원
+        const navSubmitBtn = this.navSubmitBtn || document.getElementById('navSubmitBtn');
+        if (navSubmitBtn) {
+            navSubmitBtn.title = '접수 등록';
+            navSubmitBtn.classList.remove('btn-edit-mode');
+        }
+
+        // 날짜: 보존값이 있으면 복원, 없으면 오늘
+        if (dateEl) {
+            if (savedDate) dateEl.value = savedDate;
+            else dateEl.valueAsDate = new Date();
+        }
+
+        // 접수번호 재생성 — 미구현 시 조용한 오작동 대신 계약 위반을 즉시 드러낸다
+        // (loadYearData:466은 typeof 가드로 스킵하지만, 여기서는 값이 반드시 필요하다)
+        const recEl = this.receptionNumberInput || document.getElementById('receptionNumber');
+        if (recEl) {
+            if (typeof this.generateNextReceptionNumber !== 'function') {
+                throw new Error('generateNextReceptionNumber must be implemented by subclass');
+            }
+            recEl.value = this.generateNextReceptionNumber();
+        }
+
+        this.onAfterFormReset();
     }
+
+    /** 리셋 시 접수일자 보존 여부 훅 (compost: true → 현재 날짜 유지) */
+    shouldPreserveDateOnReset() {
+        return false;
+    }
+
+    /** 리셋 후 타입 고유 초기화 훅 (기본 no-op) */
+    onAfterFormReset() {}
 
     /**
      * 테이블 행 빌드 (PaginationManager에서 호출)

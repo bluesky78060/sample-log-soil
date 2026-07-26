@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>토양 시료 접수 대장 - 사용 설명서</title>
+    <title>토양·퇴비 시료 접수 대장 - 사용 설명서</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -521,9 +521,9 @@
     </a>
     <div class="manual-container">
         <div class="header">
-            <h1>토양 시료 접수 대장 사용 설명서</h1>
-            <p>토양 분석 전용 시료 접수·관리 시스템</p>
-            <span class="version-badge">v1.10.14 - 2026년 7월 업데이트</span>
+            <h1>토양·퇴비 시료 접수 대장 사용 설명서</h1>
+            <p>토양·가축분뇨 퇴비 시료 접수·관리 시스템</p>
+            <span class="version-badge">v1.11.0 - 2026년 7월 업데이트</span>
         </div>
 
         <div class="toc">
@@ -538,7 +538,8 @@
                 <li><a href="#stats"><span class="toc-icon">📊</span> 7. 통계 및 라벨 인쇄</a></li>
                 <li style="display:none;"><a href="#cloud"><span class="toc-icon">☁️</span> 8. 클라우드 동기화</a></li>
                 <li><a href="#settings"><span class="toc-icon">⚙️</span> 9. 설정</a></li>
-                <li><a href="#faq"><span class="toc-icon">❓</span> 10. 자주 묻는 질문</a></li>
+                <li><a href="#compost"><span class="toc-icon">🐄</span> 10. 가축분뇨 퇴비 접수</a></li>
+                <li><a href="#faq"><span class="toc-icon">❓</span> 11. 자주 묻는 질문</a></li>
             </ul>
         </div>
 
@@ -547,7 +548,7 @@
             <!-- 1. 시작하기 -->
             <div class="section" id="start">
                 <h2><span class="icon">🏠</span> 1. 시작하기</h2>
-                <p>토양 시료 접수 대장은 <strong>토양 분석 전용</strong> 시료 접수·관리 프로그램입니다. 컴퓨터가 익숙하지 않아도 괜찮습니다. 이 설명서는 <strong>화면을 보면서 그대로 따라 하면</strong> 누구나 사용할 수 있도록 한 단계씩 안내합니다.</p>
+                <p>토양·퇴비 시료 접수 대장은 <strong>토양</strong>과 <strong>가축분뇨 퇴비(퇴·액비 부숙도)</strong> 시료를 접수·관리하는 프로그램입니다. 컴퓨터가 익숙하지 않아도 괜찮습니다. 이 설명서는 <strong>화면을 보면서 그대로 따라 하면</strong> 누구나 사용할 수 있도록 한 단계씩 안내합니다.</p>
 
                 <div class="term-box">
                     <p><span class="term-name">시료(試料)</span>란 검사를 받기 위해 가져온 흙 한 봉지를 말합니다. 이 프로그램은 누가, 언제, 어떤 흙을 맡겼는지 기록하고 관리하는 장부입니다.</p>
@@ -1284,9 +1285,68 @@
                 </div>
             </div>
 
-            <!-- 10. 자주 묻는 질문 -->
+            <!-- 10. 가축분뇨 퇴비 접수 -->
+            <div class="section" id="compost">
+                <h2><span class="icon">🐄</span> 10. 가축분뇨 퇴비 접수</h2>
+
+                <p>가축분뇨 퇴비(퇴·액비)의 <strong>부숙도 검사 위탁서</strong>를 접수하는 화면입니다. 토양 접수와 사용법이 거의 같으므로, 앞의 <a href="#register" style="color:#16a34a;">2. 토양 시료 접수하기</a>를 먼저 읽으셨다면 금방 익숙해집니다.</p>
+
+                <div class="term-box">
+                    <strong>어디서 들어가나요?</strong><br>
+                    시작 화면에서 <strong>🐄 가축분뇨 퇴비</strong> 카드를 누르면 됩니다. 토양 화면 왼쪽 위의 메뉴(프로그램 이름 옆 ▼)에서도 이동할 수 있습니다.
+                </div>
+
+                <h3>접수 등록하기</h3>
+
+                <div class="screenshot">
+                    <img src="images/step-14-compost-register.png" alt="퇴비 접수 입력 화면 ①접수번호 ②접수일자 ③개인/법인 구분">
+                    <div class="screenshot-caption">퇴비 접수 입력 — ① 접수번호(자동)  ② 접수일자  ③ 개인 / 법인 구분</div>
+                </div>
+
+                <ol>
+                    <li><strong>시료종류</strong>에서 <strong>가축분퇴비</strong> 또는 <strong>가축분뇨발효액</strong> 중 해당하는 것을 고릅니다. <strong>종류에 따라 부숙도·함수율 판정 기준이 달라지므로</strong> 반드시 먼저 정확히 선택해 주세요.</li>
+                    <li><strong>접수일자</strong>는 오늘 날짜가 자동으로 들어갑니다. 필요하면 바꿔 주세요.</li>
+                    <li><strong>접수번호</strong>도 자동으로 다음 번호가 매겨집니다.</li>
+                    <li><strong>성명·연락처·주소</strong>를 입력합니다. 주소는 <strong>🔍 주소 검색</strong> 버튼으로 찾을 수 있습니다.</li>
+                    <li><strong>개인 / 법인</strong>을 고릅니다. 개인이면 생년월일, 법인이면 법인등록번호 칸이 나타납니다.</li>
+                    <li><strong>축종</strong>을 고릅니다. 목록에 없으면 <strong>기타</strong>를 선택하고 직접 입력하면 됩니다.</li>
+                    <li>다 입력했으면 위쪽의 <strong>등록</strong> 버튼을 누릅니다.</li>
+                </ol>
+
+                <h3>접수 목록 보기</h3>
+                <p>위쪽 <strong>목록</strong> 버튼을 누르면 그해 접수한 퇴비 시료가 표로 나옵니다. 토양 목록과 마찬가지로 다음을 할 수 있습니다.</p>
+
+                <div class="screenshot">
+                    <img src="images/step-15-compost-list.png" alt="퇴비 접수 목록 화면">
+                    <div class="screenshot-caption">퇴비 접수 목록 — 검색·완료 표시·수정·삭제를 여기서 합니다</div>
+                </div>
+
+                <ul>
+                    <li><strong>검색</strong> — 성명, 접수번호 범위, 접수일자 범위로 찾을 수 있습니다.</li>
+                    <li><strong>완료 표시</strong> — 처리가 끝난 건은 완료로 바꿔 두면 목록에서 정리됩니다. 기본은 <strong>미완료만 보기</strong>입니다.</li>
+                    <li><strong>수정·삭제</strong> — 목록에서 해당 줄을 눌러 내용을 고치거나 지울 수 있습니다.</li>
+                </ul>
+
+                <h3>검정결과 입력</h3>
+                <p>분석이 끝나면 목록에서 해당 시료의 <strong>판정</strong>, <strong>함수율</strong>, <strong>부숙도</strong>를 바로 입력할 수 있습니다. 판정은 눌러서 <strong>미판정 → 적합 → 부적합</strong> 순으로 바뀝니다.</p>
+
+                <h3>라벨 인쇄</h3>
+                <p>목록에서 인쇄할 시료를 선택한 뒤 <strong>라벨 인쇄</strong>를 누르면 토양과 동일한 라벨 화면으로 넘어갑니다. 아무것도 선택하지 않으면 전체를 인쇄할지 물어봅니다.</p>
+
+                <div class="term-box">
+                    <strong>같은 농장에서 여러 건을 접수했다면</strong><br>
+                    라벨은 <strong>주소가 같으면 한 장으로 합쳐집니다</strong>. 한 농장이 시료를 여러 점 접수한 경우 라벨이 접수 건수만큼 나오지 않고 한 장만 나오는데, 이는 우편 발송용이라 의도된 동작입니다. 합쳐진 건수는 화면에 안내 메시지로 표시됩니다.
+                </div>
+
+                <div class="tip-box">
+                    <strong>알아두세요</strong><br>
+                    퇴비 자료는 토양과 <strong>따로 저장</strong>됩니다. 설정 화면의 전체 내보내기와 연도별 데이터 삭제는 두 종류를 <strong>함께</strong> 처리하므로, 백업을 받으면 퇴비 자료도 같이 저장됩니다.
+                </div>
+            </div>
+
+            <!-- 11. 자주 묻는 질문 -->
             <div class="section" id="faq">
-                <h2><span class="icon">❓</span> 10. 자주 묻는 질문</h2>
+                <h2><span class="icon">❓</span> 11. 자주 묻는 질문</h2>
 
                 <details class="faq-item">
                     <summary>입력한 내용이 안 보여요 / 데이터가 사라졌어요</summary>
@@ -1394,7 +1454,7 @@
         </div>
 
         <div class="footer">
-            <p>토양 시료 접수 대장 v1.10.14</p>
+            <p>토양·퇴비 시료 접수 대장 v1.11.0</p>
         </div>
     </div>
     <script type="module" src="../shared/frame-guard.js"></script>

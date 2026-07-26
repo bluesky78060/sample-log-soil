@@ -164,4 +164,37 @@ test.describe('설명서 캡처', () => {
     await page.screenshot({ path: path.join(OUT, 'step-13-import-modal.png') });
     await clearAnnotations(page);
   });
+
+  // SLS-1-194: 퇴비 섹션용 캡처.
+  // 이 매뉴얼은 "화면을 보면서 그대로 따라 하면"을 표방하므로 신규 기능 섹션만
+  // 이미지가 없으면 대상 독자(비숙련 사용자)에게 가장 불친절해진다.
+  test('섹션10-a: 퇴비 접수 입력 화면', async ({ page }) => {
+    await gotoAndWait(page, '/compost/');
+    await annotate(page, [
+      { selector: '#receptionNumber', number: 1, label: '접수번호 (자동)' },
+      { selector: '#date', number: 2, label: '접수일자' },
+      { selector: '#applicantType', number: 3, label: '개인 / 법인 구분' },
+    ]);
+    await page.screenshot({ path: path.join(OUT, 'step-14-compost-register.png') });
+    await clearAnnotations(page);
+  });
+
+  test('섹션10-b: 퇴비 접수 목록', async ({ page }) => {
+    const year = new Date().getFullYear();
+    await page.addInitScript((y) => {
+      localStorage.setItem(`compostSampleLogs_${y}`, JSON.stringify([
+        { id: 'demo-1', receptionNumber: '101', date: `${y}-07-10`, name: '홍길동',
+          phoneNumber: '010-1234-5678', addressRoad: '경상북도 봉화군 봉화읍 행복로 12',
+          animalType: '소', applicantType: '개인', isComplete: false },
+        { id: 'demo-2', receptionNumber: '102', date: `${y}-07-12`, name: '김철수',
+          phoneNumber: '010-2345-6789', addressRoad: '경상북도 봉화군 물야면 오전리 45',
+          animalType: '돼지', applicantType: '개인', isComplete: false },
+      ]));
+    }, year);
+    await gotoAndWait(page, '/compost/');
+    const listBtn = page.locator('#navListBtn, [data-view="list"]').first();
+    if (await listBtn.count()) await listBtn.click();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(OUT, 'step-15-compost-list.png') });
+  });
 });

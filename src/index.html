@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>토양 시료 접수 대장</title>
+    <title>토양·퇴비 시료 접수 대장</title>
     <!-- 폰트 preconnect 및 preload로 성능 최적화 (bundle-defer-third-party) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -249,9 +249,11 @@
         }
 
         .sample-type-card.soil::before { background: linear-gradient(135deg, #22C55E, #16A34A); }
+        .sample-type-card.compost::before { background: linear-gradient(135deg, #A16207, #854D0E); }
         .sample-type-card.heuktoram::before { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
 
         .sample-type-card:hover.soil { border-color: #22C55E; box-shadow: 0 20px 50px rgba(34, 197, 94, 0.2); }
+        .sample-type-card:hover.compost { border-color: #A16207; box-shadow: 0 20px 50px rgba(161, 98, 7, 0.2); }
         .sample-type-card:hover.heuktoram { border-color: #8B5CF6; box-shadow: 0 20px 50px rgba(139, 92, 246, 0.2); }
 
         .card-icon {
@@ -1055,7 +1057,7 @@
 
     <div class="container">
         <div class="header">
-            <h1>토양 시료 접수 대장</h1>
+            <h1>토양·퇴비 시료 접수 대장</h1>
             <p>분석할 메뉴를 선택해주세요</p>
         </div>
 
@@ -1065,6 +1067,14 @@
                 <img class="card-icon" src="assets/icons/soil.svg" alt="토양">
                 <div class="card-title">토양</div>
                 <div class="card-description">논, 밭, 과수, 시설 토양 분석<br>(흙토람 결과 가져오기 포함)</div>
+                <span class="card-status active">● 사용 가능</span>
+            </a>
+
+            <!-- 가축분뇨 퇴비 -->
+            <a href="compost/index.html" class="sample-type-card compost">
+                <img class="card-icon" src="assets/icons/compost.svg" alt="가축분뇨 퇴비">
+                <div class="card-title">가축분뇨 퇴비</div>
+                <div class="card-description">퇴·액비 부숙도 검사 위탁서</div>
                 <span class="card-status active">● 사용 가능</span>
             </a>
 
@@ -1102,11 +1112,45 @@
                 </div>
             </aside>
 
+            <!-- 퇴비 통계 패널 -->
+            <aside class="stats-panel" id="compostStatsPanel" aria-label="가축분뇨 퇴비 시료 통계">
+                <div class="stats-panel-header">
+                    <span class="stats-panel-title">퇴비 통계</span>
+                    <span class="stats-panel-year" id="compostStatsYear">—</span>
+                </div>
+                <div class="stats-rows" id="compostStatsRows">
+                    <div class="stats-row">
+                        <span class="stats-row-label">올해 접수</span>
+                        <span class="stats-row-value" id="compostStatsTotal">—<span class="unit">건</span></span>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-row-label">이번 달 접수</span>
+                        <span class="stats-row-value accent-green" id="compostStatsMonth">—<span class="unit">건</span></span>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-row-label">완료율</span>
+                        <span class="stats-row-value" id="compostStatsCompleteRate">—<span class="unit">%</span></span>
+                    </div>
+                    <div class="stats-progress">
+                        <div class="stats-progress-bar" id="compostStatsProgressBar" style="width: 0%"></div>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-row-label">미완료</span>
+                        <span class="stats-row-value accent-amber" id="compostStatsIncomplete">—<span class="unit">건</span></span>
+                    </div>
+                </div>
+                <div class="stats-empty" id="compostStatsEmpty" style="display: none;">
+                    아직 등록된 퇴비 시료가 없습니다.<br>
+                    <strong>가축분뇨 퇴비</strong> 카드를 눌러 시료를 등록하면<br>
+                    여기에 통계가 표시됩니다.
+                </div>
+            </aside>
+
         </div>
 
         <div class="footer">
             <p id="orgNameDisplay"></p>
-            <p class="version-info" id="appVersion">v1.10.14</p>
+            <p class="version-info" id="appVersion">v1.11.0</p>
             <!-- 클라우드 동기화 상태 -->
             <p class="sync-status" id="syncStatus" style="display: none;">
                 <span class="sync-icon">☁️</span>

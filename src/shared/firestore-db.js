@@ -2,8 +2,10 @@
  * @fileoverview Firestore 데이터베이스 CRUD 모듈 (compat 버전)
  * @description 시료 데이터의 Firestore 저장/조회/수정/삭제 기능
  *
- * 컬렉션 구조 (토양 전용 분리본):
+ * 컬렉션 구조 (지원 시료 2종):
  * - soilSamples_{year}: 연도별 토양 시료
+ * - compostSamples_{year}: 연도별 가축분뇨 퇴비 시료
+ * - compostTestResults_{year}: 연도별 퇴비 검정결과
  */
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
@@ -29,9 +31,14 @@ const DEBUG_FIRESTORE = (() => {
 /** 조건부 로깅 */
 const logFirestore = (...args) => DEBUG_FIRESTORE && console.log('[Firestore]', ...args);
 
-// 컬렉션 이름 매핑 — 토양 전용 분리본: soil 단일 (호출 인자 전수 'soil' 검증, SLS-1-134)
+// 컬렉션 이름 매핑 — 토양 + 가축분뇨 퇴비 (SLS-1-192)
+// 'compost'를 명시하지 않으면 폴백(`compost_2026`)으로 저장되어 통합본(`compostSamples_2026`)과
+// 컬렉션이 갈라진다. 사후 수정에는 Firestore 마이그레이션이 필요하므로 반드시 명시할 것.
 const COLLECTION_MAP = {
-    'soil': 'soilSamples'
+    'soil': 'soilSamples',
+    'compost': 'compostSamples',
+    // 항등 매핑 — 폴백과 결과가 같으며 통합본 parity 목적으로만 유지
+    'compostTestResults': 'compostTestResults'
 };
 
 /**

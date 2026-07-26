@@ -747,6 +747,18 @@ function setTodayDate(dateInput) {
 }
 
 /**
+ * 레거시 "(우편번호) 주소" 문자열 분리
+ * BaseSampleManager.applyLegacyAddress가 의존 (SLS-1-192 백포트)
+ * @param {string|null} address - 레거시 주소 문자열 (예: '(36231) 경북 봉화군 봉화읍 내성로 39')
+ * @returns {{postcode: string|null, road: string|null}}
+ */
+function splitLegacyAddress(address) {
+    if (!address) return { postcode: null, road: null };
+    const m = address.match(/^\((\d{5})\)\s*(.+)$/);
+    return m ? { postcode: m[1], road: m[2] } : { postcode: null, road: address };
+}
+
+/**
  * UUID 생성 (간단한 버전)
  * @returns {string} UUID
  */
@@ -973,5 +985,6 @@ window.SampleUtils = {
     // 유틸리티
     createLogger,
     setTodayDate,
+    splitLegacyAddress,
     generateUUID
 };

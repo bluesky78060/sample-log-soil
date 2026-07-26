@@ -120,5 +120,12 @@ feedback-auth.json
 playwright-report/
 test-results/
 
-# 코드리뷰 아티팩트(빌드 outDir, 비커밋)
+# 플랜/리뷰 아티팩트 (빌드 outDir 아래라 emptyOutDir로 지워짐, 비커밋)
+# 스테이징에 딸려 들어가면 다음 빌드가 지우면서 유령 삭제 커밋이 따라온다.
+docs/00-discovery/
+docs/01-plan/
+docs/02-review/
 docs/03-code-review/
+
+# 코드베이스 분석 도구 산출물
+.understand-anything/

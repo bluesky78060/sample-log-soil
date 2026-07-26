@@ -64,9 +64,13 @@ window.addEventListener('offline', updateSyncStatus);
 // ========================================
 // 전체 동기화 기능
 // ========================================
-// 토양 전용 분리본 — 토양 한 종만 동기화 (settings-script.js SAMPLE_TYPES와 동일 종 목록, 필드명은 type vs key로 상이)
+// 토양 + 가축분뇨 퇴비 동기화
+// settings-script.js SAMPLE_TYPES와 종 목록은 동일하나, 필드명(type vs key)과
+// 표시명('퇴·액비' vs '가축분뇨퇴비')은 화면별로 상이하다 (통합본 관행 계승).
+// SLS-1-192: compost 누락 시 "전체 동기화"가 퇴비를 건너뛰면서 사용자는 동기화됐다고 인식한다.
 const SAMPLE_TYPES = [
-    { type: 'soil', name: '토양', icon: '🌱', storagePrefix: 'soilSampleLogs' }
+    { type: 'soil', name: '토양', icon: '🌱', storagePrefix: 'soilSampleLogs' },
+    { type: 'compost', name: '퇴·액비', icon: '🐄', storagePrefix: 'compostSampleLogs' }
 ];
 
 const MIN_YEAR = 2020;

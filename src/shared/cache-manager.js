@@ -22,14 +22,28 @@ const CacheManager = (function() {
 
     // 시료 데이터 키 패턴 (이 패턴의 데이터가 클리어 대상)
     // 연도 포함 키(예: soilSampleLogs_2026)와 레거시 키(예: waterSampleLogs) 모두 매칭
-    // ⚠️ 타 시료 4종은 의도적 유지 (SLS-1-134): 5종 통합본(sample-log-electron)에서 넘어온
-    //    사용자의 localStorage에 남은 잔존 키를 캐시 정리 때 함께 지워주는 정리 로직.
-    //    제거하면 그 레거시 키들이 영구 잔존하므로 삭제 금지.
+    //
+    // ⚠️ compostSampleLogs는 목록에서 제외됨 (SLS-1-192)
+    //    퇴비는 이 저장소의 **정식 지원 시료 종**이 되었다. 여기에 남겨두면 금요일 자동 캐시
+    //    클리어가 사용자의 신규 퇴비 데이터를 삭제한다. 절대 다시 추가하지 말 것.
+    //    같은 이유로 compostTestResults(퇴비 검정결과, SLS-1-195)도 추가 금지. 현재는 위 패턴
+    //    어느 것과도 startsWith 매칭되지 않아 우연히 보호되고 있을 뿐이므로 명시해 둔다.
+    //
+    // ⚠️ 나머지 3종(water/pesticide/heavyMetal)은 의도적 유지 (SLS-1-134): 5종 통합본
+    //    (sample-log-electron)에서 넘어온 사용자의 localStorage 잔존 키를 캐시 정리 때 함께
+    //    지워주는 정리 로직. 제거하면 그 레거시 키들이 영구 잔존하므로 삭제 금지.
+    //    (퇴비 제외로 인해 통합본 출신 레거시 compostSampleLogs_* 키는 영구 보존되지만,
+    //     퇴비가 정식 기능인 이상 그것은 부작용이 아니라 유실 방지다.)
+    //
+    // TODO(후속 티켓): clearCache()는 여전히 soilSampleLogs*를 지우며, 삭제 후 안내가
+    //    "새로고침하면 Firebase에서 다시 불러옵니다"인 데서 보듯 Firebase가 진실의 원천이라는
+    //    전제 위에 있다. 그러나 firebase-auth.json은 빈 placeholder가 기본이라 미설정 센터에는
+    //    복구 경로가 없다. 시료 데이터 삭제를 window.firestoreDb?.isEnabled() 게이트 뒤로
+    //    옮길 것. (이 결함은 SLS-1-192 이전부터 존재)
     const SAMPLE_DATA_PATTERNS = [
         'soilSampleLogs',
         'waterSampleLogs',
         'pesticideSampleLogs',
-        'compostSampleLogs',
         'heavyMetalSampleLogs'
     ];
 

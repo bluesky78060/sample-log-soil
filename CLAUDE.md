@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-토양 시료 접수 대장 (Soil Sample Log) — **토양 분석 전용** 시료 접수/관리 시스템 (전국 농업기술센터·분석기관 배포용). **Electron 데스크톱 + GitHub Pages 웹** 듀얼 환경.
+토양 시료 접수 대장 (Soil Sample Log) — **토양 + 가축분뇨 퇴비(퇴·액비 부숙도)** 시료 접수/관리 시스템 (전국 농업기술센터·분석기관 배포용). **Electron 데스크톱 + GitHub Pages 웹** 듀얼 환경.
 
 > 본 저장소는 [`sample-log-electron`](https://github.com/bluesky78060/sample-log-electron)(5종 시료 통합본)에서 토양 부분만 분리한 독립 프로젝트입니다. v1.0.0 = 2026-05-08 신규 출발.
+> 2026-07-26 퇴비를 다시 이식해 **지원 시료 종은 2종**입니다 (SLS-1-192 shared 계약 정렬 → SLS-1-195 페이지 이식).
 
 ## AI PM 작업 관리 (필수, Hook 강제)
 
@@ -86,7 +87,8 @@ src/
 ├── main-stats.js          # 메인 페이지 통계 패널 (ES 모듈, CSP 정책 준수)
 ├── shared/                # 공통 모듈 (~26개, window.* 전역 노출)
 ├── styles/                # Tailwind input
-├── soil/                  # 토양 시료 페이지 (단일 시료 타입)
+├── soil/                  # 토양 시료 페이지
+├── compost/               # 가축분뇨 퇴비(퇴·액비 부숙도) 페이지
 ├── heuktoram/             # 흙토람 검정결과 가져오기 (토양 페이지에서 진입)
 └── {settings,label-print,manual,release}/
 
@@ -95,21 +97,27 @@ tests/{e2e,unit}/          # Playwright + vitest
 .github/workflows/build.yml  # 태그 push 시 Windows installer 자동 빌드
 ```
 
-### Sample Type (Soil only) Pattern
+### Sample Type Pattern (토양 / 퇴비 2종)
 
 ```text
-src/soil/
-├── index.html
-├── soil-script.js    # 비즈니스 로직 (BaseSampleManager 상속)
-└── soil-style.css
+src/soil/                     src/compost/
+├── index.html                ├── index.html
+├── soil-script.js            ├── compost-entry.js   # vite entry (frame-guard 최상단 import)
+└── soil-style.css            ├── compost-script.js  # BaseSampleManager 상속
+                              └── compost-style.css
 ```
 
 스크립트 필수 상수:
 ```javascript
-const SAMPLE_TYPE = '토양';
-const STORAGE_KEY = 'soilSampleLogs';
-const AUTO_SAVE_FILE = 'soil-autosave.json';
+// soil                                  // compost
+const SAMPLE_TYPE = '토양';              const SAMPLE_TYPE = 'compost';
+const STORAGE_KEY = 'soilSampleLogs';    const STORAGE_KEY = 'compostSampleLogs';
+const AUTO_SAVE_FILE = 'soil-autosave.json';  const AUTO_SAVE_FILE = 'compost-autosave.json';
 ```
+
+**완료 필드 규약**: 두 종 모두 `isComplete`를 쓴다. base의 `migrateCompletedField`는 `completed`를
+채우므로 soil은 자체 오버라이드로, compost는 **no-op 오버라이드**로 우회한다. 그대로 두면
+`loadYearData`마다 무의미한 `completed:false`가 주입되어 Firestore 문서까지 오염된다.
 
 초기화: `DOMContentLoaded` → FileAPI → Firebase/자동저장 병렬 init → UI.
 
@@ -140,16 +148,38 @@ const AUTO_SAVE_FILE = 'soil-autosave.json';
 
 ```text
 localStorage (Primary, 오프라인 우선)
-├── soilSampleLogs_{year}  → 연도별 토양 시료 데이터 (JSON 배열)
-├── soilItemsPerPage       → 페이지 설정
-└── firebase_config        → Firebase 설정
+├── soilSampleLogs_{year}       → 연도별 토양 시료 데이터 (JSON 배열)
+├── compostSampleLogs_{year}    → 연도별 퇴비 시료 데이터
+├── compostTestResults_{year}   → 연도별 퇴비 검정결과
+├── soilItemsPerPage            → 페이지 설정
+└── firebase_config             → Firebase 설정
 
 Firestore (Optional Sync)
-└── soilSamples_{year}     → 연도별 컬렉션
+├── soilSamples_{year}          → 연도별 컬렉션
+├── compostSamples_{year}
+└── compostTestResults_{year}
 
 JSON File (Auto-save, Electron only)
-└── auto-save-soil-{year}.json
+├── auto-save-soil-{year}.json
+└── auto-save-compost-{year}.json
 ```
+
+### ⚠️ 시료 종 추가 시 갱신해야 하는 레지스트리 6곳
+
+여기서 **하나라도 빠지면 조용한 데이터 유실 또는 컴플라이언스 오보**가 된다. 전부 실제로 사고가
+났던 지점이다 (SLS-1-192, SLS-1-195).
+
+| # | 파일 | 누락 시 결과 |
+| --- | --- | --- |
+| 1 | `src/index.js` `ALLOWED_TYPES` | 자동저장 경로 검증 실패 → 자동저장이 조용히 안 됨 |
+| 2 | `src/shared/firestore-db.js` `COLLECTION_MAP` | 폴백으로 다른 컬렉션명 생성 → 통합본과 갈라짐, 사후 수정에 마이그레이션 필요 |
+| 3 | `src/shared/main-init.js` `SAMPLE_TYPES` | "전체 동기화"가 건너뜀 (사용자는 동기화됐다고 인식) |
+| 4 | `src/settings/settings-script.js` `SAMPLE_TYPES` | 백업·내보내기에서 제외 → 사용자가 백업했다고 믿고 PC 교체 시 유실. **연도별 삭제(purgeYearData)도 이 목록을 쓴다** — 빠지면 "삭제 완료" 안내 후 개인정보가 잔존 |
+| 5 | `src/shared/cache-manager.js` `SAMPLE_DATA_PATTERNS` | **반대로 넣으면 안 된다.** 정식 지원 종을 넣으면 금요일 자동 캐시 클리어가 사용자 데이터를 삭제 |
+| 6 | `vite.config.js` `rollupOptions.input` | 페이지가 빌드 산출물에 포함되지 않음 |
+
+부속 데이터(검정결과 등)는 `settings-script.js`의 `extraKeys`에 등록한다 — 백업과 연도별 삭제
+양쪽에서 함께 처리된다.
 
 ## Critical Constraints
 

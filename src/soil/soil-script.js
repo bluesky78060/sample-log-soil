@@ -4966,16 +4966,60 @@ class SoilSampleManager extends window.BaseSampleManager {
             }
         });
 
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(sanitizeExcelData(excelData));
-        ws['!cols'] = [
+        // 코드리뷰 MINOR-4: 시트 분리로 실패 표면이 1 → N+1로 늘었다. throw가 클릭 핸들러
+        // 밖으로 나가면 무반응으로 죽으므로(198이 labelPrintData에서 고친 그 양식) 안내한다.
+        try {
+            const wb = this._buildExportWorkbook(excelData);
+            const today = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(wb, `토양_접수대장_${today}.xlsx`);
+        } catch (e) {
+            (window.logger?.error || console.error)('엑셀 내보내기 실패:', e);
+            this.showToast('엑셀 파일을 만들지 못했습니다. 경지구분 값에 사용할 수 없는 문자가 있는지 확인해 주세요.', 'error');
+        }
+    }
+
+    /**
+     * SLS-1-199: 접수대장 워크북 조립 — 첫 시트는 전체 목록(하위 호환),
+     * 이후 경지구분1차별 시트. 순서는 LAND_CLASS1_OPTIONS 순 → 목록 외 값(가져오기 유래)은
+     * 데이터 등장 순. 시트명은 window.SheetName.sanitizeSheetName으로 정규화한다.
+     * @param {Array<Object>} excelData - '경지구분1차' 필드가 채워진 행 배열
+     * @returns {Object} XLSX workbook
+     */
+    _buildExportWorkbook(excelData) {
+        const EXPORT_COLS = [
             { wch: 14 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 15 },
             { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 25 }, { wch: 30 }, { wch: 15 },
             { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 8 }, { wch: 18 }
         ];
-        XLSX.utils.book_append_sheet(wb, ws, '시료접수대장');
-        const today = new Date().toISOString().slice(0, 10);
-        XLSX.writeFile(wb, `토양_접수대장_${today}.xlsx`);
+        const wb = XLSX.utils.book_new();
+        const usedSheetNames = new Set();
+        const appendSheet = (rows, name) => {
+            const ws = XLSX.utils.json_to_sheet(sanitizeExcelData(rows));
+            // 배열 참조 공유 방지 — 향후 시트별 너비 조정이 전 시트에 전파되지 않도록 복사
+            ws['!cols'] = EXPORT_COLS.map(c => ({ ...c }));
+            XLSX.utils.book_append_sheet(wb, ws, window.SheetName.sanitizeSheetName(name, usedSheetNames));
+        };
+
+        appendSheet(excelData, '시료접수대장');   // 전체 (기존과 동일)
+
+        // '경지구분1차'는 excelData 생성 3곳 모두 landClass1 || LAND_CLASS1_DEFAULT로 채우므로
+        // 빈 행이 없다 — 폴백은 방어용
+        const groups = new Map();
+        excelData.forEach(row => {
+            const key = row['경지구분1차'] || LAND_CLASS1_DEFAULT;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(row);
+        });
+        const orderedKeys = [
+            ...LAND_CLASS1_OPTIONS.filter(k => groups.has(k)),
+            ...[...groups.keys()].filter(k => !LAND_CLASS1_OPTIONS.includes(k))
+        ];
+        // 코드리뷰 MAJOR-1: 그룹이 1종이면 전체 시트와 내용이 동일하다 — 특히 기본 탭이
+        // '농가의뢰'라 탭을 바꾸지 않은 대다수 사용자가 무의미한 중복 시트 2장을 받게 된다.
+        // 분리는 구분이 2종 이상일 때(사실상 '전체' 탭 내보내기)만 발동한다.
+        if (orderedKeys.length <= 1) return wb;
+        orderedKeys.forEach(key => appendSheet(groups.get(key), key));
+        return wb;
     }
 
     // ========================================

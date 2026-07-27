@@ -43,6 +43,8 @@ import './reception-number.js';
 import './soil-log-record.js';
 // 완료 그룹핑 순수 로직 (soil-script.js 전 — window.ReceptionGroup 준비)
 import './reception-group.js';
+// 시트명 정규화 순수 로직 (soil-script.js 전 — window.SheetName 준비, SLS-1-199)
+import './sheet-name.js';
 
 // Main script
 import './soil-script.js';

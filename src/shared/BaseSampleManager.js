@@ -47,6 +47,8 @@ class BaseSampleManager {
         this._firebaseCacheTTL = 30000;   // PER-9: 캐시 유효 시간 (30초)
         this._firebaseCacheMax = 5;       // 메모리 누수 방지: 캐시 보관 연도 상한
         this._cloudSyncFailed = false;       // L2: 클라우드 동기화 실패 상태 (중복 토스트 방지)
+        this._localSaveFailed = false;       // SLS-1-198: 직전 saveLogs의 localStorage 기록 실패 여부
+        this._cloudSyncFailedSevere = false; // SLS-1-198: 동시 실패(전면 유실) 경고를 이미 냈는지
         this._retryCloudSyncHandler = null;  // L2: online 복귀 재시도 리스너 참조
         this.cloudSyncPromise = null;  // Promise-based lock
         this._hashChangeHandler = null;   // destroy()에서 해제하기 위한 핸들러 참조
@@ -239,17 +241,30 @@ class BaseSampleManager {
         }));
 
         // 로컬 저장 먼저 (UI 블로킹 방지)
+        // SLS-1-198: quota 초과 시 return하지 않는다. 여기서 끊으면 아래의
+        // Firebase 동기화·자동저장 파일·카운트·onAfterSave 훅이 전부 함께 죽어,
+        // 가장 작은 저장소(5~10MB)의 포화가 사실상 무제한인 나머지 경로까지 도미노로 막았다.
+        // 메모리상 sampleLogs는 최신이므로 클라우드/파일에 올려도 정합성 문제가 없고,
+        // 다음 로드 시 loadYearData의 클라우드 병합이 로컬을 복원한다.
+        this._localSaveFailed = false;
         try {
             localStorage.setItem(yearStorageKey, JSON.stringify(this.sampleLogs));
             this.log('💾 로컬 저장 완료:', this.sampleLogs.length, '건');
+            this._warnIfStorageNearFull();
         } catch (e) {
             if (e.name === 'QuotaExceededError' || e.code === 22) {
                 (window.logger?.warn || console.warn)('localStorage 용량 초과:', e);
-                this.showToast('저장 공간이 부족합니다. 오래된 연도의 데이터를 정리해 주세요.', 'error');
-                return;
+                this._localSaveFailed = true;
+                this._notifyQuotaExceeded();
+            } else {
+                throw e;
             }
-            throw e;
         }
+
+        // M-2(레이스) 방어: batchSave의 .then/.catch는 saveLogs 반환 후 정착하므로,
+        // 그 사이 다음 saveLogs가 인스턴스 플래그를 리셋할 수 있다. 이 호출의 상황을
+        // 지역 변수로 캡처해 인자로 전달한다.
+        const localSaveFailed = this._localSaveFailed;
 
         // Firebase 백그라운드 동기화 (UI 비블로킹 — 실패 시 토스트 + online 재시도)
         // 주의: batchSave는 실패 시 throw가 아닌 false 반환 → 반환값 검사 필수
@@ -261,12 +276,12 @@ class BaseSampleManager {
                         this._clearCloudSyncFailure();
                         this.log('Firebase 동기화 완료:', this.sampleLogs.length, '건');
                     } else {
-                        this._handleCloudSyncFailure();
+                        this._handleCloudSyncFailure(localSaveFailed);
                     }
                 })
                 .catch(err => {
                     (window.logger?.error || console.error)('Firebase 동기화 실패:', err);
-                    this._handleCloudSyncFailure();
+                    this._handleCloudSyncFailure(localSaveFailed);
                 });
         }
 
@@ -291,38 +306,139 @@ class BaseSampleManager {
         // 로컬 삭제 먼저 (UI 블로킹 방지)
         this.sampleLogs = this.sampleLogs.filter(l => String(l.id) !== String(id));
         await this.saveLogs();
+        // SLS-1-198: saveLogs가 동기 구간에서 플래그를 세우므로 직후 캡처가 안전.
+        // 비동기 삭제 콜백에는 인스턴스 플래그 대신 이 캡처 값을 전달한다(레이스 방어 — saveLogs와 동일).
+        const localSaveFailed = this._localSaveFailed;
         this.filterAndRenderLogs();
-        this.showToast('삭제되었습니다.', 'success');
+        // quota로 로컬 기록이 실패했으면 success 토스트가 quota 경고와 나란히 떠 모순된다
+        if (!localSaveFailed) {
+            this.showToast('삭제되었습니다.', 'success');
+        }
 
         // Firebase 삭제 (백그라운드 — 실패 시 다음 병합에서 항목이 부활할 수 있으므로 사용자에게 알림)
         if (window.firestoreDb?.isEnabled()) {
             window.firestoreDb.delete(this.moduleKey, parseInt(this.selectedYear, 10), String(id))
                 .then(ok => {
                     if (ok) this.log('Firebase 삭제 완료:', id);
-                    else this._handleCloudSyncFailure();
+                    else this._handleCloudSyncFailure(localSaveFailed);
                 })
                 .catch(err => {
                     (window.logger?.error || console.error)('Firebase 삭제 실패:', err);
-                    this._handleCloudSyncFailure();
+                    this._handleCloudSyncFailure(localSaveFailed);
                 });
         }
     }
 
     /**
+     * SLS-1-198: 이 인스턴스에서 실제로 동작 가능한 백업 경로 판정.
+     * window.isElectron만으로는 부족하다 — 자동저장이 비활성이거나 폴더/파일 핸들이
+     * 없으면 Electron이어도 파일에 아무것도 쓰이지 않아 "파일에 보관됩니다"가 거짓이 된다.
+     * 웹도 File System Access(autoSaveFileHandle)로 파일 자동저장이 가능하다.
+     * 서브클래스가 autoSaveFileHandle을 선언하지 않아도 !!undefined === false로
+     * 보수적(백업 없음) 판정이라 거짓 안심이 나가지 않는다.
+     */
+    _getBackupAvailability() {
+        // 코드리뷰 MAJOR-2: 웹 분기는 "핸들 보유"가 아니라 "저장 시 실제로 파일에 쓰는가"로
+        // 판정한다. base의 triggerAutoSave는 Electron 전용이라, base를 그대로 쓰는 서브클래스
+        // (퇴비)는 웹에서 파일 자동저장 경로가 없다 — 핸들만 보고 "파일에 기록됩니다"라고 하면
+        // 거짓 안심이다. 웹 저장-시-기록을 자체 구현한 서브클래스(soil)만 생성자에서
+        // _webAutoSaveOnSave = true를 선언한다. 미선언은 undefined → false (보수적 판정).
+        const fileBackupAvailable =
+            localStorage.getItem(`${this.moduleKey}AutoSaveEnabled`) === 'true' &&
+            (window.isElectron
+                ? !!this.FileAPI?.autoSavePath
+                : (this._webAutoSaveOnSave === true && !!this.autoSaveFileHandle));
+        const cloudBackupAvailable = window.firestoreDb?.isEnabled() === true;
+        return { fileBackupAvailable, cloudBackupAvailable };
+    }
+
+    /**
+     * SLS-1-198: quota 초과 시 실제 상황에 맞는 안내.
+     * @param {Object} [opts]
+     * @param {boolean} [opts.cloudWritesInThisPath=true] - 이 saveLogs 경로가 클라우드에
+     *        직접 올리는지. soil 오버라이드는 업로드를 호출부(firebaseSaveRecords)가 하므로
+     *        false를 넘겨 "클라우드에 동기화됩니다" 문구를 억제한다(과대 판정 방지).
+     */
+    _notifyQuotaExceeded({ cloudWritesInThisPath = true } = {}) {
+        const { fileBackupAvailable, cloudBackupAvailable } = this._getBackupAvailability();
+        // 코드리뷰 MAJOR-1: 이미 클라우드 장애를 알고 있으면(_cloudSyncFailed) 클라우드를
+        // 백업으로 세지 않는다 — 네트워크 다운 + quota 동시 상황에서 "클라우드에 기록됩니다"는
+        // 거짓 안심이며, 실제로는 어디에도 저장되지 않는다.
+        const cloud = cloudBackupAvailable && cloudWritesInThisPath && !this._cloudSyncFailed;
+        if (cloud || fileBackupAvailable) {
+            // 파일 자동저장은 3초 지연 기록이므로 미래형으로 쓴다
+            const dest = cloud && fileBackupAvailable ? '클라우드와 자동저장 파일에'
+                : cloud ? '클라우드에' : '자동저장 파일에';
+            this.showToast(
+                `브라우저 저장 공간이 가득 찼습니다. 데이터는 ${dest} 기록됩니다. 설정에서 오래된 연도의 데이터를 정리해 주세요.`,
+                'warning'
+            );
+        } else {
+            this.showToast(
+                '저장 공간이 부족하여 데이터가 저장되지 않습니다. 즉시 JSON 저장으로 백업한 뒤 오래된 연도의 데이터를 정리해 주세요.',
+                'error'
+            );
+        }
+    }
+
+    /**
+     * SLS-1-198: 임계 도달 전 사전 경고 (세션당 1회).
+     * 기존 헬퍼(SampleUtils.getLocalStorageUsage — safeSetJSON도 사용 중)를 재사용한다.
+     * 옵셔널 체이닝: 유닛 테스트 환경(utils.js 미로드)에서는 자연히 스킵되어
+     * setup.js의 localStorage 목(for-in 열거 불가)과 충돌하지 않는다.
+     */
+    _warnIfStorageNearFull() {
+        try {
+            // 스로틀을 사용량 계산 앞에 둔다 — 경고가 발동한 뒤에는 전체 localStorage 순회를
+            // 생략한다. 80% 미만 구간에서는 매 저장마다 순회가 그대로 일어나므로,
+            // 이 재배치가 없애는 것은 "80%+에서 계속 저장하는" 최악 구간의 비용이다.
+            // (대상 사용자가 정확히 "저장소가 큰 사람"이라 체감 비용이 가장 큰 곳)
+            if (sessionStorage.getItem('storageQuotaWarned')) return;
+            const usage = window.SampleUtils?.getLocalStorageUsage?.();
+            // 코드리뷰 MINOR-2: NaN < 80은 false라 계산이 깨지면 경고가 새어 나온다("NaN%").
+            // fail-open 대신 유한값일 때만 판정한다.
+            if (!Number.isFinite(usage?.percent) || usage.percent < 80) return;
+            sessionStorage.setItem('storageQuotaWarned', '1');
+            this.showToast(
+                `저장 공간의 ${usage.percent}%를 사용 중입니다. 설정에서 오래된 연도의 데이터를 정리해 주세요.`,
+                'warning'
+            );
+        } catch (_) { /* 사전 경고는 실패해도 저장 흐름에 영향 없음 */ }
+    }
+
+    /**
      * L2: 클라우드 동기화 실패 처리 — 사용자 알림 + 온라인 복귀 시 1회 자동 재시도
      * batchSave/delete는 실패 시 false를 반환하므로 호출부에서 이 메서드를 호출한다.
+     * @param {boolean} [localSaveFailed=false] - 같은 저장 시도에서 localStorage 기록도
+     *        실패했는지. SLS-1-198: 인스턴스 플래그가 아니라 **호출 시점에 캡처된 값**을
+     *        받는다 — 비동기 콜백에서 인스턴스 상태를 읽으면 다음 saveLogs가 플래그를
+     *        리셋한 뒤 옛 실패 콜백이 도착하는 인터리브에서 오판한다.
      */
-    _handleCloudSyncFailure() {
-        if (this._cloudSyncFailed) return;  // 이미 알림/재시도 대기 중이면 중복 방지
+    _handleCloudSyncFailure(localSaveFailed = false) {
+        // 코드리뷰 MAJOR-1: 중복 방지 가드가 "완만한 실패"(클라우드만) 경고 이후에 도착한
+        // "동시 실패"(전면 유실) 경고까지 삼키면 안 된다 — 심각도 승격은 1회 허용한다.
+        if (this._cloudSyncFailed && !(localSaveFailed && !this._cloudSyncFailedSevere)) return;
+        if (localSaveFailed) this._cloudSyncFailedSevere = true;
         this._cloudSyncFailed = true;
-        this.showToast(
-            '클라우드 동기화 실패 — 데이터는 이 컴퓨터에 저장되어 있습니다. 온라인 연결 시 자동 재시도합니다.',
-            'error'
-        );
+        if (localSaveFailed) {
+            // 로컬·클라우드 동시 실패 — "이 컴퓨터에 저장되어 있습니다"는 거짓이 된다
+            this.showToast(
+                '저장에 실패했습니다 — 데이터가 아직 어디에도 저장되지 않았습니다. 즉시 JSON 저장으로 내보내 주세요.',
+                'error'
+            );
+        } else {
+            this.showToast(
+                '클라우드 동기화 실패 — 데이터는 이 컴퓨터에 저장되어 있습니다. 온라인 연결 시 자동 재시도합니다.',
+                'error'
+            );
+        }
         if (!this._retryCloudSyncHandler) {
             this._retryCloudSyncHandler = () => {
                 this._retryCloudSyncHandler = null;
                 this._cloudSyncFailed = false;
+                // 코드리뷰 MINOR-9: severe도 함께 리셋해야 새 장애 사이클에서 승격이 재허용된다.
+                // (여기서 빠뜨리면 stale severe가 다음 전면 유실 경고를 삼킨다)
+                this._cloudSyncFailedSevere = false;
                 this.log('🔁 온라인 복귀 — 클라우드 동기화 재시도');
                 this._retryCloudSyncAction();
             };
@@ -343,6 +459,7 @@ class BaseSampleManager {
      */
     _clearCloudSyncFailure() {
         this._cloudSyncFailed = false;
+        this._cloudSyncFailedSevere = false;   // SLS-1-198: 다음 장애 사이클에서 승격 재허용
         if (this._retryCloudSyncHandler) {
             window.removeEventListener('online', this._retryCloudSyncHandler);
             this._retryCloudSyncHandler = null;
@@ -1151,7 +1268,17 @@ class BaseSampleManager {
             this.showToast(`주소 중복 ${duplicateCount}건 제거됨 (총 ${uniqueLabelData.length}건)`, 'info');
         }
 
-        localStorage.setItem('labelPrintData', JSON.stringify(uniqueLabelData));
+        // SLS-1-198: quota 상태에서 무가드 setItem이 throw하면 아래 이동이 실행되지 않아
+        // 라벨 인쇄가 아무 반응 없이 죽는다. 실패를 알리고 이동을 중단한다.
+        try {
+            localStorage.setItem('labelPrintData', JSON.stringify(uniqueLabelData));
+        } catch (e) {
+            if (e.name === 'QuotaExceededError' || e.code === 22) {
+                this.showToast('저장 공간 부족으로 라벨 데이터를 전달하지 못했습니다. 설정에서 오래된 연도의 데이터를 정리해 주세요.', 'error');
+                return;
+            }
+            throw e;
+        }
         window.location.href = '../label-print/index.html';
     }
 

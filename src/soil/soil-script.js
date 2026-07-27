@@ -107,6 +107,9 @@ class SoilSampleManager extends window.BaseSampleManager {
         };
         this.isFullView = false;
         this.autoSaveFileHandle = null;
+        // SLS-1-198: 이 클래스는 웹에서도 저장 시 파일 자동저장을 수행한다
+        // (saveLogs 오버라이드가 autoSaveToFile 직접 호출) → 백업 판정에 반영
+        this._webAutoSaveOnSave = true;
         this.regionSelectionModalData = null;
         this.editingLogId = null;
         this.pendingMailDateIds = [];
@@ -525,16 +528,23 @@ class SoilSampleManager extends window.BaseSampleManager {
         });
 
         // 로컬 저장 (Firebase는 개별 변경 시 호출자에서 직접 처리)
+        // SLS-1-198: quota 초과 시 return하지 않는다. 이 오버라이드는 Firebase를 직접
+        // 올리지 않으므로, 여기서 끊으면 아래의 파일 자동저장 — Firebase 미설정 센터에서는
+        // **유일한 잔여 백업** — 까지 함께 죽는다. 토스트도 이 경로에서는 클라우드 문구를
+        // 억제한다(cloudWritesInThisPath: false — 업로드는 persistRecords→firebaseSaveRecords 담당).
+        this._localSaveFailed = false;
         try {
             localStorage.setItem(yearStorageKey, JSON.stringify(this.sampleLogs));
             this.log('로컬 저장 완료:', this.sampleLogs.length, '건');
+            this._warnIfStorageNearFull();
         } catch (e) {
             if (e.name === 'QuotaExceededError' || e.code === 22) {
                 (window.logger?.warn || console.warn)('localStorage 용량 초과:', e);
-                this.showToast('저장 공간이 부족합니다. 오래된 연도의 데이터를 정리해 주세요.', 'error');
-                return;
+                this._localSaveFailed = true;
+                this._notifyQuotaExceeded({ cloudWritesInThisPath: false });
+            } else {
+                throw e;
             }
-            throw e;
         }
 
         // 자동 저장 실행
@@ -721,7 +731,8 @@ class SoilSampleManager extends window.BaseSampleManager {
         const deleted = beforeCount - this.sampleLogs.length;
         await this.saveLogs();
         this.filterAndRenderLogs();
-        if (deleted > 0) {
+        // SLS-1-198: quota로 로컬 기록이 실패했으면 success 토스트가 quota 경고와 모순된다
+        if (deleted > 0 && !this._localSaveFailed) {
             this.showToast('삭제되었습니다.', 'success');
         }
 
@@ -772,7 +783,10 @@ class SoilSampleManager extends window.BaseSampleManager {
             this.receptionNumberInput.value = baseReceptionNumber;
         }
 
-        this.showToast(`${groupLogs.length}건이 삭제되었습니다. 접수번호 ${baseReceptionNumber}번으로 재입력할 수 있습니다.`, 'success');
+        // SLS-1-198: quota로 로컬 기록이 실패했으면 success 토스트 억제
+        if (!this._localSaveFailed) {
+            this.showToast(`${groupLogs.length}건이 삭제되었습니다. 접수번호 ${baseReceptionNumber}번으로 재입력할 수 있습니다.`, 'success');
+        }
     }
 
     // ========================================
@@ -3187,7 +3201,16 @@ class SoilSampleManager extends window.BaseSampleManager {
             this.showToast(`주소 중복 ${duplicateCount}건 제거됨 (총 ${uniqueLabelData.length}건)`, 'info');
         }
 
-        localStorage.setItem('labelPrintData', JSON.stringify(uniqueLabelData));
+        // SLS-1-198: quota 상태에서 throw하면 다음 줄 이동이 실행되지 않아 무반응으로 죽는다
+        try {
+            localStorage.setItem('labelPrintData', JSON.stringify(uniqueLabelData));
+        } catch (e) {
+            if (e.name === 'QuotaExceededError' || e.code === 22) {
+                this.showToast('저장 공간 부족으로 라벨 데이터를 전달하지 못했습니다. 설정에서 오래된 연도의 데이터를 정리해 주세요.', 'error');
+                return;
+            }
+            throw e;
+        }
         window.location.href = '../label-print/index.html';
     }
 
@@ -3942,12 +3965,32 @@ class SoilSampleManager extends window.BaseSampleManager {
         const autoSaveData = await window.loadFromAutoSaveFile();
         if (autoSaveData && autoSaveData.length > 0) {
             this.sampleLogs = autoSaveData;
-            localStorage.setItem(this.getStorageKey(this.selectedYear), JSON.stringify(this.sampleLogs));
+            // SLS-1-198: quota 사고의 복구 수단이 quota로 죽는 아이러니 차단 —
+            // 캐싱 실패해도 메모리 반영·렌더는 계속한다
+            this._safeSetYearStorage();
             this.filterAndRenderLogs();
             if (this.receptionNumberInput) {
                 this.receptionNumberInput.value = this.generateNextReceptionNumber();
             }
             this.log(`${this.selectedYear}년 자동 저장 데이터 로드:`, autoSaveData.length, '건');
+        }
+    }
+
+    /**
+     * SLS-1-198: 복원 경로 전용 — 연도 키 캐싱을 quota로부터 격리.
+     * 플랜 D-8b는 "try/catch + 토스트"였으나 **의도적으로 warn만 남긴다** — 복원 캐싱 실패는
+     * 화면 동작에 무해하고(메모리 데이터가 진실), 초기화 중 토스트는 사용자를 불필요하게
+     * 놀라게 한다. 이 이탈은 코드리뷰 MINOR-7에서 합리적 판단으로 확인됨.
+     */
+    _safeSetYearStorage() {
+        try {
+            localStorage.setItem(this.getStorageKey(this.selectedYear), JSON.stringify(this.sampleLogs));
+        } catch (e) {
+            if (e.name === 'QuotaExceededError' || e.code === 22) {
+                (window.logger?.warn || console.warn)('복원 데이터 캐싱 중 localStorage 용량 초과(무시):', e);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -4740,8 +4783,18 @@ class SoilSampleManager extends window.BaseSampleManager {
         const heuktoramBtn = document.getElementById('heuktoramBtn');
         if (heuktoramBtn) heuktoramBtn.addEventListener('click', () => {
             const selectedIds = this.getSelectedIds();
-            localStorage.setItem('heuktoram_year', this.selectedYear);
-            localStorage.setItem('heuktoram_selected_ids', JSON.stringify(selectedIds));
+            // SLS-1-198: labelPrintData와 동일한 "setItem → 이동" 패턴 — quota 상태에서
+            // throw하면 흙토람 창 열기가 아무 반응 없이 죽는다. 실패를 알리고 중단한다.
+            try {
+                localStorage.setItem('heuktoram_year', this.selectedYear);
+                localStorage.setItem('heuktoram_selected_ids', JSON.stringify(selectedIds));
+            } catch (e) {
+                if (e.name === 'QuotaExceededError' || e.code === 22) {
+                    this.showToast('저장 공간 부족으로 흙토람 데이터를 전달하지 못했습니다. 설정에서 오래된 연도의 데이터를 정리해 주세요.', 'error');
+                    return;
+                }
+                throw e;
+            }
 
             const isElectron = window.electronAPI?.isElectron === true;
             if (isElectron) {
@@ -5120,7 +5173,7 @@ class SoilSampleManager extends window.BaseSampleManager {
             const autoSaveData = await window.loadFromAutoSaveFile();
             if (autoSaveData && autoSaveData.length > 0 && this.sampleLogs.length === 0) {
                 this.sampleLogs = autoSaveData;
-                localStorage.setItem(this.getStorageKey(this.selectedYear), JSON.stringify(this.sampleLogs));
+                this._safeSetYearStorage();   // SLS-1-198: 복원 경로 quota 격리
                 this.log('로컬 모드: 자동 저장 파일에서 데이터 로드됨:', autoSaveData.length, '건');
                 this.filterAndRenderLogs();
                 if (this.receptionNumberInput) {

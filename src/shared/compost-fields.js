@@ -96,13 +96,16 @@
     }
 
     /**
-     * 격자의 결과 열 순서. 흙토람 「성분검사결과 일괄입력 양식」 AB~AI열과 같은 순서다.
-     * ⚠️ nitrogen/phosphorus/potassium은 COMPOST_FIELDS에 **아직 없다** — S3에서
-     *    checkCompostFieldStatus의 "기준 없는 항목" 가드와 함께 추가한다.
-     *    지금 넣으면 standard가 비어 있어 무조건 초록 ✓(허위 적합)가 표시된다.
+     * 격자의 결과 열 순서. 흙토람 「성분검사결과 일괄입력 양식」 AB~AF열과 같은 순서다.
+     *
+     * ⚠️ 질소·인산·칼리(양식 AG~AI열)는 **일부러 빠져 있다.**
+     *   COMPOST_FIELDS에 없어 appliesTo가 전 조합에서 false를 반환하므로, 열로 노출하면
+     *   가져오기 매핑 UI에는 뜨는데 저장은 막혀 **값이 조용히 사라진다**(코드리뷰 MAJOR-2).
+     *   넣으려면 COMPOST_FIELDS 추가와 checkCompostFieldStatus의 "기준 없는 항목" 가드가
+     *   함께 필요하다 — 가드 없이 standard를 비우면 무조건 초록 ✓(허위 적합)가 뜬다.
+     *   SLS-1-200에서 폼 항목과 함께 도입한다.
      */
-    const RESULT_FIELDS = ['moisture', 'maturity', 'copper', 'zinc', 'salinity',
-        'nitrogen', 'phosphorus', 'potassium'];
+    const RESULT_FIELDS = ['moisture', 'maturity', 'copper', 'zinc', 'salinity'];
 
     window.CompostFields = {
         COMPOST_FIELDS, MATURITY_ORDER, RESULT_FIELDS,

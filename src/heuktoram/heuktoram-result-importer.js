@@ -105,11 +105,33 @@
          * @param {(rowKey:string, field:string, value:any) => void} cfg.syncToSiblings
          * @param {() => void} cfg.saveTestResults
          * @param {() => void} [cfg.rerender]                - 저장 후 화면 재렌더 콜백
+         * @param {Object} [cfg.headerAliases]               - 헤더 별칭 추가/덮어쓰기 (SLS-1-205)
          */
         constructor(cfg) {
             this.cfg = cfg;
             this._els = null;
+            this._patternCache = null;
             this._state = this._initialState();
+        }
+
+        /**
+         * 헤더 자동 매핑 사전. **cfg.headerAliases가 기본 맵을 덮어쓴다.**
+         *
+         * 덮어쓰기가 필요한 이유: 기본 맵의 '인산'은 토양의 availableP(유효인산)를
+         * 가리킨다. 퇴비는 같은 헤더를 phosphorus로 써야 하는데, 기본 맵이 이기면
+         * allowedFields 화이트리스트에 걸려 **에러 없이 조용히 매핑 실패**한다.
+         *
+         * 키는 normalizeHeader(공백 제거 + 소문자화)로 정규화해 병합한다 —
+         * 정규화 전 키를 그대로 넣으면 조회에 걸리지 않는다.
+         */
+        _patterns() {
+            if (this._patternCache) return this._patternCache;
+            const merged = { ...HEADER_PATTERNS };
+            for (const [k, v] of Object.entries(this.cfg.headerAliases || {})) {
+                merged[normalizeHeader(k)] = v;
+            }
+            this._patternCache = merged;
+            return merged;
         }
 
         _initialState() {
@@ -606,12 +628,13 @@
                 const norm = normalizeHeader(h);
                 // m-2 fix: 정확 매치 우선, 실패 시 길이 4+ 사전 키로 부분 매치 fallback
                 // (짧은 키 'k'/'om'/'mg'는 단위 등에 우연 매치할 위험이 있어 제외)
-                let rule = HEADER_PATTERNS[norm];
+                const patterns = this._patterns();
+                let rule = patterns[norm];
                 if (!rule) {
-                    const partialKey = Object.keys(HEADER_PATTERNS).find(k =>
+                    const partialKey = Object.keys(patterns).find(k =>
                         k.length >= 4 && norm.includes(k)
                     );
-                    if (partialKey) rule = HEADER_PATTERNS[partialKey];
+                    if (partialKey) rule = patterns[partialKey];
                 }
                 if (!rule) return;
                 if (rule.type === 'matchKey' && matchKey === -1) {

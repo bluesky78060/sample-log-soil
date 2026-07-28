@@ -556,6 +556,11 @@ function makePopupWindowHandler({ getRef, setRef, title, route, dirName, notFoun
     return async () => {
         const existing = getRef();
         if (existing && !existing.isDestroyed()) {
+            // 코드리뷰 MAJOR-3: focus만 하면 핸드오프(연도·선택 id)를 다시 읽지 않는다.
+            //   페이지는 DOMContentLoaded에서 한 번만 읽으므로, 창을 띄워둔 채 접수에서
+            //   연도를 바꾸고 다시 누르면 창만 앞으로 나오고 내용은 옛것 그대로다.
+            //   사용자는 "버튼이 안 먹는다"고 인식하거나 다른 연도 격자에 입력하게 된다.
+            existing.webContents.reload();
             existing.focus();
             return true;
         }
@@ -654,92 +659,14 @@ ipcMain.handle('open-compost-analysis', makePopupWindowHandler({
 /** @type {Electron.BrowserWindow | null} */
 let heuktoramWindow = null;
 
-ipcMain.handle('open-heuktoram', async () => {
-    // H-1: 기존 윈도우가 있으면 포커스만 (다중 생성 방지)
-    if (heuktoramWindow && !heuktoramWindow.isDestroyed()) {
-        heuktoramWindow.focus();
-        return true;
-    }
-
-    heuktoramWindow = new BrowserWindow({
-        width: 1400,
-        height: 850,
-        minWidth: 1000,
-        minHeight: 600,
-        title: '흙토람 내보내기',
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-            contextIsolation: true,
-            nodeIntegration: false,
-            sandbox: true
-        },
-    });
-
-    // H-1: 창 닫힘 시 참조 정리
-    heuktoramWindow.on('closed', () => { heuktoramWindow = null; });
-
-    // 새 창 열기 차단 (외부 http(s)만 시스템 브라우저)
-    heuktoramWindow.webContents.setWindowOpenHandler(({ url }) => {
-        try { const p = new URL(url).protocol; if (p === 'http:' || p === 'https:') shell.openExternal(url); } catch { /* invalid url → deny */ }
-        return { action: 'deny' };
-    });
-
-    // M-3: 외부 URL 네비게이션 차단 (메인 윈도우와 동일)
-    heuktoramWindow.webContents.on('will-navigate', (event, url) => {
-        // M-3: file:// 프로토콜이고 실제 docs 디렉토리 내의 파일이면 허용
-        if (url.startsWith('file://')) {
-            try {
-                const fileUrl = new URL(url);
-                const filePath = decodeURIComponent(fileUrl.pathname);
-                const normalizedPath = process.platform === 'win32' ? filePath.replace(/^\//, '') : filePath;
-                let realFilePath;
-                try {
-                    realFilePath = fs.realpathSync(normalizedPath);
-                } catch {
-                    realFilePath = path.resolve(normalizedPath);
-                }
-                if (realFilePath.startsWith(DOCS_DIR + path.sep) || realFilePath === DOCS_DIR) {
-                    return;
-                }
-            } catch {
-                // 경로 파싱 실패 시 차단
-            }
-            event.preventDefault();
-            return;
-        }
-        if (url.startsWith('http://localhost:')) return;
-        event.preventDefault();
-    });
-
-    // 메인 윈도우와 동일한 로드 전략
-
-    try {
-        const http = require('node:http');
-        await new Promise((resolve, reject) => {
-            const req = http.get(VITE_DEV_SERVER_URL, { timeout: 1000 }, (res) => {
-                res.destroy();
-                resolve();
-            });
-            req.on('error', reject);
-            req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
-        });
-        heuktoramWindow.loadURL(`${VITE_DEV_SERVER_URL}/heuktoram/`);
-    } catch {
-        // H-3: 파일 없을 때 에러 안내 표시
-        const heuktoramPath = path.join(__dirname, '..', 'docs', 'heuktoram', 'index.html');
-        if (fs.existsSync(heuktoramPath)) {
-            heuktoramWindow.loadFile(heuktoramPath);
-        } else {
-            heuktoramWindow.loadURL(`data:text/html;charset=utf-8,
-                <h2 style="font-family:sans-serif;padding:2rem;">흙토람 페이지를 찾을 수 없습니다</h2>
-                <p style="font-family:sans-serif;padding:0 2rem;">
-                    <code>npm run build</code>로 빌드해주세요.
-                </p>`);
-        }
-    }
-
-    return true;
-});
+ipcMain.handle('open-heuktoram', makePopupWindowHandler({
+    getRef: () => heuktoramWindow,
+    setRef: (w) => { heuktoramWindow = w; },
+    title: '흙토람 내보내기',
+    route: '/heuktoram/',
+    dirName: 'heuktoram',
+    notFoundLabel: '흙토람'
+}));
 
 // ========================================
 // 파일 시스템 IPC 핸들러

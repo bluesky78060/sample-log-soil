@@ -28,5 +28,8 @@ import '../shared/logger.js';
 import '../shared/compost-results-store.js';   // SLS-1-204: 검정결과 저장소
 import '../shared/compost-fields.js';          // SLS-1-205 S1: 검정 항목 규칙
 
+// 결과 가져오기 모달 — 토양과 같은 클래스를 쓴다 (마크업은 복제, 스타일은 shared 공유)
+import '../heuktoram/heuktoram-result-importer.js';
+
 // Main script
 import './compost-analysis-script.js';

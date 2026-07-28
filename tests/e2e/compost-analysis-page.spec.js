@@ -44,7 +44,7 @@ test.describe('퇴·액비 검정결과 페이지 (SLS-1-205)', () => {
         }));
         expect(wired.store).toBe(true);
         expect(wired.fields).toBe(true);
-        expect(wired.resultFields).toBe(8);
+        expect(wired.resultFields).toBe(5);   // 질소·인산·칼리는 SLS-1-200에서 (MAJOR-2)
     });
 
     test('접수 자료가 없으면 안내를 보여준다', async ({ page }) => {
@@ -77,8 +77,9 @@ test.describe('퇴·액비 검정결과 페이지 (SLS-1-205)', () => {
             results: { c1: { moisture: '62.1', maturity: '부숙완료', copper: '210' } }
         });
         await expect(page.locator('td[data-field="moisture"]')).toHaveText('62.1');
-        await expect(page.locator('td[data-field="maturity"]')).toHaveText('부숙완료');
         await expect(page.locator('td[data-field="copper"]')).toHaveText('210');
+        // 부숙도는 고정 등급이라 select다 — td 텍스트에는 전 옵션이 들어가므로 값으로 본다
+        await expect(page.locator('td[data-field="maturity"] select')).toHaveValue('부숙완료');
     });
 
     // 이 티켓의 핵심 계약 — 축종별로 적용 항목이 다르다.
@@ -108,12 +109,313 @@ test.describe('퇴·액비 검정결과 페이지 (SLS-1-205)', () => {
         await expect(page.locator('td[data-field="maturity"].editable-cell')).toHaveCount(2);
     });
 
-    // 질소·인산·칼리는 COMPOST_FIELDS에 아직 없다(S3에서 배지 가드와 함께 추가).
-    // 지금 넣으면 standard가 비어 무조건 초록 ✓(허위 적합)가 표시된다.
-    test('질소·인산·칼리는 아직 전부 비활성이다', async ({ page }) => {
+    // 코드리뷰 MAJOR-2: 질소·인산·칼리를 열로 노출하면 가져오기 매핑 UI에는 뜨는데
+    // appliesTo가 전 조합에서 false라 저장이 막혀 값이 조용히 사라진다.
+    // 열 자체를 빼서 "매핑했는데 저장 안 됨"이 생기지 않게 한다.
+    test('질소·인산·칼리 열이 아예 없다 (SLS-1-200에서 기준과 함께 도입)', async ({ page }) => {
         await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
         for (const f of ['nitrogen', 'phosphorus', 'potassium']) {
-            await expect(page.locator(`td[data-field="${f}"]`)).toHaveClass(/cell-na/);
+            await expect(page.locator(`td[data-field="${f}"]`)).toHaveCount(0);
         }
+        // importer 매핑 UI에도 노출되지 않는다
+        const fields = await page.evaluate(() =>
+            window.compostAnalysisPage.resultImporter.cfg.resultFields);
+        expect(fields).toEqual(['moisture', 'maturity', 'copper', 'zinc', 'salinity']);
+    });
+});
+
+test.describe('격자 입력 (SLS-1-205 S3)', () => {
+    test('셀을 편집하면 저장소와 접수 대장에 함께 반영된다', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
+
+        await page.evaluate(() => {
+            window.compostAnalysisPage.handleCellEdit('c1', 'moisture', '62.1');
+        });
+
+        const out = await page.evaluate((year) => ({
+            store: JSON.parse(localStorage.getItem(`compostTestResults_${year}`) || '{}'),
+            logs: JSON.parse(localStorage.getItem(`compostSampleLogs_${year}`) || '[]')
+        }), YEAR);
+
+        expect(out.store.c1.moisture).toBe('62.1');
+        // 접수 목록은 log.moisture를 직접 렌더한다 — 저장소에만 쓰면 대장이 빈다
+        expect(out.logs[0].moisture).toBe('62.1');
+    });
+
+    test('판정(testResult)은 역기록에서 건드리지 않는다', async ({ page }) => {
+        // 격자에 판정 열이 없다. 덮어쓰면 모달·목록에서 내린 판정이 지워진다.
+        await seedAndOpen(page, {
+            logs: [{ ...log({ id: 'c1', rec: '101' }), testResult: 'pass' }]
+        });
+        await page.evaluate(() => {
+            window.compostAnalysisPage.handleCellEdit('c1', 'moisture', '55');
+        });
+        const logs = await page.evaluate((year) =>
+            JSON.parse(localStorage.getItem(`compostSampleLogs_${year}`) || '[]'), YEAR);
+        expect(logs[0].testResult).toBe('pass');
+    });
+
+    // 🚨 이 티켓의 핵심 계약
+    test('붙여넣기가 비해당 셀을 건너뛴다 (돼지 행에 염분이 기록되지 않는다)', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101', animalType: '돼지' })] });
+
+        const res = await page.evaluate(() => {
+            const p = window.compostAnalysisPage;
+            // MAJOR-1 가드: 실제 편집 가능 셀에 포커스가 있어야 붙여넣기가 동작한다
+            document.querySelector('td[data-field="moisture"]').focus();
+            // 함수율 / 부숙도 / 구리 / 아연 / 염분 5칸 붙여넣기
+            const data = '62.1\t부숙완료\t210\t880\t9.9';
+            p.handlePaste({
+                clipboardData: { getData: () => data },
+                preventDefault: () => {}
+            });
+            return p.results.c1;
+        });
+
+        expect(res.moisture).toBe('62.1');
+        expect(res.copper).toBe('210');
+        expect(res.zinc).toBe('880');
+        // 돼지에 염분은 해당 없음 — 저장소에 들어가면 안 된다
+        expect(res.salinity).toBeUndefined();
+    });
+
+    test('소 행에서는 반대로 염분이 들어가고 구리·아연이 건너뛰어진다', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101', animalType: '소' })] });
+
+        const res = await page.evaluate(() => {
+            const p = window.compostAnalysisPage;
+            document.querySelector('td[data-field="moisture"]').focus();
+            p.handlePaste({
+                clipboardData: { getData: () => '58.4\t부숙후기\t210\t880\t1.8' },
+                preventDefault: () => {}
+            });
+            return p.results.c1;
+        });
+
+        expect(res.moisture).toBe('58.4');
+        expect(res.salinity).toBe('1.8');
+        expect(res.copper).toBeUndefined();
+        expect(res.zinc).toBeUndefined();
+    });
+
+    test('여러 행 붙여넣기가 행마다 다른 규칙을 적용한다', async ({ page }) => {
+        await seedAndOpen(page, {
+            logs: [
+                log({ id: 'c1', rec: '101', animalType: '돼지' }),
+                log({ id: 'c2', rec: '102', animalType: '소' })
+            ]
+        });
+
+        const res = await page.evaluate(() => {
+            const p = window.compostAnalysisPage;
+            document.querySelector('td[data-field="moisture"]').focus();
+            p.handlePaste({
+                clipboardData: { getData: () => '62.1\t부숙완료\t210\t880\t9.9\n58.4\t부숙후기\t300\t900\t1.8' },
+                preventDefault: () => {}
+            });
+            return { c1: p.results.c1, c2: p.results.c2 };
+        });
+
+        expect(res.c1.copper).toBe('210');
+        expect(res.c1.salinity).toBeUndefined();
+        expect(res.c2.salinity).toBe('1.8');
+        expect(res.c2.copper).toBeUndefined();
+    });
+
+    test('검사일자를 선택 행에만 일괄 적용한다', async ({ page }) => {
+        await seedAndOpen(page, {
+            logs: [log({ id: 'c1', rec: '101' }), log({ id: 'c2', rec: '102' })]
+        });
+
+        await page.locator('.row-checkbox[data-id="c1"]').check();
+        await page.locator('#bulkTestDate').fill('2026-07-28');
+        await page.locator('#applyBulkBtn').click();
+
+        const store = await page.evaluate((year) =>
+            JSON.parse(localStorage.getItem(`compostTestResults_${year}`) || '{}'), YEAR);
+        expect(store.c1.testDate).toBe('2026-07-28');
+        expect(store.c2).toBeUndefined();
+    });
+
+    test('부숙도는 select이고 법정 등급만 고를 수 있다', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
+        const opts = await page.locator('td[data-field="maturity"] select')
+            .evaluate(el => Array.from(el.options).map(o => o.value));
+        expect(opts).toEqual(['', '미부숙', '부숙초기', '부숙중기', '부숙완료', '완전부숙']);
+    });
+
+    test('입력 상식 범위를 벗어나면 표시한다 (판정과는 무관)', async ({ page }) => {
+        await seedAndOpen(page, {
+            logs: [log({ id: 'c1', rec: '101' })],
+            results: { c1: { moisture: '621' } }   // 62.1 오타
+        });
+        await expect(page.locator('td[data-field="moisture"]')).toHaveClass(/out-of-range/);
+    });
+});
+
+test.describe('결과 가져오기 (SLS-1-205 S4)', () => {
+    test('importer가 배선되고 모달 마크업이 존재한다', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
+        const wired = await page.evaluate(() => ({
+            klass: typeof window.HeuktoramResultImporter === 'function',
+            instance: !!window.compostAnalysisPage.resultImporter,
+            modal: !!document.getElementById('resultImporterModal')
+        }));
+        expect(wired.klass).toBe(true);
+        expect(wired.instance).toBe(true);
+        expect(wired.modal).toBe(true);
+    });
+
+    // 🚨 붙여넣기와 동일한 계약 — 다른 경로
+    test('가져오기의 applyResult가 비해당 셀을 건너뛴다', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101', animalType: '돼지' })] });
+        const res = await page.evaluate(() => {
+            const cfg = window.compostAnalysisPage.resultImporter.cfg;
+            cfg.applyResult('c1', 'copper', '210');    // 돼지 → 적용
+            cfg.applyResult('c1', 'salinity', '9.9');  // 돼지 → 해당 없음
+            return window.compostAnalysisPage.results.c1;
+        });
+        expect(res.copper).toBe('210');
+        expect(res.salinity).toBeUndefined();
+    });
+
+    test('퇴비 별칭이 병합되고, cfg가 기본 맵을 덮어쓴다', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
+        const out = await page.evaluate(() => {
+            const p = window.compostAnalysisPage.resultImporter;
+            // 병합 — 퇴비 별칭이 들어와 있다
+            const merged = p._patterns()['함수율'];
+            // 덮어쓰기 메커니즘 — 기본 맵에 있는 키를 cfg가 이기는지 합성으로 확인.
+            // (질소·인산·칼리가 SLS-1-200에서 들어오면 '인산'이 실제 충돌 사례가 된다)
+            const probe = new window.HeuktoramResultImporter({
+                resultFields: [], headerAliases: { 'ph': { type: 'field', key: 'OVERRIDDEN' } }
+            });
+            return { merged, base: probe._patterns()['ec'], overridden: probe._patterns()['ph'] };
+        });
+        expect(out.merged).toEqual({ type: 'field', key: 'moisture' });
+        expect(out.base).toEqual({ type: 'field', key: 'ec' });          // 안 건드린 키는 그대로
+        expect(out.overridden).toEqual({ type: 'field', key: 'OVERRIDDEN' });  // cfg가 이긴다
+    });
+
+    test('토양 importer의 기본 별칭은 그대로다 (회귀 없음)', async ({ page }) => {
+        await page.goto('/heuktoram/');
+        await page.waitForFunction(() => !!window.heuktoramManager?.resultImporter, { timeout: 10000 });
+        const rule = await page.evaluate(() =>
+            window.heuktoramManager.resultImporter._patterns()['인산']);
+        expect(rule).toEqual({ type: 'field', key: 'availableP' });
+    });
+
+    test('하위필지 동기화 체크박스가 없다 (퇴비에 하위필지 개념 없음)', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
+        await expect(page.locator('#importerSyncSiblings')).toHaveCount(0);
+        // 그럼에도 importer가 정상 동작해야 한다 (초기값 경로 안전 확인)
+        const ok = await page.evaluate(() => {
+            try { window.compostAnalysisPage.resultImporter.cfg.syncToSiblings('c1', 'moisture', '1'); return true; }
+            catch { return false; }
+        });
+        expect(ok).toBe(true);
+    });
+
+    test('토양 전용 문구가 퇴비 화면에 남아 있지 않다', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
+        const html = await page.locator('#resultImporterModal').innerHTML();
+        expect(html).not.toContain('흙토람 필드 매핑');
+        expect(html).not.toContain('하위필지');
+        expect(html).toContain('검정 항목 매핑');
+        expect(html).toContain('접수번호');
+    });
+
+    // 마크업 복제는 vite MPA 제약상 불가피하다. 주석은 회귀를 막지 못하므로
+    // 두 페이지의 importer id 집합이 어긋나면 여기서 잡는다.
+    test('두 페이지의 importer id 집합이 일치한다 (하위필지 체크박스 제외)', async ({ page }) => {
+        const ids = async (url) => {
+            await page.goto(url);
+            return page.evaluate(() =>
+                Array.from(document.querySelectorAll('#resultImporterModal [id]'))
+                    .map(el => el.id).sort());
+        };
+        const soil = (await ids('/heuktoram/')).filter(id => id !== 'importerSyncSiblings');
+        const compost = await ids('/compost-analysis/');
+        expect(compost).toEqual(soil);
+    });
+});
+
+test.describe('코드리뷰 회귀 (SLS-1-205)', () => {
+    // 🚨 CRITICAL-1: init 스냅샷을 통째로 쓰면 다른 창의 변경이 소실된다.
+    // 팝업을 띄워둔 채 접수 페이지에서 등록·수정·삭제하는 것은 일상 동선이다.
+    test('다른 창이 추가한 레코드가 격자 저장에 소실되지 않는다', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
+
+        // 접수 페이지에서 새 시료를 등록한 상황을 재현 (격자는 모르는 변경)
+        await page.evaluate((year) => {
+            const cur = JSON.parse(localStorage.getItem(`compostSampleLogs_${year}`));
+            cur.push({ id: 'c9', receptionNumber: '999', farmName: '나중농장',
+                       sampleType: '가축분퇴비', animalType: '소' });
+            localStorage.setItem(`compostSampleLogs_${year}`, JSON.stringify(cur));
+        }, YEAR);
+
+        await page.evaluate(() => window.compostAnalysisPage.handleCellEdit('c1', 'moisture', '62.1'));
+
+        const logs = await page.evaluate((year) =>
+            JSON.parse(localStorage.getItem(`compostSampleLogs_${year}`)), YEAR);
+        expect(logs.map(l => l.id).sort()).toEqual(['c1', 'c9']);
+        expect(logs.find(l => l.id === 'c1').moisture).toBe('62.1');
+    });
+
+    test('다른 창이 삭제한 레코드를 격자 저장이 되살리지 않는다', async ({ page }) => {
+        await seedAndOpen(page, {
+            logs: [log({ id: 'c1', rec: '101' }), log({ id: 'c2', rec: '102' })]
+        });
+        await page.evaluate((year) => {
+            const cur = JSON.parse(localStorage.getItem(`compostSampleLogs_${year}`));
+            localStorage.setItem(`compostSampleLogs_${year}`,
+                JSON.stringify(cur.filter(l => l.id !== 'c2')));
+        }, YEAR);
+
+        await page.evaluate(() => {
+            const p = window.compostAnalysisPage;
+            p.handleCellEdit('c1', 'moisture', '55');
+            p.handleCellEdit('c2', 'moisture', '66');   // 이미 삭제된 건
+        });
+
+        const logs = await page.evaluate((year) =>
+            JSON.parse(localStorage.getItem(`compostSampleLogs_${year}`)), YEAR);
+        expect(logs.map(l => l.id)).toEqual(['c1']);
+    });
+
+    // 🚨 MAJOR-1: document 레벨 paste 핸들러가 모달 입력까지 가로챈다
+    test('격자 밖(모달 텍스트영역)에 붙여넣으면 격자가 변하지 않는다', async ({ page }) => {
+        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
+
+        const res = await page.evaluate(() => {
+            const p = window.compostAnalysisPage;
+            p.focusedCell = { rowIdx: 0, colIdx: 0 };     // 셀을 클릭했던 상태
+            const ta = document.getElementById('importerTextarea');
+            ta.focus();                                   // 그 뒤 모달 텍스트영역으로 이동
+            let prevented = false;
+            p.handlePaste({
+                clipboardData: { getData: () => '99.9\t부숙완료' },
+                preventDefault: () => { prevented = true; }
+            });
+            return { results: p.results.c1, prevented };
+        });
+
+        expect(res.results).toBeUndefined();   // 격자에 아무것도 안 써짐
+        expect(res.prevented).toBe(false);     // 모달 입력을 막지 않음
+    });
+
+    // MINOR-2: 정정한 값이 계속 오타라고 표시되면 안 된다
+    test('범위 밖 → 범위 안으로 고치면 표시와 툴팁이 모두 사라진다', async ({ page }) => {
+        await seedAndOpen(page, {
+            logs: [log({ id: 'c1', rec: '101' })],
+            results: { c1: { moisture: '621' } }
+        });
+        await expect(page.locator('td[data-field="moisture"]')).toHaveClass(/out-of-range/);
+
+        await page.evaluate(() => window.compostAnalysisPage.handleCellEdit('c1', 'moisture', '62.1'));
+
+        const cell = page.locator('td[data-field="moisture"]');
+        await expect(cell).not.toHaveClass(/out-of-range/);
+        expect(await cell.getAttribute('title')).toBeNull();
     });
 });

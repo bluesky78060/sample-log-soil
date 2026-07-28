@@ -109,7 +109,7 @@ async function syncAllData() {
 
     // 초기화 후에도 여전히 비활성화 상태면 에러
     if (!window.firestoreDb?.isEnabled()) {
-        alert('Firebase가 설정되지 않았습니다.\n설정 페이지에서 인증 파일을 등록해주세요.');
+        alert('클라우드가 설정되지 않았습니다.\n설정 페이지에서 인증 파일을 등록해주세요.');
         return;
     }
 

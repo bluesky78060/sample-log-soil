@@ -1029,7 +1029,7 @@ ipcMain.handle('select-auth-file', async () => {
         console.log('[AuthFile] 파일 선택 다이얼로그 열림, 기본 경로:', defaultPath);
 
         const result = await dialog.showOpenDialog(mainWindow, {
-            title: 'Firebase 인증 파일 선택 (firebase-auth.json)',
+            title: '클라우드 인증 파일 선택 (firebase-auth.json)',
             defaultPath: defaultPath,
             buttonLabel: '선택',
             filters: [

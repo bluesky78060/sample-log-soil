@@ -451,7 +451,7 @@
         /* 진행 표시 토글 (tailwind .hidden 미로드 대비 — SLS-1-179) */
         .hidden { display: none !important; }
     </style>
-  <script type="module" crossorigin src="../assets/settings-CBlls7m5.js"></script>
+  <script type="module" crossorigin src="../assets/settings-DvTZQnF4.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
   <link rel="modulepreload" crossorigin href="../assets/xlsx-DqDnpwVQ.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-D6gMnemd.js">
@@ -459,7 +459,7 @@
   <link rel="modulepreload" crossorigin href="../assets/index.esm-k5uDoaEq.js">
   <link rel="modulepreload" crossorigin href="../assets/storage-manager-NkZUqJOM.js">
   <link rel="modulepreload" crossorigin href="../assets/toast-CYVUzQgW.js">
-  <link rel="modulepreload" crossorigin href="../assets/cache-manager-B37fzwAS.js">
+  <link rel="modulepreload" crossorigin href="../assets/cache-manager-CK_TuiLQ.js">
   <link rel="modulepreload" crossorigin href="../assets/crop-data-loader-BIMSExQQ.js">
   <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
 </head>
@@ -474,17 +474,17 @@
             ⚙️ 설정
         </h1>
 
-        <!-- Firebase 인증 파일 설정 (Electron 앱용) -->
+        <!-- 클라우드 인증 파일 설정 (Electron 앱용) -->
         <div class="settings-card" id="authFileSection" style="display:none;">
             <h2>
                 <span>🔐</span>
-                Firebase 인증 파일
+                클라우드 인증 파일
                 <span id="authFileStatus" class="status-badge disconnected">● 미등록</span>
             </h2>
 
             <div class="alert alert-info">
                 <strong>인증 파일이란?</strong><br>
-                Firebase 접근을 위한 인증 파일(firebase-auth.json)을 등록해야 클라우드 동기화가 활성화됩니다.
+                클라우드 접근을 위한 인증 파일(firebase-auth.json)을 등록해야 클라우드 동기화가 활성화됩니다.
                 인증 파일은 관리자에게 받으세요.
             </div>
 
@@ -518,7 +518,7 @@
                 인증 파일이 없다면 관리자에게 문의하거나, 아래 수동 설정을 펼쳐서 직접 입력하세요.
             </p>
 
-            <!-- Firebase 수동 설정 (인증 파일 카드 내 하단) -->
+            <!-- 클라우드 수동 설정 (인증 파일 카드 내 하단) -->
             <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem;">
                 <h3 id="manual-settings-toggle" style="cursor: pointer; font-size: 0.95rem; font-weight: 500; color: #475569; display: flex; align-items: center; gap: 0.5rem;">
                     <span>☁️</span>
@@ -653,7 +653,7 @@
 
             <div class="alert alert-info">
                 <strong>네트워크 접근 제어란?</strong><br>
-                Electron 앱에서는 항상 접근이 허용되며, 웹 환경에서는 설정된 게이트웨이 서브넷에서만 Firebase 데이터에 접근할 수 있습니다.
+                Electron 앱에서는 항상 접근이 허용되며, 웹 환경에서는 설정된 게이트웨이 서브넷에서만 클라우드 데이터에 접근할 수 있습니다.
             </div>
 
             <div style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -683,7 +683,7 @@
             </h2>
 
             <div class="alert alert-warning">
-                <strong>주의:</strong> 마이그레이션은 현재 컴퓨터의 localStorage 데이터를 Firebase로 업로드합니다.
+                <strong>주의:</strong> 마이그레이션은 현재 컴퓨터의 localStorage 데이터를 클라우드로 업로드합니다.
                 기존 클라우드 데이터가 있으면 덮어쓰기됩니다.
             </div>
 
@@ -740,7 +740,7 @@
             </div>
 
             <p class="help-text" style="margin-top: 0.75rem;">
-                선택한 연도의 자료가 이 기기(localStorage), 클라우드(Firebase), 앱 자동저장 파일에서 함께 삭제됩니다.
+                선택한 연도의 자료가 이 기기(localStorage), 클라우드, 앱 자동저장 파일에서 함께 삭제됩니다.
                 클라우드를 사용 중이면 다른 기기에도 반영됩니다.
             </p>
         </div>
@@ -754,7 +754,7 @@
 
             <div class="alert alert-info">
                 <strong>자동 캐시 정리:</strong> 매주 금요일에 자동으로 시료 데이터 캐시가 삭제됩니다.<br>
-                <small style="color: #64748b;">삭제 후 앱 시작 시 Firebase에서 데이터를 다시 불러옵니다. 설정 및 Firebase 연결 정보는 유지됩니다.</small>
+                <small style="color: #64748b;">삭제 후 앱 시작 시 클라우드에서 데이터를 다시 불러옵니다. 설정 및 클라우드 연결 정보는 유지됩니다.</small>
             </div>
 
             <div id="cacheStatusInfo" style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -775,7 +775,7 @@
             </div>
 
             <p class="help-text" style="margin-top: 0.75rem;">
-                캐시를 삭제하면 다음 앱 실행 시 Firebase에서 데이터를 다시 불러옵니다.
+                캐시를 삭제하면 다음 앱 실행 시 클라우드에서 데이터를 다시 불러옵니다.
             </p>
         </div>
 
@@ -790,7 +790,7 @@
                 <strong>비료사용처방(흙토람) 작물 목록을 최신 파일로 직접 갱신</strong>합니다.<br>
                 <small style="color: #64748b;">
                     농촌진흥청에서 내려받은 작물정보 .xlsx 파일을 업로드하면 앱 재설치·업데이트 없이 작물 목록이 갱신됩니다.
-                    클라우드(Firebase) 연결 시 다른 PC에도 자동 동기화됩니다.
+                    클라우드 연결 시 다른 PC에도 자동 동기화됩니다.
                 </small>
             </div>
 
@@ -819,7 +819,7 @@
             <p class="help-text" style="margin-top: 0.75rem;">
                 업로드한 파일 자체는 저장되지 않으며, 파싱된 작물 목록만 로컬(및 클라우드)에 보관됩니다.
                 문제가 있으면 앱 내장 기본 데이터로 자동 복원됩니다.<br>
-                <small style="color: #94a3b8;">데스크톱 앱에서는 로컬에 영구 저장되며, 웹(브라우저)에서는 Firebase 연결 시에만 다른 기기와 동기화됩니다.</small>
+                <small style="color: #94a3b8;">데스크톱 앱에서는 로컬에 영구 저장되며, 웹(브라우저)에서는 클라우드 연결 시에만 다른 기기와 동기화됩니다.</small>
             </p>
         </div>
     </div>

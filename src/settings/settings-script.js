@@ -42,7 +42,7 @@ async function checkAuthFileStatus() {
         // 웹 환경에서도 인증 파일 업로드 가능하도록 섹션 표시
         document.querySelector('#authFileSection .alert-info').innerHTML = sanitizeHTML(
             '<strong>인증 파일이란?</strong><br>' +
-            'Firebase 접근을 위한 인증 파일을 업로드하면 자동으로 설정됩니다.<br>' +
+            '클라우드 접근을 위한 인증 파일을 업로드하면 자동으로 설정됩니다.<br>' +
             '<small style="color: #64748b;">(웹 환경: 설정이 브라우저에 저장됩니다)</small>'
         );
         return;
@@ -98,9 +98,9 @@ async function saveAuthFile(content) {
             if (window.firebaseConfig?.reinitialize) {
                 const initResult = await window.firebaseConfig.reinitialize();
                 if (initResult) {
-                    alert('인증 파일이 적용되고 Firebase가 연결되었습니다.\n프로젝트: ' + config.projectId);
+                    alert('인증 파일이 적용되고 클라우드가 연결되었습니다.\n프로젝트: ' + config.projectId);
                 } else {
-                    alert('인증 파일이 저장되었지만 Firebase 연결에 실패했습니다.\n페이지를 새로고침해주세요.');
+                    alert('인증 파일이 저장되었지만 클라우드 연결에 실패했습니다.\n페이지를 새로고침해주세요.');
                 }
             } else {
                 alert('인증 파일이 저장되었습니다.\n페이지를 새로고침하면 적용됩니다.');
@@ -117,9 +117,9 @@ async function saveAuthFile(content) {
             if (window.firebaseConfig?.reinitialize) {
                 const initResult = await window.firebaseConfig.reinitialize();
                 if (initResult) {
-                    alert('인증 파일이 등록되고 Firebase가 연결되었습니다.\n프로젝트: ' + config.projectId);
+                    alert('인증 파일이 등록되고 클라우드가 연결되었습니다.\n프로젝트: ' + config.projectId);
                 } else {
-                    alert('인증 파일은 등록되었지만 Firebase 연결에 실패했습니다.\n앱을 재시작해주세요.');
+                    alert('인증 파일은 등록되었지만 클라우드 연결에 실패했습니다.\n앱을 재시작해주세요.');
                 }
             } else {
                 alert('인증 파일이 등록되었습니다.\n앱을 재시작하면 적용됩니다.');
@@ -139,7 +139,7 @@ async function saveAuthFile(content) {
 
 // 인증 파일 삭제
 async function deleteAuthFile() {
-    if (!confirm('인증 파일을 삭제하시겠습니까?\nFirebase 연결이 해제됩니다.')) {
+    if (!confirm('인증 파일을 삭제하시겠습니까?\n클라우드 연결이 해제됩니다.')) {
         return;
     }
 
@@ -148,7 +148,7 @@ async function deleteAuthFile() {
         if (window.firebaseConfig?.resetConfig) {
             window.firebaseConfig.resetConfig();
         }
-        alert('Firebase 설정이 삭제되었습니다.');
+        alert('클라우드 설정이 삭제되었습니다.');
         await checkAuthFileStatus();
         updateConnectionStatus();
         return;
@@ -186,9 +186,9 @@ document.getElementById('selectAuthFileBtn')?.addEventListener('click', async ()
                 if (window.firebaseConfig?.reinitialize) {
                     const initResult = await window.firebaseConfig.reinitialize();
                     if (initResult) {
-                        alert('인증 파일이 등록되고 Firebase가 연결되었습니다.\n프로젝트: ' + result.projectId);
+                        alert('인증 파일이 등록되고 클라우드가 연결되었습니다.\n프로젝트: ' + result.projectId);
                     } else {
-                        alert('인증 파일은 등록되었지만 Firebase 연결에 실패했습니다.\n앱을 재시작해주세요.');
+                        alert('인증 파일은 등록되었지만 클라우드 연결에 실패했습니다.\n앱을 재시작해주세요.');
                     }
                 } else {
                     alert('인증 파일이 등록되었습니다.\n앱을 재시작하면 적용됩니다.\n프로젝트: ' + result.projectId);
@@ -359,7 +359,7 @@ document.getElementById('testConnectionBtn').addEventListener('click', async () 
 
             document.getElementById('migrateAllBtn').disabled = false;
             renderMigrationList();
-            alert('Firebase 연결 성공!');
+            alert('클라우드 연결 성공!');
         } else {
             statusEl.className = 'status-badge disconnected';
             statusEl.style.background = '#fef3c7';
@@ -367,9 +367,9 @@ document.getElementById('testConnectionBtn').addEventListener('click', async () 
             statusEl.textContent = '● 미연결';
 
             if (isElectron) {
-                alert('Firebase 연결 실패.\n인증 파일이 등록되어 있는지 확인하세요.');
+                alert('클라우드 연결 실패.\n인증 파일이 등록되어 있는지 확인하세요.');
             } else {
-                alert('Firebase 연결 실패.\n수동 설정값을 확인해주세요.');
+                alert('클라우드 연결 실패.\n수동 설정값을 확인해주세요.');
             }
         }
     } catch (error) {
@@ -449,7 +449,7 @@ function renderMigrationList() {
 // 개별 타입의 모든 연도 마이그레이션
 async function migrateTypeAllYears(sampleType, storagePrefix) {
     if (!window.storageManager?.isCloudEnabled()) {
-        alert('Firebase가 연결되지 않았습니다.');
+        alert('클라우드가 연결되지 않았습니다.');
         return;
     }
 
@@ -484,7 +484,7 @@ async function migrateTypeAllYears(sampleType, storagePrefix) {
 
 // 전체 마이그레이션 (모든 타입, 모든 연도)
 document.getElementById('migrateAllBtn').addEventListener('click', async () => {
-    if (!confirm('모든 데이터를 Firebase로 마이그레이션하시겠습니까?\n(2020년 ~ 현재 연도의 모든 데이터)')) {
+    if (!confirm('모든 데이터를 클라우드로 마이그레이션하시겠습니까?\n(2020년 ~ 현재 연도의 모든 데이터)')) {
         return;
     }
 
@@ -576,7 +576,7 @@ function updateCacheStatusUI() {
 
 // 캐시 삭제 버튼
 document.getElementById('clearCacheBtn').addEventListener('click', () => {
-    if (!confirm('캐시된 시료 데이터를 삭제하시겠습니까?\n\n삭제 후 앱을 새로고침하면 Firebase에서 데이터를 다시 불러옵니다.\n(Firebase 설정 및 연결 정보는 유지됩니다)')) {
+    if (!confirm('캐시된 시료 데이터를 삭제하시겠습니까?\n\n삭제 후 앱을 새로고침하면 클라우드에서 데이터를 다시 불러옵니다.\n(클라우드 설정 및 연결 정보는 유지됩니다)')) {
         return;
     }
 

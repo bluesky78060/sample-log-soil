@@ -128,7 +128,7 @@ const CacheManager = (function() {
         };
 
         if (showAlert && keysToRemove.length > 0) {
-            const message = `캐시가 삭제되었습니다.\n삭제된 항목: ${keysToRemove.length}건\n\n앱을 새로고침하면 Firebase에서 데이터를 다시 불러옵니다.`;
+            const message = `캐시가 삭제되었습니다.\n삭제된 항목: ${keysToRemove.length}건\n\n앱을 새로고침하면 클라우드에서 데이터를 다시 불러옵니다.`;
             alert(message);
         }
 

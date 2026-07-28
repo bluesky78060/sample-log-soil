@@ -249,6 +249,11 @@ class CompostSampleManager extends window.BaseSampleManager {
     // ========================================
 
     onAfterSave(data) {
+        // SLS-1-206: 이 페이지가 저장한 내용이 되돌아와 헛도는 재렌더를 만들지 않도록
+        //   교차 창 감지의 기준값을 여기서 맞춘다. 안 하면 focus할 때마다
+        //   "바뀌었다"고 판단해 전건을 다시 파싱하고 목록을 다시 그린다.
+        this._lastLogsRaw = localStorage.getItem(this.getStorageKey(this.selectedYear));
+
         // 자동 저장 (Electron 환경)
         if (window.isElectron && this.FileAPI?.autoSavePath && document.getElementById('autoSaveToggle')?.checked) {
             const autoSaveContent = JSON.stringify(data, null, 2);
@@ -553,6 +558,19 @@ class CompostSampleManager extends window.BaseSampleManager {
                 }
 
                 // 목록 뷰로 전환
+                this.switchView('list');
+            } else {
+                // SLS-1-206: 다른 창이 이 항목을 지웠다. 교차 창 갱신이 들어오면서
+                // sampleLogs에서 사라진 상태다. 안내 없이 넘기면 입력한 내용이
+                // 아무 반응 없이 사라진 것처럼 보인다.
+                this.showToast('다른 창에서 삭제된 항목입니다. 수정 내용을 저장할 수 없습니다.', 'error');
+                this.resetForm();
+                this.receptionNumberInput.value = this.generateNextReceptionNumber();
+                this.editingId = null;
+                if (this.navSubmitBtn) {
+                    this.navSubmitBtn.title = '접수 등록';
+                    this.navSubmitBtn.classList.remove('btn-edit-mode');
+                }
                 this.switchView('list');
             }
         } else {
@@ -866,6 +884,73 @@ class CompostSampleManager extends window.BaseSampleManager {
 
         // -- Electron 자동 저장 파일 로드 --
         this.loadAutoSaveOnInit();
+
+        // -- 다른 창의 저장소 변경 감지 (SLS-1-206) --
+        this.setupCrossWindowSync();
+    }
+
+    /**
+     * 검정결과 화면(src/compost-analysis/)은 별도 창이다. 거기서 저장하면
+     * localStorage는 바뀌지만 이 페이지의 메모리 sampleLogs는 그대로라
+     * **입력한 값이 목록에 나타나지 않는다**(새로고침해야 보인다).
+     *
+     * SLS-1-205 코드리뷰 MAJOR-3의 반대 방향이다 — 그때는 팝업이 낡는 것만 고쳤다.
+     */
+    setupCrossWindowSync() {
+        // 기준값을 지금 맞춰 둔다. 안 하면 undefined와 비교하게 되어
+        // 첫 focus에서 변경이 없는데도 한 번 헛돌아 전건을 다시 그린다.
+        this._lastLogsRaw = localStorage.getItem(this.getStorageKey(this.selectedYear));
+        this._lastResultsRaw = localStorage.getItem(`compostTestResults_${this.selectedYear}`);
+
+        const watched = () => [
+            `compostSampleLogs_${this.selectedYear}`,
+            `compostTestResults_${this.selectedYear}`,
+        ];
+
+        // 같은 origin의 다른 창/탭이 localStorage를 바꾸면 발생한다.
+        window.addEventListener('storage', (e) => {
+            if (e.key && watched().includes(e.key)) this.refreshFromStorage();
+        });
+
+        // 폴백 — Electron file:// 환경에서는 storage 이벤트가 전달되지 않을 수 있다.
+        // 창이 다시 앞으로 나올 때 저장소를 다시 읽는다.
+        window.addEventListener('focus', () => this.refreshFromStorage());
+    }
+
+    /**
+     * 저장소를 다시 읽어 목록만 갱신한다.
+     *
+     * ⚠️ 폼은 건드리지 않는다 — 편집 중이면 입력하던 내용이 날아간다.
+     * ⚠️ 변경이 없으면 재렌더하지 않는다 — focus마다 전건 재파싱하면 큰 연도에서 체감된다.
+     *
+     * 두 저장소를 **따로** 본다. 접수 데이터만 보고 조기 반환하면, 검정결과만 바뀐 경우
+     * (예: 검사일자 일괄 적용 — 함수율·부숙도를 건드리지 않아 접수 데이터가 그대로다)
+     * 캐시가 안 비워져 버튼 라벨(결과입력/결과확인)이 낡은 채로 남는다.
+     */
+    refreshFromStorage() {
+        const raw = localStorage.getItem(this.getStorageKey(this.selectedYear));
+        const resultsRaw = localStorage.getItem(`compostTestResults_${this.selectedYear}`);
+        const logsChanged = raw !== this._lastLogsRaw;
+        const resultsChanged = resultsRaw !== this._lastResultsRaw;
+        if (!logsChanged && !resultsChanged) return;
+
+        this._lastLogsRaw = raw;
+        this._lastResultsRaw = resultsRaw;
+
+        if (logsChanged) {
+            let parsed;
+            try {
+                parsed = JSON.parse(raw || '[]');
+            } catch (e) {
+                (window.logger?.warn || console.warn)('접수 데이터 재읽기 실패 — 기존 데이터 유지:', e);
+                parsed = null;
+            }
+            if (Array.isArray(parsed)) this.sampleLogs = parsed;
+        }
+
+        // 캐시를 비워야 버튼 라벨(결과입력/결과확인)이 갱신된다
+        if (resultsChanged) this._cachedCompostResults = null;
+        this.filterAndRenderLogs();
     }
 
     // ========================================

@@ -38,9 +38,9 @@
             color: #fcd34d !important;
         }
     </style>
-  <script type="module" crossorigin src="../assets/compost-CxF-Pa8z.js"></script>
+  <script type="module" crossorigin src="../assets/compost-DX9inn2V.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
-  <link rel="modulepreload" crossorigin href="../assets/address-parser-BSJtMsqi.js">
+  <link rel="modulepreload" crossorigin href="../assets/address-parser-CvdRYMNU.js">
   <link rel="modulepreload" crossorigin href="../assets/xlsx.min-VMp2aTeW.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-D6gMnemd.js">
   <link rel="modulepreload" crossorigin href="../assets/logger-Bx3YsiDi.js">
@@ -51,7 +51,7 @@
   <link rel="modulepreload" crossorigin href="../assets/index.esm-k5uDoaEq.js">
   <link rel="modulepreload" crossorigin href="../assets/storage-manager-NkZUqJOM.js">
   <link rel="modulepreload" crossorigin href="../assets/compost-fields-BVIU25OO.js">
-  <link rel="stylesheet" crossorigin href="../assets/address-parser-D8Iy-XYD.css">
+  <link rel="stylesheet" crossorigin href="../assets/address-parser-BtD7VV2X.css">
   <link rel="stylesheet" crossorigin href="../assets/compost-CyMesA5H.css">
   <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
 </head>
@@ -461,6 +461,12 @@
                         <option value="incomplete" selected>⬜ 미완료</option>
                         <option value="completed">✅ 완료</option>
                     </select>
+                    <select id="judgmentFilter" class="purpose-filter appearance-none">
+                        <option value="">전체 판정</option>
+                        <option value="pass">🟢 적합</option>
+                        <option value="fail">🔴 부적합</option>
+                        <option value="none">⚪ 미판정</option>
+                    </select>
                     <span class="record-count" id="recordCount">0건</span>
                 </div>
                 <div class="header-right">
@@ -628,6 +634,38 @@
                             <div class="stat-info">
                                 <span class="stat-value" id="statPendingCount">0</span>
                                 <span class="stat-label">미완료</span>
+                            </div>
+                        </div>
+                        <!-- SLS-1-203: 자동 판정 제거(SLS-1-202) 후 미판정을 알아챌 수단이
+                             목록 배지 '-' 하나뿐이었다. 부숙도 판정은 규제 대응 기록이다. -->
+                        <div class="stat-card judged-pass">
+                            <div class="stat-card-top">
+                                <div class="stat-icon">🟢</div>
+                                <span class="stat-card-badge" id="statPassRate"></span>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="statPassCount">0</span>
+                                <span class="stat-label">적합</span>
+                            </div>
+                        </div>
+                        <div class="stat-card judged-fail">
+                            <div class="stat-card-top">
+                                <div class="stat-icon">🔴</div>
+                                <span class="stat-card-badge" id="statFailRate"></span>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="statFailCount">0</span>
+                                <span class="stat-label">부적합</span>
+                            </div>
+                        </div>
+                        <div class="stat-card judged-none">
+                            <div class="stat-card-top">
+                                <div class="stat-icon">⚪</div>
+                                <span class="stat-card-badge" id="statUnjudgedRate"></span>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="statUnjudgedCount">0</span>
+                                <span class="stat-label">미판정</span>
                             </div>
                         </div>
                     </div>

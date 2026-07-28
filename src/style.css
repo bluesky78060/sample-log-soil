@@ -2918,6 +2918,24 @@ input[type="number"] {
     border-color: #ffe082;
 }
 
+/* 판정 3분할 (SLS-1-203)
+   기본 .stat-card는 초록(성공) 계열이라, 규칙을 안 주면 **부적합 카드가 초록으로**
+   렌더된다 — 미판정·부적합을 눈에 띄게 하려고 만든 카드가 정반대로 보인다. */
+.stat-card.judged-pass {
+    background: #e8f5e9;
+    border-color: #a5d6a7;
+}
+
+.stat-card.judged-fail {
+    background: #ffebee;
+    border-color: #ffcdd2;
+}
+
+.stat-card.judged-none {
+    background: #f5f5f5;
+    border-color: #e0e0e0;
+}
+
 .stat-card-top {
     display: flex;
     align-items: center;
@@ -2940,6 +2958,14 @@ input[type="number"] {
     background: rgba(255, 167, 38, 0.15);
 }
 
+.stat-card.judged-fail .stat-icon {
+    background: rgba(229, 57, 53, 0.15);
+}
+
+.stat-card.judged-none .stat-icon {
+    background: rgba(117, 117, 117, 0.15);
+}
+
 .stat-card-badge {
     font-size: 0.75rem;
     font-weight: 600;
@@ -2952,6 +2978,16 @@ input[type="number"] {
 .stat-card.pending .stat-card-badge {
     background: rgba(239, 108, 0, 0.1);
     color: #ef6c00;
+}
+
+.stat-card.judged-fail .stat-card-badge {
+    background: rgba(198, 40, 40, 0.1);
+    color: #c62828;
+}
+
+.stat-card.judged-none .stat-card-badge {
+    background: rgba(97, 97, 97, 0.1);
+    color: #616161;
 }
 
 .stat-info {
@@ -2970,6 +3006,14 @@ input[type="number"] {
 
 .stat-card.pending .stat-value {
     color: #e65100;
+}
+
+.stat-card.judged-fail .stat-value {
+    color: #c62828;
+}
+
+.stat-card.judged-none .stat-value {
+    color: #616161;
 }
 
 .stat-label {

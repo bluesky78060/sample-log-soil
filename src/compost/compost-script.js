@@ -42,7 +42,8 @@ class CompostSampleManager extends window.BaseSampleManager {
             name: '',
             receptionFrom: '',
             receptionTo: '',
-            completed: 'incomplete'
+            completed: 'incomplete',
+            judgment: ''          // SLS-1-203: '' | 'pass' | 'fail' | 'none'
         };
         this.isFullView = false;
         this.autoSaveFileHandle = null;
@@ -1184,6 +1185,15 @@ class CompostSampleManager extends window.BaseSampleManager {
             log.updatedAt = new Date().toISOString();
             this.saveLogs();
             this.filterAndRenderLogs();
+
+            // SLS-1-203: 판정 없이 완료 표시하면 알린다. **막지는 않는다** —
+            //   접수 완료와 판정은 순서가 정해져 있지 않아 판정 전 완료가 정상 업무일
+            //   수 있다. confirm()이면 매번 클릭을 하나 더 요구한다.
+            // 참고: 퇴비의 완료 토글은 단건이다. 토양의 본필지/하위필지 그룹 토글
+            //   규칙(CLAUDE.md)은 여기 적용되지 않으므로 토스트가 여러 번 뜰 일이 없다.
+            if (log.isComplete && !this.isJudged(log)) {
+                this.showToast('판정이 아직 없습니다. 완료로 표시했습니다.', 'warning');
+            }
         }
     }
 
@@ -1191,9 +1201,43 @@ class CompostSampleManager extends window.BaseSampleManager {
     // 판정 결과 토글 (미판정 -> 적합 -> 부적합 -> 미판정)
     // ========================================
 
+    /**
+     * 타입 고유 필터 훅 오버라이드 (SLS-1-203).
+     *
+     * BaseSampleManager.js:1085의 필터 체인이 부르는 확장점이다. 판정 필터를
+     * filterAndRenderLogs에 직접 넣으면 **토양과 공유하는 파일**(BaseSampleManager.js)을
+     * 고치게 된다 — 이 저장소가 공유 파일 수정으로 조용한 교차 파손을 겪어온 자리다.
+     *
+     * 'none'은 'pass'도 'fail'도 아닌 모든 값(빈 문자열·undefined·레거시)을 뜻한다.
+     * 통계 3분할과 같은 규칙이라 두 화면의 숫자가 어긋나지 않는다.
+     */
+    matchesTypeSpecificFilters(log) {
+        const want = this.currentSearchFilter?.judgment;
+        if (!want) return true;
+        return this.judgmentOf(log) === want;
+    }
+
+    /**
+     * 판정 정규화 — 통계·필터·완료 경고가 **같은 규칙**을 써야 화면끼리 숫자가 어긋나지 않는다.
+     * 'pass'/'fail'이 아닌 모든 값(빈 문자열·undefined·레거시 문자열)은 미판정이다.
+     */
+    judgmentOf(log) {
+        return log.testResult === 'pass' || log.testResult === 'fail' ? log.testResult : 'none';
+    }
+
+    isJudged(log) {
+        return this.judgmentOf(log) !== 'none';
+    }
+
+    /** 검색 버튼 "검색 중" 표시에 판정 필터도 반영 (SLS-1-203) */
+    getFilterKeys() {
+        return [...super.getFilterKeys(), 'judgment'];
+    }
+
     toggleTestResult(id) {
         const log = this.sampleLogs.find(l => String(l.id) === id);
         if (log) {
+            const before = log.testResult;
             if (!log.testResult || log.testResult === '') {
                 log.testResult = 'pass';
             } else if (log.testResult === 'pass') {
@@ -1201,10 +1245,48 @@ class CompostSampleManager extends window.BaseSampleManager {
             } else {
                 log.testResult = '';
             }
+            // 검정결과 레코드 동기화가 실패하면(quota 등) 배지만 바뀌어 두 저장소가
+            // 어긋난다 — 목록은 '적합', 모달은 옛 판정. 규제 대응 기록이라 그 상태로
+            // 두면 안 되므로 배지를 되돌리고 알린다.
+            if (!this.syncJudgmentToResults(id, log.testResult)) {
+                log.testResult = before;
+                this.showToast('저장 공간이 부족해 판정을 변경하지 못했습니다.', 'error');
+                return;
+            }
             log.updatedAt = new Date().toISOString();
             this.saveLogs();
             this.filterAndRenderLogs();
         }
+    }
+
+    /**
+     * 배지로 매긴 판정을 검정결과 레코드에도 반영한다 (SLS-1-203).
+     *
+     * 같은 사실(판정)을 log.testResult와 레코드의 judgment 두 곳이 들고 있는데
+     * 동기화가 한 방향뿐이었다 — saveCompostAnalysis는 레코드 → log로 흘려보내지만
+     * 배지 토글은 log만 고쳤다. 그래서 이 순서에서 판정이 조용히 사라졌다.
+     *
+     *   ① 모달에서 '미판정' 저장 → judgment:'' 레코드 생성
+     *   ② 배지로 '적합' → log.testResult만 바뀜
+     *   ③ 모달 재오픈 → ('' ?? 'pass')는 ''이라 미판정으로 표시
+     *   ④ 다른 항목만 고쳐 저장 → 배지 판정 소실
+     *
+     * 레코드가 **있을 때만** 갱신한다. 없는데 만들면 검정값이 텅 빈 레코드가 생겨
+     * "결과확인" 라벨이 켜지고 사용자는 입력한 적 없는 결과가 있다고 오해한다.
+     */
+    syncJudgmentToResults(id, judgment) {
+        const all = this.loadAllCompostTestResults();
+        const rec = all[String(id)];
+        if (!rec || rec.judgment === judgment) return true;   // 할 일 없음 = 성공
+        rec.judgment = judgment;
+        rec.updatedAt = new Date().toISOString();
+        // ⚠️ 반환값을 버리면 안 된다. saveAllCompostTestResults는 quota 초과 시 false를
+        //    돌려준다. 무시하면 배지와 레코드가 어긋난 채 남고, 모달은 옛 판정을
+        //    보여준다(existing이 여전히 truthy라 ?? 폴백도 안 걸린다).
+        //    saveCompostAnalysis가 SLS-1-204 코드리뷰에서 이미 고친 것과 같은 실패 모드다.
+        if (!this.saveAllCompostTestResults(all)) return false;
+        this._cachedCompostResults = null;
+        return true;
     }
 
     // BaseSampleManager의 setupTableEventDelegation()이 toggleResult를 호출하므로 alias
@@ -1492,6 +1574,23 @@ class CompostSampleManager extends window.BaseSampleManager {
         if (totalBadge) totalBadge.textContent = `${total}건`;
         if (completedRateEl) completedRateEl.textContent = `${completedRate}%`;
         if (pendingRateEl) pendingRateEl.textContent = `${pendingRate}%`;
+
+        // SLS-1-203: 판정 3분할. 자동 판정을 없앤 뒤(SLS-1-202) 미판정을 알아챌 수단이
+        //   목록 배지 '-' 하나뿐이었다. 합은 반드시 total과 같다 — 'pass'/'fail'이
+        //   아닌 값(빈 문자열·undefined·레거시)은 전부 미판정으로 센다.
+        const judged = { pass: 0, fail: 0, none: 0 };
+        this.sampleLogs.forEach(l => { judged[this.judgmentOf(l)]++; });
+        const rate = (n) => (total > 0 ? ((n / total) * 100).toFixed(1) : '0.0');
+        const setText = (id, text) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        };
+        setText('statPassCount', judged.pass.toLocaleString());
+        setText('statFailCount', judged.fail.toLocaleString());
+        setText('statUnjudgedCount', judged.none.toLocaleString());
+        setText('statPassRate', `${rate(judged.pass)}%`);
+        setText('statFailRate', `${rate(judged.fail)}%`);
+        setText('statUnjudgedRate', `${rate(judged.none)}%`);
 
         // 시료종류별
         const compostClassMap = {
@@ -1840,6 +1939,15 @@ class CompostSampleManager extends window.BaseSampleManager {
             });
         }
 
+        // 판정 필터 드롭다운 (SLS-1-203)
+        const judgmentFilter = document.getElementById('judgmentFilter');
+        if (judgmentFilter) {
+            judgmentFilter.addEventListener('change', (e) => {
+                this.currentSearchFilter.judgment = e.target.value;
+                this.filterAndRenderLogs();
+            });
+        }
+
         if (openSearchModalBtn) {
             openSearchModalBtn.addEventListener('click', () => {
                 if (searchDateFromInput) searchDateFromInput.value = this.currentSearchFilter.dateFrom;
@@ -1877,7 +1985,11 @@ class CompostSampleManager extends window.BaseSampleManager {
                 if (searchReceptionFromInput) searchReceptionFromInput.value = '';
                 if (searchReceptionToInput) searchReceptionToInput.value = '';
                 if (completedFilter) completedFilter.value = 'incomplete';
-                this.currentSearchFilter = { dateFrom: '', dateTo: '', name: '', receptionFrom: '', receptionTo: '', completed: 'incomplete' };
+                // SLS-1-203: 판정 필터도 함께 푼다. 안 하면 초기화 후에도 목록이
+                //   걸러진 채 남아 사용자는 데이터가 사라졌다고 오해한다.
+                const jf = document.getElementById('judgmentFilter');
+                if (jf) jf.value = '';
+                this.currentSearchFilter = { dateFrom: '', dateTo: '', name: '', receptionFrom: '', receptionTo: '', completed: 'incomplete', judgment: '' };
                 this.filterAndRenderLogs();
                 this.updateSearchButtonState();
                 listSearchModal.classList.add('hidden');
@@ -1966,9 +2078,13 @@ class CompostSampleManager extends window.BaseSampleManager {
                     '축종': log.animalType || '-',
                     '원료(부재료)': log.rawMaterials || '-',
                     '생산일': log.productionDate || '-',
+                    '채취일': log.samplingDate || '-',
                     '시료수': log.sampleCount || '-',
                     '검사목적': log.purpose || '-',
                     '통보방법': log.receptionMethod || '-',
+                    '사업자번호': log.businessNumber || '-',
+                    '농가여부': log.isFarm || '-',
+                    '비료관리법': log.fertilizerLawApplies || '-',
                     '비고': log.note || '-',
                     '완료여부': log.isComplete ? '완료' : '미완료',
                     '등록일시': log.createdAt ? new Date(log.createdAt).toLocaleString('ko-KR') : '-'
@@ -1978,14 +2094,17 @@ class CompostSampleManager extends window.BaseSampleManager {
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(sanitizeExcelData(excelData));
 
+            // ⚠️ 길이가 컬럼 수와 정확히 같아야 한다. 컬럼만 늘리고 여기를 두면
+            //    뒤쪽 열의 폭이 지정되지 않아 내용이 잘려 보인다 (SLS-1-203).
             ws['!cols'] = [
-                { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 15 },
-                { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 8 },
-                { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 25 },
-                { wch: 40 }, { wch: 30 }, { wch: 12 }, { wch: 12 },
-                { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 8 },
-                { wch: 25 }, { wch: 10 }, { wch: 20 }, { wch: 8 },
-                { wch: 20 }
+                { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 15 },   // 접수번호~생년월일
+                { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 8 },   // 농장명~우편번호
+                { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 25 },  // 시도~나머지주소
+                { wch: 40 }, { wch: 30 }, { wch: 12 }, { wch: 12 },  // 전체주소~시료종류
+                { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 12 },  // 축종~채취일
+                { wch: 8 }, { wch: 25 }, { wch: 10 },                // 시료수~통보방법
+                { wch: 15 }, { wch: 10 }, { wch: 12 },               // 사업자번호~비료관리법
+                { wch: 20 }, { wch: 8 }, { wch: 20 }                 // 비고~등록일시
             ];
 
             XLSX.utils.book_append_sheet(wb, ws, '퇴액비 접수목록');
@@ -2381,11 +2500,6 @@ class CompostSampleManager extends window.BaseSampleManager {
                 const input = document.getElementById(`ca_${field.key}`);
                 if (input) input.value = existing[field.key] || '';
             }
-            const judgment = existing.judgment || '';
-            if (['', 'pass', 'fail'].includes(judgment)) {
-                const radio = document.querySelector(`input[name="caJudgment"][value="${judgment}"]`);
-                if (radio) radio.checked = true;
-            }
         } else {
             document.getElementById('caTestDate').value = '';
             // 기존 인라인 함수율/부숙도 값 가져오기
@@ -2397,9 +2511,20 @@ class CompostSampleManager extends window.BaseSampleManager {
                     else input.value = '';
                 }
             }
-            const defaultRadio = document.querySelector('input[name="caJudgment"][value=""]');
-            if (defaultRadio) defaultRadio.checked = true;
         }
+
+        // SLS-1-203: 판정 시드는 분기 밖에서 한 번 정한다.
+        //   예전에는 검정결과 레코드가 있을 때만 시드하고 없으면 무조건 미판정으로
+        //   초기화했다. 목록 배지 토글로 판정한 시료는 log.testResult에만 값이 있어
+        //   **모달이 미판정으로 보이고, 저장하면 판정이 조용히 덮였다.**
+        //
+        //   ?? 를 쓴다 — existing.judgment가 빈 문자열이면 "명시적 미판정"이라는
+        //   의사표시이므로 log.testResult로 덮으면 안 된다(|| 면 그 구분이 사라진다).
+        //   레코드가 아예 없을 때만 배지 값으로 떨어진다.
+        const judgment = (existing?.judgment ?? log.testResult) || '';
+        const radio = document.querySelector(`input[name="caJudgment"][value="${judgment}"]`)
+            || document.querySelector('input[name="caJudgment"][value=""]');
+        if (radio) radio.checked = true;
 
         modal.classList.remove('hidden');
         setTimeout(() => {

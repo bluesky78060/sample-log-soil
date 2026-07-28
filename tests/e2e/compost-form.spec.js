@@ -222,4 +222,22 @@ test.describe('퇴비 접수 스모크 (SLS-1-195)', () => {
         expect(labelData[0].address).toContain('101호');
         expect(labelData[0].postalCode).toBe('36231');
     });
+
+    // SLS-1-204 코드리뷰 MAJOR-2: 유닛 테스트는 compost-results-store.js를 직접 import하므로
+    // compost-entry.js의 import가 사라져도 전건 통과한다(뮤테이션 C 생존 확인).
+    // 실제로는 loadAllCompostTestResults()가 window.CompostResultsStore 접근에서 TypeError로
+    // 죽어 검정결과 모달 전체가 불능이 된다. 프로덕션 배선을 여기서 고정한다.
+    test('검정결과 저장소가 페이지에 실제로 배선되어 있다 (SLS-1-204)', async ({ page }) => {
+        const wired = await page.evaluate(() => ({
+            store: typeof window.CompostResultsStore?.load === 'function'
+                && typeof window.CompostResultsStore?.save === 'function',
+            // 매니저 래퍼가 실제로 동작하는지 — 배선이 끊기면 여기서 throw한다
+            usable: (() => {
+                try { return typeof window.compostManager.loadAllCompostTestResults() === 'object'; }
+                catch { return false; }
+            })()
+        }));
+        expect(wired.store).toBe(true);
+        expect(wired.usable).toBe(true);
+    });
 });

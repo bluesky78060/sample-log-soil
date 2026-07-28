@@ -237,26 +237,12 @@ class CompostSampleManager extends window.BaseSampleManager {
         return logs;
     }
 
-    // ========================================
-    // Override: 연도 데이터 로드 완료 플래그 (SLS-1-196)
-    // ========================================
-
-    /**
-     * onYearChange가 syncCompostTestResultsFromFirestore()를 await 없이 호출하므로
-     * 이 로드와 경쟁한다. 검정결과 동기화가 시료 레코드를 건드려도 되는 시점을
-     * 판별할 수 있도록 완료 여부를 기록한다.
-     * `sampleLogs.length > 0`으로는 "연도 전환 중 이전 연도 잔존"과 "Firebase 병합 전
-     * 부분 로드" 상태를 구분할 수 없다.
-     * @param {string|number} year
-     */
-    async loadYearData(year) {
-        this._yearDataLoaded = null;
-        const result = await super.loadYearData(year);
-        this._yearDataLoaded = String(year);
-        return result;
-    }
-
     // onBeforeSave: BaseSampleManager.saveLogs에서 listViewStale 설정하므로 별도 오버라이드 불필요
+    //
+    // SLS-1-204: loadYearData 오버라이드(_yearDataLoaded 플래그)를 제거했다.
+    //   이 플래그의 유일한 소비처가 syncCompostTestResultsFromFirestore였고(SLS-1-196의
+    //   await 없는 호출과 경쟁하는 문제), 검정결과 Firestore 동기화 자체가 사라져
+    //   판별할 경합이 없다. 검정결과는 이제 localStorage 동기 읽기/쓰기뿐이다.
 
     // ========================================
     // Override: 저장 후 hook (자동 저장)
@@ -2177,8 +2163,6 @@ class CompostSampleManager extends window.BaseSampleManager {
 
         // 분석결과 모달 초기화
         this.initCompostAnalysisModal();
-        // Firestore 동기화
-        this.syncCompostTestResultsFromFirestore();
 
         // 검정결과 조회 버튼
         const compostAnalysisViewBtn = document.getElementById('compostAnalysisViewBtn');
@@ -2484,7 +2468,7 @@ class CompostSampleManager extends window.BaseSampleManager {
         // 항목별 기준 초과 표시(checkCompostFieldStatus)는 참고용으로 유지된다.
 
         allResults[logId] = result;
-        this.saveAllCompostTestResults(allResults);
+        const stored = this.saveAllCompostTestResults(allResults);
 
         // 접수 데이터에 함수율/부숙도 동기화
         // SLS-1-196: 빈 값도 그대로 반영한다(judgment와 대칭).
@@ -2499,7 +2483,19 @@ class CompostSampleManager extends window.BaseSampleManager {
         document.getElementById('compostAnalysisModal')?.classList.add('hidden');
         this._caLogId = null;
         this.filterAndRenderLogs();
-        this.showToast('분석결과가 저장되었습니다.', 'success');
+
+        // SLS-1-204 코드리뷰 MAJOR-1: 저장 실패(quota 등)에 성공 토스트를 띄우면 안 된다.
+        //   함수율·부숙도·판정 3개는 log에 실려 saveLogs()의 SLS-1-198 경로(클라우드·자동저장)로
+        //   살아남지만, 검정결과 저장소에만 있는 검사일자·구리·아연·염분은 어디에도 남지 않는다.
+        //   검정결과는 Firestore 동기화가 없어(SLS-1-204) 구제 경로가 localStorage뿐이다.
+        if (stored) {
+            this.showToast('분석결과가 저장되었습니다.', 'success');
+        } else {
+            this.showToast(
+                '저장 공간이 부족해 검정결과가 저장되지 않았습니다. 즉시 JSON 저장으로 백업해 주세요.',
+                'error'
+            );
+        }
     }
 
     // === 데이터 저장/로드 ===
@@ -2511,152 +2507,32 @@ class CompostSampleManager extends window.BaseSampleManager {
         return this._cachedCompostResults[logId] || null;
     }
 
+    // SLS-1-204: 저장소 접근은 window.CompostResultsStore 하나로 모은다.
+    //   검정결과 페이지(src/compost-analysis/, P1~P3에서 신설 예정)가 별도 창에서 같은
+    //   데이터를 읽고 쓸 것이므로, 양쪽이 각자 localStorage를 만지면 어긋나는 순간
+    //   데이터가 갈라진다. 캐시(_cachedCompostResults)는 화면 상태이므로 매니저에 남긴다.
+
     loadAllCompostTestResults() {
-        const key = `compostTestResults_${this.selectedYear}`;
-        try {
-            const data = localStorage.getItem(key);
-            if (!data) return {};
-            return JSON.parse(data) || {};
-        } catch (e) {
-            (window.logger?.error || console.error)('퇴·액비 검사 결과 로드 실패:', e);
-            return {};
-        }
+        return window.CompostResultsStore.load(this.selectedYear);
     }
 
+    /**
+     * @returns {boolean} 저장 성공 여부 — 호출부가 성공/실패 안내를 분기한다.
+     *   반환값을 버리면 quota 실패에도 "저장되었습니다"가 뜬다(코드리뷰 MAJOR-1).
+     */
     saveAllCompostTestResults(results) {
-        const key = `compostTestResults_${this.selectedYear}`;
-        try {
-            localStorage.setItem(key, JSON.stringify(results));
-            this._cachedCompostResults = results;
-            this.syncCompostTestResultsToFirestore(results);
-        } catch (e) {
-            (window.logger?.error || console.error)('퇴·액비 검사 결과 저장 실패:', e);
-        }
+        // 저장 실패(quota 등)에도 캐시는 갱신한다 — 화면에 보이는 값과 메모리 상태를
+        // 일치시켜야 사용자가 방금 입력한 내용이 사라진 것처럼 보이지 않는다.
+        this._cachedCompostResults = results;
+        return window.CompostResultsStore.save(this.selectedYear, results);
     }
 
-    async syncCompostTestResultsToFirestore(results) {
-        if (!window.firestoreDb?.isEnabled()) return;
-        try {
-            const year = parseInt(this.selectedYear, 10);
-            const entries = Object.entries(results);
-            if (entries.length === 0) return;
-            const documents = entries.map(([docKey, data]) => ({ ...data, id: docKey, _resultKey: docKey }));
-            await window.firestoreDb.batchSave('compostTestResults', year, documents);
-        } catch (e) {
-            (window.logger?.error || console.error)('퇴·액비 Firestore 동기화 실패:', e);
-        }
-    }
-
-    async syncCompostTestResultsFromFirestore() {
-        if (!window.firestoreDb?.isEnabled()) return;
-        try {
-            const year = parseInt(this.selectedYear, 10);
-            const cloudData = await window.firestoreDb.getAll('compostTestResults', year);
-            // SLS-1-196: 응답이 늦게 도착하는 사이 연도가 바뀌었으면 폐기한다.
-            //   이 함수는 year를 getAll에만 쓰고 이후 지점(lsKey, 게이트, saveLogs)은 모두
-            //   라이브 this.selectedYear를 읽는다. 2025→2026→2025처럼 빠르게 전환하면
-            //   2026 응답이 2025 상태에서 resolve되어 compostTestResults_2025에 병합 저장되고
-            //   2025 컬렉션으로 전건 batchSave가 나가는 교차 연도 오염이 발생한다.
-            //   _yearDataLoaded 게이트는 두 값이 우연히 일치하면 통과하므로 이걸 막지 못한다.
-            if (String(year) !== String(this.selectedYear)) return;
-            if (!cloudData || cloudData.length === 0) return;
-
-            const cloudMap = {};
-            for (const doc of cloudData) {
-                const key = doc._resultKey || doc.id;
-                if (key) {
-                    // eslint no-unused-vars 규칙(^_ 허용)에 맞춰 rename — rest에서 제외하려는 의도적 구조분해
-                    const { _resultKey, syncedAt: _syncedAt, ...rest } = doc;
-                    cloudMap[key] = rest;
-                }
-            }
-
-            const localResults = this.loadAllCompostTestResults();
-            const merged = { ...localResults };
-            for (const [key, cloudVal] of Object.entries(cloudMap)) {
-                const localVal = merged[key];
-                // SLS-1-196: updatedAt 비교는 반드시 SyncUtils.getTimestamp를 거친다.
-                //   클라우드 문서의 updatedAt은 ISO 문자열이 아니라 **Firestore Timestamp 객체**
-                //   ({seconds, nanoseconds})다. firestore-db.js가 batchSave에서 serverTimestamp()로
-                //   클라이언트 값을 덮어쓰고 getAll은 변환 없이 반환하기 때문이다.
-                //   new Date({seconds,...})는 Invalid Date이므로 직접 비교하면 NaN >= n → 항상 false가
-                //   되어 클라우드 값이 영원히 채택되지 않는다(= 타 기기 전파 사망).
-                //   getTimestamp는 Timestamp 객체/ISO/숫자 3형식을 모두 밀리초로 정규화한다.
-                // 동점·양쪽 부재 시에는 로컬을 유지한다(불필요한 변동 회피).
-                const cloudTime = window.SyncUtils.getTimestamp(cloudVal.updatedAt);
-                const localTime = window.SyncUtils.getTimestamp(localVal && localVal.updatedAt);
-                if (!localVal) {
-                    merged[key] = cloudVal;
-                } else if (cloudTime > 0 && cloudTime >= localTime) {
-                    merged[key] = cloudVal;
-                }
-            }
-
-            const lsKey = `compostTestResults_${this.selectedYear}`;
-            localStorage.setItem(lsKey, JSON.stringify(merged));
-            this._cachedCompostResults = merged;
-
-            // 접수 데이터 판정/함수율/부숙도 동기화
-            //
-            // ⚠️ SLS-1-196: 여기서 saveLogs()를 무조건 호출하면 안 된다.
-            //    saveLogs()는 BaseSampleManager:255에서 batchSave(전건)를 수행하고
-            //    firestore-db가 문서마다 updatedAt: serverTimestamp()를 찍는다.
-            //    onYearChange는 매 페이지 로드마다 호출되므로(init → syncYearSelects → onYearChange),
-            //    "열기만 해도 전 문서의 updatedAt이 갱신"되어 타 기기 병합이 교란된다.
-            //    BaseSampleManager.js:417-418이 같은 이유로 "전체가 아닌 localOnly만" 올리도록
-            //    명시적으로 제한해 둔 바로 그 패턴이다.
-            //    → 클라우드에서 읽어온 값을 클라우드에 도로 쓰지 않는다. 실제로 달라진 경우에만 저장.
-            //
-            //    (남은 부채) 실제 변경이 있을 때의 저장은 여전히 전건 batchSave다. 변경분만 올리려면
-            //    base에 새 API가 필요해 범위가 크므로 후속 티켓으로 남긴다.
-            //
-            // 경합 방어: onYearChange가 이 async 함수를 await 없이 호출하므로 loadYearData()와
-            //    경쟁한다. `sampleLogs.length > 0`은 실효가 없다 — 빈 배열이면 find가 어차피
-            //    undefined라 가드 유무가 동작을 바꾸지 못하고, 정작 위험한 두 상태
-            //    (연도 전환 중 이전 연도 잔존 / Firebase 병합 전 부분 로드)는 통과시킨다.
-            //    → 해당 연도의 로드 완료 플래그로 게이트한다(loadYearData 오버라이드에서 설정).
-            let changedCount = 0;
-            if (this._yearDataLoaded === String(this.selectedYear)) {
-                for (const [resultId, resultData] of Object.entries(merged)) {
-                    const log = this.sampleLogs.find(l => String(l.id) === String(resultId));
-                    if (!log) continue;
-
-                    // ⚠️ 로그 쪽이 더 최신이면 덮지 않는다.
-                    //    인라인 편집(toggleTestResult / updateMaturity / updateMoisture)은
-                    //    log.updatedAt만 갱신하고 compostTestResults 저장소는 건드리지 않는다.
-                    //    저장소를 무조건 승자로 두면 (1) 사용자의 판정 토글이 매 로드마다 조용히
-                    //    되돌려지고 (2) 그 때문에 changed=true가 되어 saveLogs()가 매 로드 발동한다
-                    //    — 이 티켓이 없애려던 바로 그 전건 재업로드가 영구히 반복된다.
-                    const resultTime = window.SyncUtils.getTimestamp(resultData.updatedAt);
-                    const logTime = window.SyncUtils.getTimestamp(log.updatedAt);
-                    if (logTime > 0 && resultTime > 0 && resultTime < logTime) continue;
-
-                    let changed = false;
-                    // judgment는 ''(미판정)도 1급 상태이므로 undefined와 구분해서 처리한다.
-                    // 로컬 저장 경로(saveCompostAnalysis)도 `result.judgment || ''`로 빈 값을 쓴다.
-                    if (resultData.judgment !== undefined && log.testResult !== resultData.judgment) {
-                        log.testResult = resultData.judgment; changed = true;
-                    }
-                    if (resultData.moisture !== undefined && log.moisture !== resultData.moisture) {
-                        log.moisture = resultData.moisture; changed = true;
-                    }
-                    if (resultData.maturity !== undefined && log.maturity !== resultData.maturity) {
-                        log.maturity = resultData.maturity; changed = true;
-                    }
-                    if (changed) changedCount++;
-                }
-            }
-            if (changedCount > 0) this.saveLogs();
-            this.filterAndRenderLogs();
-        } catch (e) {
-            (window.logger?.error || console.error)('퇴·액비 Firestore 로드 실패:', e);
-        }
-    }
-
+    // newYear는 쓰지 않는다 — base가 this.selectedYear를 이미 설정한 뒤 호출한다.
+    // base 계약(onYearChange(newYear))을 지키기 위해 시그니처만 유지한다.
     onYearChange(newYear) {
         this.updateListViewTitle();
+        // 캐시만 비운다 — 다음 loadCompostTestResult 호출이 새 연도 값을 읽는다.
         this._cachedCompostResults = null;
-        this.syncCompostTestResultsFromFirestore();
     }
 
     // ========================================

@@ -31,6 +31,7 @@ import '../shared/storage-manager.js';
 import '../shared/sync-utils.js';
 import '../shared/BaseSampleManager.js';
 import '../shared/excel-import-manager.js';
+import '../shared/compost-results-store.js';   // SLS-1-204: 검정결과 저장소 단일 진실원
 
 // Data
 // 정적 시·군 데이터 제거 - 자동완성은 juso API 단독

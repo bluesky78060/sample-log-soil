@@ -244,7 +244,8 @@ test.describe('격자 입력 (SLS-1-205 S3)', () => {
         await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
         const opts = await page.locator('td[data-field="maturity"] select')
             .evaluate(el => Array.from(el.options).map(o => o.value));
-        expect(opts).toEqual(['', '미부숙', '부숙초기', '부숙중기', '부숙완료', '완전부숙']);
+        // SLS-1-207: 흙토람 양식 5종. 부숙후기가 빠져 있었고 '완전부숙'이 잘못 들어 있었다.
+        expect(opts).toEqual(['', '미부숙', '부숙초기', '부숙중기', '부숙후기', '부숙완료']);
     });
 
     test('입력 상식 범위를 벗어나면 표시한다 (판정과는 무관)', async ({ page }) => {

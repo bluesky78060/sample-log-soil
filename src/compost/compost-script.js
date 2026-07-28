@@ -330,7 +330,7 @@ class CompostSampleManager extends window.BaseSampleManager {
         const selectMaturity = document.createElement('select');
         selectMaturity.className = 'maturity-select';
         selectMaturity.dataset.id = logItem.id;
-        const maturityOptions = ['', '미부숙', '부숙초기', '부숙중기', '부숙완료', '완전부숙'];
+        const maturityOptions = window.CompostFields.MATURITY_OPTIONS;
         maturityOptions.forEach(opt => {
             const option = document.createElement('option');
             option.value = opt;
@@ -2361,7 +2361,7 @@ class CompostSampleManager extends window.BaseSampleManager {
         // 면적 기반 부숙도 기준 동적 설정
         const sampleType = log.sampleType || '가축분퇴비';
         const areaSqm = this.getAreaInSqm(log.farmArea, log.farmAreaUnit);
-        const maturityStandard = areaSqm >= 1500 ? '부숙완료 이상' : '부숙중기 이상';
+        const maturityStandard = window.CompostFields.maturityStandardFor(areaSqm);
 
         // 시료종류+축종별 분석 항목 렌더
         const fields = this.getFieldsForSample(sampleType, animalType);
@@ -2515,9 +2515,13 @@ class CompostSampleManager extends window.BaseSampleManager {
         let isOk = true;
 
         if (field.key === 'maturity') {
-            // 면적 기준: 1500㎡ 이상 → 부숙완료(3) 이상, 미만 → 부숙중기(2) 이상
-            const order = CompostSampleManager.MATURITY_ORDER[value];
-            const requiredLevel = (this._caAreaSqm && this._caAreaSqm >= 1500) ? 3 : 2;
+            // ⚠️ 숫자를 쓰지 않는다. 등급이 하나 늘면 순번이 전부 밀려
+            //    "부숙완료 이상"이 조용히 한 단계 아래를 통과시킨다(SLS-1-207).
+            //    요구 등급은 표기(maturityStandardFor)와 같은 함수에서 나온다.
+            const F = window.CompostFields;
+            const order = CompostSampleManager.MATURITY_ORDER[F.normalizeMaturity(value)];
+            const requiredLevel = CompostSampleManager
+                .MATURITY_ORDER[F.requiredMaturityFor(this._caAreaSqm || 0)];
             isOk = order !== undefined && order >= requiredLevel;
         } else if (field.standard) {
             const num = parseFloat(value.replace(/,/g, ''));

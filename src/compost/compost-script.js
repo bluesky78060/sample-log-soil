@@ -2424,62 +2424,6 @@ class CompostSampleManager extends window.BaseSampleManager {
         return unit === 'pyeong' ? Math.round(val * 3.3058) : val;
     }
 
-    autoJudgeCompost(result, animalType, log) {
-        // 데이터가 없으면 판정하지 않음
-        const hasData = result.moisture || result.maturity || result.salinity || result.copper || result.zinc;
-        if (!hasData) return '';
-
-        let pass = true;
-        const isLiquid = log?.sampleType === '가축분뇨발효액';
-        const moistureLimit = isLiquid ? 95 : 70;
-
-        // 함수율: 퇴비 70% / 액비 95%
-        if (result.moisture) {
-            const m = parseFloat(result.moisture);
-            if (!isNaN(m) && m > moistureLimit) pass = false;
-        }
-
-        // 부숙도: 면적 기준
-        if (result.maturity) {
-            const order = CompostSampleManager.MATURITY_ORDER[result.maturity];
-            const areaSqm = log ? this.getAreaInSqm(log.farmArea, log.farmAreaUnit) : 0;
-            const requiredLevel = areaSqm >= 1500 ? 3 : 2;
-            if (order !== undefined && order < requiredLevel) pass = false;
-        }
-
-        if (isLiquid) {
-            // 액비: 돼지만 구리 70 / 아연 170
-            if (animalType === '돼지') {
-                if (result.copper) {
-                    const cu = parseFloat(result.copper);
-                    if (!isNaN(cu) && cu > 70) pass = false;
-                }
-                if (result.zinc) {
-                    const zn = parseFloat(result.zinc);
-                    if (!isNaN(zn) && zn > 170) pass = false;
-                }
-            }
-        } else {
-            // 퇴비: 소→염분 2.5%, 돼지→구리 500/아연 1200
-            if (animalType === '소' && result.salinity) {
-                const s = parseFloat(result.salinity);
-                if (!isNaN(s) && s > 2.5) pass = false;
-            }
-            if (animalType === '돼지') {
-                if (result.copper) {
-                    const cu = parseFloat(result.copper);
-                    if (!isNaN(cu) && cu > 500) pass = false;
-                }
-                if (result.zinc) {
-                    const zn = parseFloat(result.zinc);
-                    if (!isNaN(zn) && zn > 1200) pass = false;
-                }
-            }
-        }
-
-        return pass ? 'pass' : 'fail';
-    }
-
     checkCompostFieldStatus(field, value, statusEl) {
         if (!value || !statusEl) {
             if (statusEl) statusEl.innerHTML = '';
@@ -2534,9 +2478,10 @@ class CompostSampleManager extends window.BaseSampleManager {
             if (input) result[field.key] = input.value.trim();
         }
 
-        // 자동 판정: 모든 항목이 기준 이내이면 적합, 하나라도 초과면 부적합
-        const autoJudgment = this.autoJudgeCompost(result, log.animalType || '', log);
-        if (!result.judgment) result.judgment = autoJudgment;
+        // SLS-1-202: 판정은 검사자가 직접 한다. 이전에는 judgment가 비어 있으면
+        // autoJudgeCompost 결과로 채웠으나, 사용자가 '미판정'을 고른 것도 의사표시이므로
+        // 앱이 값을 덮어쓰지 않는다(빈 값을 그대로 저장하는 SLS-1-196 계약과도 일치).
+        // 항목별 기준 초과 표시(checkCompostFieldStatus)는 참고용으로 유지된다.
 
         allResults[logId] = result;
         this.saveAllCompostTestResults(allResults);
@@ -2767,6 +2712,9 @@ class CompostSampleManager extends window.BaseSampleManager {
         }
     }
 }
+
+// 전역 노출 (단위 테스트 및 디버깅용 — 인스턴스화는 DOMContentLoaded에서만 수행)
+window.CompostSampleManager = CompostSampleManager;
 
 // ========================================
 // 인스턴스 생성 및 초기화

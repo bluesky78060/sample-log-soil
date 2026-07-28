@@ -25,6 +25,9 @@
         compost_common: [
             { key: 'moisture', label: '함수율', unit: '%', standard: '70 이하' },
             { key: 'maturity', label: '부숙도', unit: '', type: 'select', options: ['', '미부숙', '부숙초기', '부숙중기', '부숙완료', '완전부숙'], standard: '부숙중기 이상' },
+            { key: 'nitrogen', label: '질소(N)', unit: '%', standard: '' },
+            { key: 'phosphorus', label: '인산(P₂O₅)', unit: '%', standard: '' },
+            { key: 'potassium', label: '칼리(K₂O)', unit: '%', standard: '' },
         ],
         compost_cattle: [
             { key: 'salinity', label: '염분', unit: '%', standard: '2.5 이하' },
@@ -37,6 +40,9 @@
         liquid_common: [
             { key: 'moisture', label: '함수율', unit: '%', standard: '95 이하' },
             { key: 'maturity', label: '부숙도', unit: '', type: 'select', options: ['', '미부숙', '부숙초기', '부숙중기', '부숙완료', '완전부숙'], standard: '부숙중기 이상' },
+            { key: 'nitrogen', label: '질소(N)', unit: '%', standard: '' },
+            { key: 'phosphorus', label: '인산(P₂O₅)', unit: '%', standard: '' },
+            { key: 'potassium', label: '칼리(K₂O)', unit: '%', standard: '' },
         ],
         liquid_pig: [
             { key: 'copper', label: '구리(Cu)', unit: 'mg/kg', standard: '70 이하' },
@@ -96,16 +102,14 @@
     }
 
     /**
-     * 격자의 결과 열 순서. 흙토람 「성분검사결과 일괄입력 양식」 AB~AF열과 같은 순서다.
+     * 격자의 결과 열 순서. 흙토람 「성분검사결과 일괄입력 양식」 AB~AI열과 같은 순서다.
      *
-     * ⚠️ 질소·인산·칼리(양식 AG~AI열)는 **일부러 빠져 있다.**
-     *   COMPOST_FIELDS에 없어 appliesTo가 전 조합에서 false를 반환하므로, 열로 노출하면
-     *   가져오기 매핑 UI에는 뜨는데 저장은 막혀 **값이 조용히 사라진다**(코드리뷰 MAJOR-2).
-     *   넣으려면 COMPOST_FIELDS 추가와 checkCompostFieldStatus의 "기준 없는 항목" 가드가
-     *   함께 필요하다 — 가드 없이 standard를 비우면 무조건 초록 ✓(허위 적합)가 뜬다.
-     *   SLS-1-200에서 폼 항목과 함께 도입한다.
+     * 질소·인산·칼리(AG~AI)는 법정 기준값이 없어 standard를 비운다.
+     * ⚠️ checkCompostFieldStatus에 "기준 없는 항목은 배지를 비운다" 가드가 있어야 한다 —
+     *    없으면 두 분기를 다 건너뛰어 무조건 초록 ✓(허위 적합)가 찍힌다(SLS-1-200).
      */
-    const RESULT_FIELDS = ['moisture', 'maturity', 'copper', 'zinc', 'salinity'];
+    const RESULT_FIELDS = ['moisture', 'maturity', 'copper', 'zinc', 'salinity',
+        'nitrogen', 'phosphorus', 'potassium'];
 
     window.CompostFields = {
         COMPOST_FIELDS, MATURITY_ORDER, RESULT_FIELDS,

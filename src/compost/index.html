@@ -352,15 +352,49 @@
                                     </div>
                                 </div>
 
-                                <!-- 채취/생산 년월일 -->
+                                <!-- 채취/생산 년월일
+                                     SLS-1-200: 흙토람 양식은 채취일자(T열)와 생산일자(U열)가
+                                     별도 열이라 분리했다. 기존 productionDate는 생산일자로 둔다. -->
                                 <div class="form-row">
                                     <div class="form-field">
-                                        <label for="productionDate">채취 년 월 일 (생산 년 월 일)</label>
+                                        <label for="samplingDate">채취 년 월 일</label>
+                                        <input type="date" id="samplingDate" name="samplingDate">
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="productionDate">생산 년 월 일</label>
                                         <input type="date" id="productionDate" name="productionDate">
                                     </div>
+                                </div>
+
+                                <!-- 흙토람 일괄입력용 항목 (SLS-1-200) -->
+                                <div class="form-row">
                                     <div class="form-field">
                                         <label for="sampleCount">시료수</label>
                                         <input type="number" id="sampleCount" name="sampleCount" min="1" value="1">
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="businessNumber">사업자등록번호</label>
+                                        <input type="text" id="businessNumber" name="businessNumber"
+                                            placeholder="111-11-11111" maxlength="60">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-field">
+                                        <label for="isFarm">농가여부</label>
+                                        <select id="isFarm" name="isFarm">
+                                            <option value="">선택</option>
+                                            <option value="해당">해당</option>
+                                            <option value="미해당">미해당</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="fertilizerLawApplies">비료관리법 해당여부</label>
+                                        <select id="fertilizerLawApplies" name="fertilizerLawApplies">
+                                            <option value="">선택</option>
+                                            <option value="해당">해당</option>
+                                            <option value="미해당">미해당</option>
+                                        </select>
                                     </div>
                                 </div>
 

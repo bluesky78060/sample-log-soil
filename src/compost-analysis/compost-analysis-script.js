@@ -32,6 +32,9 @@
         copper: { min: 0, max: 10000 },
         zinc: { min: 0, max: 20000 },
         salinity: { min: 0, max: 20 },
+        nitrogen: { min: 0, max: 100 },
+        phosphorus: { min: 0, max: 100 },
+        potassium: { min: 0, max: 100 },
     };
 
     const MAX_CELL_LEN = window.SampleConstants?.VALIDATION?.MAX_CELL_INPUT_LENGTH ?? 200;
@@ -72,10 +75,12 @@
                 fieldLabels: {
                     moisture: '함수율', maturity: '부숙도',
                     copper: '구리(Cu)', zinc: '아연(Zn)', salinity: '염분',
+                    nitrogen: '질소(N)', phosphorus: '인산(P₂O₅)', potassium: '칼리(K₂O)',
                 },
                 fieldDecimals: {
                     moisture: 1, maturity: 0,
                     copper: 0, zinc: 0, salinity: 2,
+                    nitrogen: 2, phosphorus: 2, potassium: 2,
                 },
                 fieldRanges: FIELD_RANGES,
                 // 기본 맵의 '인산'은 토양 availableP를 가리킨다. cfg가 덮어쓰지 않으면
@@ -89,6 +94,10 @@
                     '아연': { type: 'field', key: 'zinc' },
                     'zn': { type: 'field', key: 'zinc' },
                     '염분': { type: 'field', key: 'salinity' },
+                    '질소': { type: 'field', key: 'nitrogen' },
+                    '인산': { type: 'field', key: 'phosphorus' },
+                    '칼리': { type: 'field', key: 'potassium' },
+                    '가리': { type: 'field', key: 'potassium' },
                 },
                 getFlatRows: () => this.rows,
                 getTestResults: () => this.results,
@@ -232,6 +241,10 @@
                 tr.appendChild(this.createResultCell(row, rowIdx, field, colIdx, result[field]));
             });
 
+            // 최종검토의견 — 양식 AJ열. 축종과 무관하므로 RESULT_FIELDS와 별개로 둔다
+            // (RESULT_FIELDS는 appliesTo 필터가 걸리는 검정 항목 전용이다).
+            tr.appendChild(this.createOpinionCell(row, result.finalOpinion));
+
             return tr;
         }
 
@@ -286,6 +299,21 @@
             return td;
         }
 
+        /** 최종검토의견 셀 — 100자 권장(양식 안내문) */
+        createOpinionCell(row, value) {
+            const td = document.createElement('td');
+            td.className = 'col-opinion editable-cell';
+            td.dataset.field = 'finalOpinion';
+            td.contentEditable = 'true';
+            td.textContent = value ?? '';
+            td.addEventListener('blur', () => {
+                const v = td.textContent.trim().slice(0, 100);
+                if (v !== td.textContent.trim()) td.textContent = v;
+                this.handleCellEdit(row.key, 'finalOpinion', v);
+            });
+            return td;
+        }
+
         // ===== 편집 =====
 
         handleCellEdit(rowKey, field, value) {
@@ -303,6 +331,8 @@
             const rowIdx = this.rows.findIndex(r => r.key === rowKey);
             if (rowIdx < 0) return;
             const colIdx = RESULT_FIELDS().indexOf(field);
+            // finalOpinion은 검정 항목이 아니라 RESULT_FIELDS에 없다(-1) — 범위 검증 대상도 아니다
+            if (colIdx < 0) return;
             const cell = this.tableBody?.querySelector(`td[data-row="${rowIdx}"][data-col="${colIdx}"]`);
             if (cell) this.markRange(cell, field, this.results[rowKey]?.[field]);
         }
@@ -552,6 +582,51 @@
             }
         }
 
+        // ===== 흙토람 내보내기 (SLS-1-200) =====
+
+        async exportToHeuktoram() {
+            const E = window.CompostHeuktoramExport;
+            if (!E) { window.showToast?.('내보내기 모듈을 불러오지 못했습니다.', 'error'); return; }
+            if (this.rows.length === 0) {
+                window.showToast?.('내보낼 자료가 없습니다.', 'warning');
+                return;
+            }
+            // 양식 안내문의 권장 상한. 막지 않고 알린다 — 나눠 넣을지는 사용자가 정한다.
+            if (this.rows.length > E.RECOMMENDED_MAX) {
+                window.showToast?.(
+                    `${this.rows.length}건입니다. 흙토람은 1회 ${E.RECOMMENDED_MAX}건 이하를 권장합니다 — 나눠서 올리시면 안정적입니다.`,
+                    'warning'
+                );
+            }
+            // 코드리뷰 MAJOR-2: 양식 안내문상 **가축분퇴비는 면적 필수**다.
+            //   공란으로 300건을 올린 뒤 거부당하면 어느 행인지 찾는 비용이 크다.
+            //   막지는 않고(액비는 면적 불필요) 접수번호를 짚어 알린다.
+            const F = window.CompostFields;
+            const missingArea = this.rows.filter(r =>
+                (r.log.sampleType || '가축분퇴비') === '가축분퇴비' &&
+                F.getAreaInSqm(r.log.farmArea, r.log.farmAreaUnit) <= 0
+            );
+            if (missingArea.length > 0) {
+                const nums = missingArea.slice(0, 5).map(r => r.log.receptionNumber).join(', ');
+                const more = missingArea.length > 5 ? ` 외 ${missingArea.length - 5}건` : '';
+                window.showToast?.(
+                    `면적이 비어 있는 가축분퇴비 ${missingArea.length}건이 있습니다 (접수번호 ${nums}${more}). 흙토람은 퇴비의 면적을 필수로 요구합니다.`,
+                    'warning'
+                );
+            }
+
+            try {
+                const today = new Date().toISOString().slice(0, 10);
+                // exportFile이 Q·W열 드롭다운까지 주입한다 (JSZip 필요)
+                await E.exportFile(this.rows, this.results,
+                    `흙토람_성분검사결과_${this.year}_${today}.xlsx`);
+                window.showToast?.(`${this.rows.length}건을 내보냈습니다.`, 'success');
+            } catch (e) {
+                (window.logger?.error || console.error)('흙토람 내보내기 실패:', e);
+                window.showToast?.('내보내기에 실패했습니다. 잠시 후 다시 시도해 주세요.', 'error');
+            }
+        }
+
         // ===== 이벤트 =====
 
         bindEvents() {
@@ -568,6 +643,9 @@
 
             document.getElementById('applyBulkBtn')?.addEventListener('click', () => {
                 this.applyBulkTestDate(this.bulkTestDate?.value || '');
+            });
+            document.getElementById('exportHeuktoramBtn')?.addEventListener('click', () => {
+                this.exportToHeuktoram();
             });
             document.getElementById('clearTestDateBtn')?.addEventListener('click', () => {
                 if (this.bulkTestDate) this.bulkTestDate.value = '';

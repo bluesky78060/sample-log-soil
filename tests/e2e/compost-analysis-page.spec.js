@@ -44,7 +44,7 @@ test.describe('퇴·액비 검정결과 페이지 (SLS-1-205)', () => {
         }));
         expect(wired.store).toBe(true);
         expect(wired.fields).toBe(true);
-        expect(wired.resultFields).toBe(5);   // 질소·인산·칼리는 SLS-1-200에서 (MAJOR-2)
+        expect(wired.resultFields).toBe(8);
     });
 
     test('접수 자료가 없으면 안내를 보여준다', async ({ page }) => {
@@ -109,18 +109,21 @@ test.describe('퇴·액비 검정결과 페이지 (SLS-1-205)', () => {
         await expect(page.locator('td[data-field="maturity"].editable-cell')).toHaveCount(2);
     });
 
-    // 코드리뷰 MAJOR-2: 질소·인산·칼리를 열로 노출하면 가져오기 매핑 UI에는 뜨는데
-    // appliesTo가 전 조합에서 false라 저장이 막혀 값이 조용히 사라진다.
-    // 열 자체를 빼서 "매핑했는데 저장 안 됨"이 생기지 않게 한다.
-    test('질소·인산·칼리 열이 아예 없다 (SLS-1-200에서 기준과 함께 도입)', async ({ page }) => {
-        await seedAndOpen(page, { logs: [log({ id: 'c1', rec: '101' })] });
+    // SLS-1-200: 질소·인산·칼리가 열렸다. 기준값이 없어 standard가 비어 있으므로
+    // checkCompostFieldStatus의 "기준 없는 항목은 배지를 비운다" 가드가 함께 있어야 한다 —
+    // 없으면 무조건 초록 ✓(허위 적합)가 찍힌다.
+    test('질소·인산·칼리가 모든 행에서 열린다', async ({ page }) => {
+        await seedAndOpen(page, {
+            logs: [log({ id: 'c1', rec: '101', animalType: '돼지' }),
+                   log({ id: 'c2', rec: '102', sampleType: '가축분뇨발효액', animalType: '소' })]
+        });
         for (const f of ['nitrogen', 'phosphorus', 'potassium']) {
-            await expect(page.locator(`td[data-field="${f}"]`)).toHaveCount(0);
+            await expect(page.locator(`td[data-field="${f}"].editable-cell`), f).toHaveCount(2);
         }
-        // importer 매핑 UI에도 노출되지 않는다
         const fields = await page.evaluate(() =>
             window.compostAnalysisPage.resultImporter.cfg.resultFields);
-        expect(fields).toEqual(['moisture', 'maturity', 'copper', 'zinc', 'salinity']);
+        expect(fields).toEqual(['moisture', 'maturity', 'copper', 'zinc', 'salinity',
+                                'nitrogen', 'phosphorus', 'potassium']);
     });
 });
 
@@ -285,16 +288,14 @@ test.describe('결과 가져오기 (SLS-1-205 S4)', () => {
             const p = window.compostAnalysisPage.resultImporter;
             // 병합 — 퇴비 별칭이 들어와 있다
             const merged = p._patterns()['함수율'];
-            // 덮어쓰기 메커니즘 — 기본 맵에 있는 키를 cfg가 이기는지 합성으로 확인.
-            // (질소·인산·칼리가 SLS-1-200에서 들어오면 '인산'이 실제 충돌 사례가 된다)
-            const probe = new window.HeuktoramResultImporter({
-                resultFields: [], headerAliases: { 'ph': { type: 'field', key: 'OVERRIDDEN' } }
-            });
-            return { merged, base: probe._patterns()['ec'], overridden: probe._patterns()['ph'] };
+            // 덮어쓰기 — '인산'이 기본 맵(토양 availableP)과 실제로 충돌하는 키다
+            return { merged, base: p._patterns()['ec'], overridden: p._patterns()['인산'] };
         });
         expect(out.merged).toEqual({ type: 'field', key: 'moisture' });
-        expect(out.base).toEqual({ type: 'field', key: 'ec' });          // 안 건드린 키는 그대로
-        expect(out.overridden).toEqual({ type: 'field', key: 'OVERRIDDEN' });  // cfg가 이긴다
+        expect(out.base).toEqual({ type: 'field', key: 'ec' });   // 안 건드린 키는 그대로
+        // '인산'은 기본 맵에서 토양 availableP를 가리킨다. cfg가 안 이기면
+        // 퇴비의 인산 컬럼이 화이트리스트에 걸려 조용히 매핑 실패한다.
+        expect(out.overridden).toEqual({ type: 'field', key: 'phosphorus' });
     });
 
     test('토양 importer의 기본 별칭은 그대로다 (회귀 없음)', async ({ page }) => {

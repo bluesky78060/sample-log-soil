@@ -58,12 +58,12 @@ describe('appliesTo — getFieldsForSample에서 파생된다 (규칙 이중화 
         }
     })
 
-    it('6. 질소·인산·칼리는 아직 어느 조합에도 적용되지 않는다 (S3에서 추가)', () => {
-        // RESULT_FIELDS에는 열로 있지만 COMPOST_FIELDS에 없다.
-        // S3에서 checkCompostFieldStatus의 "기준 없는 항목" 가드와 함께 넣는다 —
-        // 지금 넣으면 standard가 비어 무조건 초록 ✓(허위 적합)가 표시된다.
+    it('6. 질소·인산·칼리는 축종과 무관하게 적용된다 (SLS-1-200)', () => {
+        // 흙토람 양식 AG~AI열. 법정 기준값이 없어 standard는 비어 있고,
+        // checkCompostFieldStatus의 가드가 허위 적합 표시를 막는다(케이스 13).
         for (const k of ['nitrogen', 'phosphorus', 'potassium']) {
-            expect(F().appliesTo(k, '가축분퇴비', '돼지'), k).toBe(false)
+            expect(F().appliesTo(k, '가축분퇴비', '돼지'), k).toBe(true)
+            expect(F().appliesTo(k, '가축분뇨발효액', '닭·오리 등'), k).toBe(true)
         }
     })
 
@@ -108,12 +108,51 @@ describe('위임 — compost-script.js 동작 불변 (S1 검증 기준)', () => 
         expect(m.getAreaInSqm('abc', 'm2')).toBe(0)
     })
 
-    it('12. 모달 필드 수가 변하지 않았다 (N/P/K 미추가 확인)', () => {
-        // 퇴비+돼지: 함수율·부숙도·구리·아연 = 4
-        expect(mgr().getFieldsForSample('가축분퇴비', '돼지')).toHaveLength(4)
-        // 퇴비+소: 함수율·부숙도·염분 = 3
-        expect(mgr().getFieldsForSample('가축분퇴비', '소')).toHaveLength(3)
-        // 액비+닭: 함수율·부숙도 = 2
-        expect(mgr().getFieldsForSample('가축분뇨발효액', '닭·오리 등')).toHaveLength(2)
+    it('12. 모달 필드 수 (SLS-1-200에서 N/P/K 3항목 추가)', () => {
+        // 공통 5(함수율·부숙도·질소·인산·칼리) + 축종별
+        expect(mgr().getFieldsForSample('가축분퇴비', '돼지')).toHaveLength(7)   // +구리·아연
+        expect(mgr().getFieldsForSample('가축분퇴비', '소')).toHaveLength(6)     // +염분
+        expect(mgr().getFieldsForSample('가축분뇨발효액', '닭·오리 등')).toHaveLength(5)
+    })
+})
+
+describe('기준 없는 항목의 배지 (SLS-1-200)', () => {
+    // checkCompostFieldStatus는 maturity와 field.standard만 분기한다.
+    // standard가 없으면 두 분기를 다 건너뛰고 isOk가 초기값 true로 남아
+    // **무조건 초록 ✓(허위 적합)**가 찍힌다. 질소·인산·칼리가 그 경우다.
+    const mgr = () => {
+        const m = Object.create(window.CompostSampleManager.prototype)
+        m._caAreaSqm = 0
+        return m
+    }
+    const badge = (field, value) => {
+        const el = document.createElement('td')
+        mgr().checkCompostFieldStatus(field, value, el)
+        return el.textContent
+    }
+
+    it('13. 기준이 없는 항목은 배지를 표시하지 않는다', () => {
+        for (const key of ['nitrogen', 'phosphorus', 'potassium']) {
+            const f = F().getFieldsForSample('가축분퇴비', '돼지').find(x => x.key === key)
+            expect(f.standard, key).toBe('')
+            expect(badge(f, '1.2'), key).toBe('')
+        }
+    })
+
+    it('14. 기준이 있는 항목은 여전히 판정한다 (13의 대조군)', () => {
+        const f = F().getFieldsForSample('가축분퇴비', '돼지').find(x => x.key === 'moisture')
+        expect(f.standard).toBe('70 이하')
+        expect(badge(f, '62.1')).toBe('✓')
+        expect(badge(f, '90')).toBe('✕')
+    })
+
+    it('15. 질소·인산·칼리가 전 조합에 적용된다', () => {
+        for (const st of SAMPLE_TYPES) {
+            for (const at of ANIMAL_TYPES) {
+                for (const k of ['nitrogen', 'phosphorus', 'potassium']) {
+                    expect(F().appliesTo(k, st, at), `${st}/${at}/${k}`).toBe(true)
+                }
+            }
+        }
     })
 })

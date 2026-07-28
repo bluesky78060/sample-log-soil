@@ -531,6 +531,10 @@ class CompostSampleManager extends window.BaseSampleManager {
                     sampleType: formData.get('sampleType'),
                     animalType: animalType,
                     productionDate: formData.get('productionDate'),
+                    samplingDate: formData.get('samplingDate'),
+                    businessNumber: formData.get('businessNumber'),
+                    isFarm: formData.get('isFarm'),
+                    fertilizerLawApplies: formData.get('fertilizerLawApplies'),
                     sampleCount: formData.get('sampleCount') || '1',
                     rawMaterials: formData.get('rawMaterials'),
                     updatedAt: new Date().toISOString()
@@ -564,6 +568,10 @@ class CompostSampleManager extends window.BaseSampleManager {
                 sampleType: formData.get('sampleType'),
                 animalType: animalType,
                 productionDate: formData.get('productionDate'),
+                samplingDate: formData.get('samplingDate'),
+                businessNumber: formData.get('businessNumber'),
+                isFarm: formData.get('isFarm'),
+                fertilizerLawApplies: formData.get('fertilizerLawApplies'),
                 sampleCount: formData.get('sampleCount') || '1',
                 rawMaterials: formData.get('rawMaterials'),
                 isComplete: false,
@@ -632,6 +640,14 @@ class CompostSampleManager extends window.BaseSampleManager {
         document.getElementById('productionDate').value = log.productionDate || '';
         document.getElementById('sampleCount').value = log.sampleCount || 1;
         document.getElementById('rawMaterials').value = log.rawMaterials || '';
+
+        // SLS-1-200: 흙토람 일괄입력용 항목. 여기서 빠뜨리면 편집 폼에 값이 안 채워지고,
+        //   그대로 저장하면 formData가 빈 문자열을 반환해 **기존 값이 조용히 덮인다.**
+        //   비료관리법 해당여부가 날아가면 흙토람에서 판정 기준이 바뀐다.
+        document.getElementById('samplingDate').value = log.samplingDate || '';
+        document.getElementById('businessNumber').value = log.businessNumber || '';
+        document.getElementById('isFarm').value = log.isFarm || '';
+        document.getElementById('fertilizerLawApplies').value = log.fertilizerLawApplies || '';
         document.getElementById('purpose').value = log.purpose || '';
     }
 
@@ -2058,7 +2074,11 @@ class CompostSampleManager extends window.BaseSampleManager {
                 '시료종류': 'sampleType', '시료': 'sampleType', '퇴비종류': 'sampleType',
                 '축종': 'animalType', '가축': 'animalType',
                 '원료': 'rawMaterials', '부재료': 'rawMaterials', '원료(부재료)': 'rawMaterials',
-                '생산일': 'productionDate', '생산일자': 'productionDate', '채취일': 'productionDate',
+                // SLS-1-200: 채취일자(양식 T열)와 생산일자(U열)는 별도 항목이다.
+                // '채취일'이 productionDate를 가리키면 두 열이 뒤바뀐다.
+                '생산일': 'productionDate', '생산일자': 'productionDate',
+                '채취일': 'samplingDate', '채취일자': 'samplingDate',
+                '면적': 'farmArea', '농장면적': 'farmArea',
                 '검사목적': 'purpose', '목적': 'purpose', '용도': 'purpose',
                 '통보방법': 'receptionMethod', '수령방법': 'receptionMethod',
                 '비고': 'note', '메모': 'note'
@@ -2109,6 +2129,9 @@ class CompostSampleManager extends window.BaseSampleManager {
                 const purpose = getVal('purpose') || common.purpose;
                 const receptionMethod = getVal('receptionMethod') || common.method;
                 const note = getVal('note') || '';
+                // SLS-1-200: 흙토람 양식이 요구하는 항목
+                const farmArea = this.parseFormattedNumber(getVal('farmArea') || '') || 0;
+                const samplingDate = parseExcelDate(getVal('samplingDate')) || '';
 
                 return {
                     id: SampleUtils.generateUUID() + '_' + rowIdx,
@@ -2125,8 +2148,11 @@ class CompostSampleManager extends window.BaseSampleManager {
                     addressRoad: address,
                     addressDetail: '',
                     farmAddress,
-                    farmArea: 0,
+                    // 0 고정이면 흙토람 내보내기에서 면적이 무조건 공란이 되고
+                    //   (양식상 가축분퇴비 필수), 부숙도 합격선도 조용히 완화된다.
+                    farmArea,
                     farmAreaUnit: 'm2',
+                    samplingDate,
                     sampleType,
                     animalType,
                     productionDate,
@@ -2389,6 +2415,15 @@ class CompostSampleManager extends window.BaseSampleManager {
     checkCompostFieldStatus(field, value, statusEl) {
         if (!value || !statusEl) {
             if (statusEl) statusEl.innerHTML = '';
+            return;
+        }
+
+        // SLS-1-200: 기준이 없는 항목은 상태 칸을 비운다.
+        //   아래 분기가 maturity와 field.standard만 다루므로, standard가 없으면
+        //   두 분기를 다 건너뛰고 isOk가 초기값 true로 남아 **무조건 초록 ✓**가 찍힌다.
+        //   질소·인산·칼리는 법정 기준값이 없어 그대로 두면 "적합"으로 오보된다.
+        if (field.key !== 'maturity' && !field.standard) {
+            statusEl.innerHTML = '';
             return;
         }
 

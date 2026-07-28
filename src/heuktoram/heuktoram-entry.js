@@ -17,6 +17,7 @@ import '../shared/utils.js';
 import '../shared/toast.js';
 import '../shared/address.js';
 import '../shared/address-parser.js';
+import '../shared/lot-address-parser.js';   // SLS-1-200: 지번 파서 공유 (SIDO_LIST 뒤)
 import '../shared/theme.js';
 import '../shared/tooltip.js';
 import '../shared/logger.js';

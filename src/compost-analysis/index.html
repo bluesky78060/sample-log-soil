@@ -45,6 +45,9 @@
             <button type="button" id="importResultBtn" class="toolbar-btn" title="검정결과 가져오기">
                 <span class="material-icons-outlined">upload_file</span> 결과 가져오기
             </button>
+            <button type="button" id="exportHeuktoramBtn" class="toolbar-btn" title="흙토람 일괄입력 양식으로 내보내기">
+                <span class="material-icons-outlined">download</span> 흙토람 내보내기
+            </button>
             <span id="recordCount" class="record-count">0건</span>
         </div>
     </nav>
@@ -61,7 +64,7 @@
                 <thead>
                     <tr>
                         <th colspan="5" class="header-group-label group-info">접수 정보</th>
-                        <th colspan="5" class="header-group-label group-result">검정 결과</th>
+                        <th colspan="9" class="header-group-label group-result">검정 결과</th>
                     </tr>
                     <tr>
                         <th class="col-checkbox sticky-col"><input type="checkbox" id="selectAll" title="전체 선택"></th>
@@ -74,6 +77,10 @@
                         <th class="col-result">구리<br><small>mg/kg</small></th>
                         <th class="col-result">아연<br><small>mg/kg</small></th>
                         <th class="col-result">염분<br><small>%</small></th>
+                        <th class="col-result">질소<br><small>%</small></th>
+                        <th class="col-result">인산<br><small>%</small></th>
+                        <th class="col-result">칼리<br><small>%</small></th>
+                        <th class="col-opinion">최종검토의견<br><small>100자 이내</small></th>
                     </tr>
                 </thead>
                 <tbody id="caTableBody"></tbody>

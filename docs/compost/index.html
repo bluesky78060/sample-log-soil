@@ -38,20 +38,20 @@
             color: #fcd34d !important;
         }
     </style>
-  <script type="module" crossorigin src="../assets/compost-CNjjo_LX.js"></script>
+  <script type="module" crossorigin src="../assets/compost-CNMUt6S6.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
-  <link rel="modulepreload" crossorigin href="../assets/tooltip-Coynd3cp.js">
-  <link rel="modulepreload" crossorigin href="../assets/xlsx.min-CvK3Qp9U.js">
+  <link rel="modulepreload" crossorigin href="../assets/address-parser-BSJtMsqi.js">
+  <link rel="modulepreload" crossorigin href="../assets/xlsx.min-VMp2aTeW.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-D6gMnemd.js">
   <link rel="modulepreload" crossorigin href="../assets/logger-Bx3YsiDi.js">
   <link rel="modulepreload" crossorigin href="../assets/constants-BTn8Ksuo.js">
   <link rel="modulepreload" crossorigin href="../assets/excel-import-manager-BLr_PHL-.js">
   <link rel="modulepreload" crossorigin href="../assets/toast-CYVUzQgW.js">
-  <link rel="modulepreload" crossorigin href="../assets/address-parser-BUA7hGnK.js">
+  <link rel="modulepreload" crossorigin href="../assets/address-DiqtS57t.js">
   <link rel="modulepreload" crossorigin href="../assets/index.esm-k5uDoaEq.js">
   <link rel="modulepreload" crossorigin href="../assets/storage-manager-NkZUqJOM.js">
-  <link rel="modulepreload" crossorigin href="../assets/compost-fields-CrArxlHQ.js">
-  <link rel="stylesheet" crossorigin href="../assets/tooltip-D8Iy-XYD.css">
+  <link rel="modulepreload" crossorigin href="../assets/compost-fields-kcLPBljK.js">
+  <link rel="stylesheet" crossorigin href="../assets/address-parser-D8Iy-XYD.css">
   <link rel="stylesheet" crossorigin href="../assets/compost-CyMesA5H.css">
   <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
 </head>
@@ -365,15 +365,49 @@
                                     </div>
                                 </div>
 
-                                <!-- 채취/생산 년월일 -->
+                                <!-- 채취/생산 년월일
+                                     SLS-1-200: 흙토람 양식은 채취일자(T열)와 생산일자(U열)가
+                                     별도 열이라 분리했다. 기존 productionDate는 생산일자로 둔다. -->
                                 <div class="form-row">
                                     <div class="form-field">
-                                        <label for="productionDate">채취 년 월 일 (생산 년 월 일)</label>
+                                        <label for="samplingDate">채취 년 월 일</label>
+                                        <input type="date" id="samplingDate" name="samplingDate">
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="productionDate">생산 년 월 일</label>
                                         <input type="date" id="productionDate" name="productionDate">
                                     </div>
+                                </div>
+
+                                <!-- 흙토람 일괄입력용 항목 (SLS-1-200) -->
+                                <div class="form-row">
                                     <div class="form-field">
                                         <label for="sampleCount">시료수</label>
                                         <input type="number" id="sampleCount" name="sampleCount" min="1" value="1">
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="businessNumber">사업자등록번호</label>
+                                        <input type="text" id="businessNumber" name="businessNumber"
+                                            placeholder="111-11-11111" maxlength="60">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-field">
+                                        <label for="isFarm">농가여부</label>
+                                        <select id="isFarm" name="isFarm">
+                                            <option value="">선택</option>
+                                            <option value="해당">해당</option>
+                                            <option value="미해당">미해당</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="fertilizerLawApplies">비료관리법 해당여부</label>
+                                        <select id="fertilizerLawApplies" name="fertilizerLawApplies">
+                                            <option value="">선택</option>
+                                            <option value="해당">해당</option>
+                                            <option value="미해당">미해당</option>
+                                        </select>
                                     </div>
                                 </div>
 

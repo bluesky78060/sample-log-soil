@@ -38,17 +38,19 @@
             color: #fcd34d !important;
         }
     </style>
-  <script type="module" crossorigin src="../assets/compost-DN3kRUKn.js"></script>
+  <script type="module" crossorigin src="../assets/compost-D15nQ0dv.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
-  <link rel="modulepreload" crossorigin href="../assets/tooltip-BHNE86LI.js">
+  <link rel="modulepreload" crossorigin href="../assets/tooltip-Coynd3cp.js">
   <link rel="modulepreload" crossorigin href="../assets/xlsx.min-CvK3Qp9U.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-D6gMnemd.js">
   <link rel="modulepreload" crossorigin href="../assets/logger-Bx3YsiDi.js">
   <link rel="modulepreload" crossorigin href="../assets/constants-BzkAh4G1.js">
   <link rel="modulepreload" crossorigin href="../assets/excel-import-manager-BLr_PHL-.js">
   <link rel="modulepreload" crossorigin href="../assets/toast-CYVUzQgW.js">
+  <link rel="modulepreload" crossorigin href="../assets/address-parser-BUA7hGnK.js">
   <link rel="modulepreload" crossorigin href="../assets/index.esm-k5uDoaEq.js">
   <link rel="modulepreload" crossorigin href="../assets/storage-manager-NkZUqJOM.js">
+  <link rel="modulepreload" crossorigin href="../assets/compost-fields-BaufUazR.js">
   <link rel="stylesheet" crossorigin href="../assets/tooltip-D8Iy-XYD.css">
   <link rel="stylesheet" crossorigin href="../assets/compost-CyMesA5H.css">
   <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
@@ -126,10 +128,9 @@
                 <span class="util-btn-label">불러오기</span>
                 <input type="file" id="loadJsonInput" accept=".json" hidden>
             </label>
-            <!-- SLS-1-194: 검정결과 조회 페이지(src/compost-analysis/)와 openCompostAnalysis IPC가
-                 아직 없어 클릭 시 Electron은 TypeError, 웹은 404가 열린다. SLS-1-193 완료 시 해제할 것.
-                 (레코드별 검정결과 입력 모달은 페이지 내장이라 정상 동작하므로 그대로 둔다) -->
-            <button type="button" id="compostAnalysisViewBtn" class="util-btn ca-view-btn" title="검정결과 확인" style="display:none;">
+            <!-- SLS-1-205: 검정결과 페이지(src/compost-analysis/)와 openCompostAnalysis IPC가
+                 생겨 숨김을 해제했다. 여러 건을 한 화면에서 입력하는 격자다. -->
+            <button type="button" id="compostAnalysisViewBtn" class="util-btn ca-view-btn" title="검정결과 확인">
                 <span class="material-icons-outlined">science</span>
                 <span class="util-btn-label">검정결과</span>
             </button>

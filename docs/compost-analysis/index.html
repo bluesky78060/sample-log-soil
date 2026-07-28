@@ -12,17 +12,19 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap">
     <link rel="preload" as="style" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
-  <script type="module" crossorigin src="../assets/compostAnalysis-Bcj-hz_4.js"></script>
+  <script type="module" crossorigin src="../assets/compostAnalysis-1sFjhSGA.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
   <link rel="modulepreload" crossorigin href="../assets/tooltip-Coynd3cp.js">
+  <link rel="modulepreload" crossorigin href="../assets/heuktoram-result-importer-CAI7JGuS.js">
   <link rel="modulepreload" crossorigin href="../assets/xlsx.min-CvK3Qp9U.js">
   <link rel="modulepreload" crossorigin href="../assets/xlsx-DqDnpwVQ.js">
   <link rel="modulepreload" crossorigin href="../assets/logger-Bx3YsiDi.js">
-  <link rel="modulepreload" crossorigin href="../assets/constants-BzkAh4G1.js">
+  <link rel="modulepreload" crossorigin href="../assets/constants-BTn8Ksuo.js">
   <link rel="modulepreload" crossorigin href="../assets/toast-CYVUzQgW.js">
-  <link rel="modulepreload" crossorigin href="../assets/compost-fields-BaufUazR.js">
+  <link rel="modulepreload" crossorigin href="../assets/compost-fields-CrArxlHQ.js">
   <link rel="stylesheet" crossorigin href="../assets/tooltip-D8Iy-XYD.css">
-  <link rel="stylesheet" crossorigin href="../assets/compostAnalysis-BCa50rX6.css">
+  <link rel="stylesheet" crossorigin href="../assets/heuktoram-result-importer-DbHo16jN.css">
+  <link rel="stylesheet" crossorigin href="../assets/compostAnalysis-BDIqJWdU.css">
   <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
 </head>
 
@@ -69,7 +71,7 @@
                 <thead>
                     <tr>
                         <th colspan="5" class="header-group-label group-info">접수 정보</th>
-                        <th colspan="8" class="header-group-label group-result">검정 결과</th>
+                        <th colspan="5" class="header-group-label group-result">검정 결과</th>
                     </tr>
                     <tr>
                         <th class="col-checkbox sticky-col"><input type="checkbox" id="selectAll" title="전체 선택"></th>
@@ -82,15 +84,170 @@
                         <th class="col-result">구리<br><small>mg/kg</small></th>
                         <th class="col-result">아연<br><small>mg/kg</small></th>
                         <th class="col-result">염분<br><small>%</small></th>
-                        <th class="col-result">질소<br><small>%</small></th>
-                        <th class="col-result">인산<br><small>%</small></th>
-                        <th class="col-result">칼리<br><small>%</small></th>
                     </tr>
                 </thead>
                 <tbody id="caTableBody"></tbody>
             </table>
         </div>
     </main>
+
+    <!-- 결과 가져오기 모달 (SLS-1-205 S4)
+         heuktoram/index.html에서 복제했다. HeuktoramResultImporter가 getElementById로
+         id 28곳을 하드코딩하므로 **동일 id가 필요하다**. vite MPA는 HTML partial 공유를
+         지원하지 않아 마크업 복제가 불가피하다 — 대신 스타일은 shared/result-importer.css로
+         공유하고, 두 페이지의 id 집합 일치를 테스트로 고정한다.
+
+         토양 전용 요소는 제거·수정했다:
+           · "흙토람 필드 매핑" → "검정 항목 매핑"
+           · 매칭 키 (시료번호) → (접수번호)
+           · 하위필지 자동 동기화 체크박스 제거 (퇴비에 하위필지 개념 없음) -->
+    <div id="resultImporterModal" class="result-importer-modal hidden" role="dialog" aria-modal="true" aria-labelledby="resultImporterTitle">
+        <div class="modal-overlay"></div>
+        <div class="modal-dialog">
+            <header class="modal-header">
+                <h2 id="resultImporterTitle">
+                    <span class="material-icons-outlined">upload_file</span>
+                    엑셀로 결과 입력
+                </h2>
+                <button type="button" id="closeResultImporterBtn" class="modal-close" aria-label="닫기">
+                    <span class="material-icons-outlined">close</span>
+                </button>
+            </header>
+
+            <div class="modal-body">
+                <section class="importer-section">
+                    <h3>1. 엑셀 데이터 입력</h3>
+                    <div class="importer-mode-toggle" role="radiogroup" aria-label="입력 방식 선택">
+                        <label class="importer-radio">
+                            <input type="radio" name="importerMode" value="file" checked>
+                            <span class="material-icons-outlined">upload_file</span>
+                            엑셀 파일 업로드 (권장)
+                        </label>
+                        <label class="importer-radio">
+                            <input type="radio" name="importerMode" value="paste">
+                            <span class="material-icons-outlined">content_paste</span>
+                            텍스트 붙여넣기
+                        </label>
+                    </div>
+
+                    <!-- 파일 모드 -->
+                    <div id="importerFileMode" class="importer-mode-panel">
+                        <p class="importer-help">엑셀 파일(.xlsx, .xls)을 드래그하거나 [파일 선택] 버튼을 눌러 업로드하세요. 시트별 자동 분리, 날짜·숫자 보존, 빈 셀 정확 인식.</p>
+                        <div id="importerDropzone" class="importer-dropzone" tabindex="0">
+                            <input type="file" id="importerFileInput" accept=".xlsx,.xls" hidden>
+                            <div class="importer-dropzone-inner">
+                                <span class="material-icons-outlined importer-dropzone-icon">cloud_upload</span>
+                                <div class="importer-dropzone-text">
+                                    <strong>엑셀 파일을 드래그하거나 클릭</strong>
+                                    <span class="importer-dropzone-sub">또는 [파일 선택] 버튼</span>
+                                </div>
+                                <button type="button" id="importerSelectFileBtn" class="util-btn">
+                                    <span class="material-icons-outlined">folder_open</span>
+                                    파일 선택
+                                </button>
+                            </div>
+                            <div id="importerFileInfo" class="importer-file-info hidden"></div>
+                        </div>
+
+                        <div id="importerFileControls" class="importer-row hidden">
+                            <label class="importer-field-inline">
+                                <span>시트:</span>
+                                <select id="importerSheetSelect" class="importer-select-inline"></select>
+                            </label>
+                            <label class="importer-field-inline">
+                                <span>헤더 행:</span>
+                                <input type="number" id="importerHeaderRow" class="importer-input-inline" min="1" value="1" title="엑셀에서 헤더가 있는 행 번호 (예: 첫 행이 헤더면 1, 3행에 헤더가 있으면 3)">
+                            </label>
+                            <label class="importer-checkbox">
+                                <input type="checkbox" id="importerNoHeader">
+                                헤더 없음
+                            </label>
+                        </div>
+
+                        <details id="importerFilePreview" class="importer-file-preview hidden">
+                            <summary>📋 데이터 미리보기 (첫 5행)</summary>
+                            <div id="importerFilePreviewBody"></div>
+                        </details>
+                    </div>
+
+                    <!-- 텍스트 모드 -->
+                    <div id="importerPasteMode" class="importer-mode-panel hidden">
+                        <p class="importer-help">엑셀에서 시료번호 컬럼이 포함된 영역을 선택하여 복사한 뒤 아래에 붙여넣으세요. 탭(열)·줄바꿈(행)으로 자동 인식됩니다.</p>
+                        <textarea id="importerTextarea" class="importer-textarea" rows="6"
+                            placeholder="예시:&#10;시료번호	pH	EC&#10;451	5.3	0.25&#10;452	6.7	0.22"></textarea>
+                        <div class="importer-row">
+                            <label class="importer-checkbox">
+                                <input type="checkbox" id="importerHasHeader" checked> 첫 행은 헤더입니다
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="importer-row" style="margin-top: 8px;">
+                        <button type="button" id="autoMapImporterBtn" class="util-btn">
+                            <span class="material-icons-outlined">auto_fix_high</span>
+                            자동 매핑 추정
+                        </button>
+                        <button type="button" id="clearImporterBtn" class="util-btn">
+                            <span class="material-icons-outlined">backspace</span>
+                            초기화
+                        </button>
+                    </div>
+                </section>
+
+                <section class="importer-section">
+                    <h3>2. 매칭 키 컬럼 (접수번호)</h3>
+                    <p class="importer-help">엑셀의 어느 컬럼이 화면 시료의 접수번호와 매칭되는지 선택하세요.</p>
+                    <select id="importerMatchKey" class="importer-select-large">
+                        <option value="-1">— 컬럼 선택 —</option>
+                    </select>
+                </section>
+
+                <section class="importer-section">
+                    <h3>3. 검정 항목 매핑</h3>
+                    <p class="importer-help">각 결과 항목을 엑셀의 어느 컬럼에서 가져올지 지정합니다. 미매핑 항목은 저장되지 않습니다.</p>
+                    <div id="importerFieldMapping" class="importer-field-mapping"></div>
+                </section>
+
+                <section class="importer-section">
+                    <h3>4. 옵션</h3>
+                    <div class="importer-options">
+                        <label class="importer-checkbox">
+                            <input type="checkbox" id="importerSkipEmpty" checked>
+                            빈 셀은 덮어쓰지 않음 (권장)
+                        </label>
+                        <fieldset class="importer-conflict-policy">
+                            <legend>기존값이 있을 때:</legend>
+                            <label class="importer-radio"><input type="radio" name="importerConflictPolicy" value="preview" checked> 미리보기에서 확인 (덮어쓰기)</label>
+                            <label class="importer-radio"><input type="radio" name="importerConflictPolicy" value="overwrite"> 항상 덮어쓰기</label>
+                            <label class="importer-radio"><input type="radio" name="importerConflictPolicy" value="fillBlank"> 빈 칸만 채우기</label>
+                            <label class="importer-radio"><input type="radio" name="importerConflictPolicy" value="skip"> 기존값 유지 (건너뛰기)</label>
+                        </fieldset>
+                    </div>
+                </section>
+
+                <section class="importer-section">
+                    <h3>5. 미리보기</h3>
+                    <div id="importerSummary" class="importer-summary">
+                        <span class="importer-summary-muted">데이터·매칭 키·필드 매핑을 모두 지정하면 미리보기가 표시됩니다.</span>
+                    </div>
+                    <div id="importerPreviewList" class="importer-preview-list"></div>
+                </section>
+            </div>
+
+            <footer class="modal-footer">
+                <button type="button" id="downloadUnmatchedCsvBtn" class="util-btn" disabled>
+                    <span class="material-icons-outlined">file_download</span>
+                    미매칭 CSV
+                </button>
+                <div class="modal-footer-spacer"></div>
+                <button type="button" id="cancelResultImporterBtn" class="util-btn">취소</button>
+                <button type="button" id="saveResultImporterBtn" class="util-btn export-btn" disabled>저장</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- 토스트 메시지 -->
+    <div id="toastContainer" class="toast-container"></div>
 
     <!-- CSP가 'unsafe-inline'을 허용하지 않는다 — 모든 로직은 외부 모듈이어야 한다 -->
 </body>

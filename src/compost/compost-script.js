@@ -2167,9 +2167,19 @@ class CompostSampleManager extends window.BaseSampleManager {
         // 검정결과 조회 버튼
         const compostAnalysisViewBtn = document.getElementById('compostAnalysisViewBtn');
         if (compostAnalysisViewBtn) compostAnalysisViewBtn.addEventListener('click', () => {
-            localStorage.setItem('compostAnalysis_year', this.selectedYear);
             const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.dataset.id).filter(Boolean);
-            localStorage.setItem('compostAnalysis_selected_ids', JSON.stringify(selectedIds));
+            // SLS-1-205: 라벨 인쇄·흙토람과 동일한 "setItem → 이동" 패턴 — quota 상태에서
+            // throw하면 버튼이 아무 반응 없이 죽는다(SLS-1-198이 고친 양식). 실패를 알리고 중단한다.
+            try {
+                localStorage.setItem('compostAnalysis_year', this.selectedYear);
+                localStorage.setItem('compostAnalysis_selected_ids', JSON.stringify(selectedIds));
+            } catch (e) {
+                if (e.name === 'QuotaExceededError' || e.code === 22) {
+                    this.showToast('저장 공간 부족으로 검정결과 화면에 자료를 전달하지 못했습니다. 설정에서 오래된 연도의 데이터를 정리해 주세요.', 'error');
+                    return;
+                }
+                throw e;
+            }
 
             const isElectron = window.electronAPI?.isElectron === true;
             if (isElectron) {
@@ -2190,48 +2200,18 @@ class CompostSampleManager extends window.BaseSampleManager {
      * 퇴비(가축분퇴비): 함수율 70% 이하, 부숙도, 소:염분, 돼지:구리500/아연1200
      * 액비(가축분뇨발효액): 함수율 95% 이하, 부숙도, 돼지:구리70/아연170
      */
-    static COMPOST_FIELDS = {
-        // === 퇴비 (가축분퇴비) ===
-        compost_common: [
-            { key: 'moisture', label: '함수율', unit: '%', standard: '70 이하' },
-            { key: 'maturity', label: '부숙도', unit: '', type: 'select', options: ['', '미부숙', '부숙초기', '부숙중기', '부숙완료', '완전부숙'], standard: '부숙중기 이상' },
-        ],
-        compost_cattle: [
-            { key: 'salinity', label: '염분', unit: '%', standard: '2.5 이하' },
-        ],
-        compost_pig: [
-            { key: 'copper', label: '구리(Cu)', unit: 'mg/kg', standard: '500 이하' },
-            { key: 'zinc', label: '아연(Zn)', unit: 'mg/kg', standard: '1,200 이하' },
-        ],
-        // === 액비 (가축분뇨발효액) ===
-        liquid_common: [
-            { key: 'moisture', label: '함수율', unit: '%', standard: '95 이하' },
-            { key: 'maturity', label: '부숙도', unit: '', type: 'select', options: ['', '미부숙', '부숙초기', '부숙중기', '부숙완료', '완전부숙'], standard: '부숙중기 이상' },
-        ],
-        liquid_pig: [
-            { key: 'copper', label: '구리(Cu)', unit: 'mg/kg', standard: '70 이하' },
-            { key: 'zinc', label: '아연(Zn)', unit: 'mg/kg', standard: '170 이하' },
-        ],
-    };
+    // SLS-1-205 S1: 검정 항목 규칙은 src/shared/compost-fields.js가 단일 진실원이다.
+    //   검정결과 페이지(src/compost-analysis/)가 compost-script.js를 로드하지 않으므로,
+    //   여기 정의를 두면 그쪽에서 규칙을 다시 쓰게 되고 두 벌이 되는 순간 어긋난다.
+    //
+    // ⚠️ static 필드(= 대입)가 아니라 **정적 getter**다.
+    //   `static COMPOST_FIELDS = window.CompostFields.COMPOST_FIELDS`는 모듈 평가 시점에
+    //   실행되어 로드 순서에 결합된다(compost-fields.js가 아직 없으면 TypeError로 파일 전체가
+    //   죽는다). getter는 호출 시점에 해석하므로 그 결합이 없다.
+    static get COMPOST_FIELDS() { return window.CompostFields.COMPOST_FIELDS; }
 
     getFieldsForSample(sampleType, animalType) {
-        const isLiquid = sampleType === '가축분뇨발효액';
-        const F = CompostSampleManager.COMPOST_FIELDS;
-
-        const fields = isLiquid
-            ? [...F.liquid_common]
-            : [...F.compost_common];
-
-        if (isLiquid) {
-            // 액비: 돼지만 구리/아연 추가
-            if (animalType === '돼지') fields.push(...F.liquid_pig);
-        } else {
-            // 퇴비: 소→염분, 돼지→구리/아연
-            if (animalType === '소') fields.push(...F.compost_cattle);
-            else if (animalType === '돼지') fields.push(...F.compost_pig);
-        }
-
-        return fields;
+        return window.CompostFields.getFieldsForSample(sampleType, animalType);
     }
 
     initCompostAnalysisModal() {
@@ -2393,8 +2373,8 @@ class CompostSampleManager extends window.BaseSampleManager {
         });
     }
 
-    /** 부숙도 순서 (높을수록 잘 부숙됨) */
-    static MATURITY_ORDER = { '미부숙': 0, '부숙초기': 1, '부숙중기': 2, '부숙완료': 3, '완전부숙': 4 };
+    /** 부숙도 순서 (높을수록 잘 부숙됨) — compost-fields.js 위임 */
+    static get MATURITY_ORDER() { return window.CompostFields.MATURITY_ORDER; }
 
     /**
      * 면적을 ㎡로 환산
@@ -2403,9 +2383,7 @@ class CompostSampleManager extends window.BaseSampleManager {
      * @returns {number} ㎡ 값
      */
     getAreaInSqm(area, unit) {
-        const val = parseFloat(area);
-        if (isNaN(val)) return 0;
-        return unit === 'pyeong' ? Math.round(val * 3.3058) : val;
+        return window.CompostFields.getAreaInSqm(area, unit);
     }
 
     checkCompostFieldStatus(field, value, statusEl) {

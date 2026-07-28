@@ -546,6 +546,111 @@ app.on('window-all-closed', () => {
 // 흙토람 팝업 윈도우
 // ========================================
 
+/**
+ * 팝업 윈도우 공통 생성기 (SLS-1-205)
+ *   흙토람·퇴비 검정결과가 같은 4가지 보안 요소를 요구한다 —
+ *   ① 싱글턴 ② setWindowOpenHandler ③ will-navigate 허용목록 ④ dev/prod 경로 분기.
+ *   복제하면 한쪽만 고쳐지는 순간 보안 구멍이 생기므로 하나로 모은다.
+ */
+function makePopupWindowHandler({ getRef, setRef, title, route, dirName, notFoundLabel }) {
+    return async () => {
+        const existing = getRef();
+        if (existing && !existing.isDestroyed()) {
+            existing.focus();
+            return true;
+        }
+
+        const win = new BrowserWindow({
+            width: 1400,
+            height: 850,
+            minWidth: 1000,
+            minHeight: 600,
+            title,
+            webPreferences: {
+                preload: path.join(__dirname, 'preload.js'),
+                contextIsolation: true,
+                nodeIntegration: false,
+                sandbox: true
+            },
+        });
+        setRef(win);
+
+        // H-1: 창 닫힘 시 참조 정리
+        win.on('closed', () => { setRef(null); });
+
+        // 새 창 열기 차단 (외부 http(s)만 시스템 브라우저)
+        win.webContents.setWindowOpenHandler(({ url }) => {
+            try { const p = new URL(url).protocol; if (p === 'http:' || p === 'https:') shell.openExternal(url); } catch { /* invalid url → deny */ }
+            return { action: 'deny' };
+        });
+
+        // M-3: 외부 URL 네비게이션 차단 (메인 윈도우와 동일)
+        win.webContents.on('will-navigate', (event, url) => {
+            if (url.startsWith('file://')) {
+                try {
+                    const fileUrl = new URL(url);
+                    const filePath = decodeURIComponent(fileUrl.pathname);
+                    const normalizedPath = process.platform === 'win32' ? filePath.replace(/^\//, '') : filePath;
+                    let realFilePath;
+                    try {
+                        realFilePath = fs.realpathSync(normalizedPath);
+                    } catch {
+                        realFilePath = path.resolve(normalizedPath);
+                    }
+                    if (realFilePath.startsWith(DOCS_DIR + path.sep) || realFilePath === DOCS_DIR) {
+                        return;
+                    }
+                } catch {
+                    // 경로 파싱 실패 시 차단
+                }
+                event.preventDefault();
+                return;
+            }
+            if (url.startsWith('http://localhost:')) return;
+            event.preventDefault();
+        });
+
+        try {
+            const http = require('node:http');
+            await new Promise((resolve, reject) => {
+                const req = http.get(VITE_DEV_SERVER_URL, { timeout: 1000 }, (res) => {
+                    res.destroy();
+                    resolve();
+                });
+                req.on('error', reject);
+                req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+            });
+            win.loadURL(`${VITE_DEV_SERVER_URL}${route}`);
+        } catch {
+            // H-3: 파일 없을 때 에러 안내 표시
+            const pagePath = path.join(__dirname, '..', 'docs', dirName, 'index.html');
+            if (fs.existsSync(pagePath)) {
+                win.loadFile(pagePath);
+            } else {
+                win.loadURL(`data:text/html;charset=utf-8,
+                <h2 style="font-family:sans-serif;padding:2rem;">${notFoundLabel} 페이지를 찾을 수 없습니다</h2>
+                <p style="font-family:sans-serif;padding:0 2rem;">
+                    <code>npm run build</code>로 빌드해주세요.
+                </p>`);
+            }
+        }
+
+        return true;
+    };
+}
+
+/** @type {Electron.BrowserWindow | null} */
+let compostAnalysisWindow = null;
+
+ipcMain.handle('open-compost-analysis', makePopupWindowHandler({
+    getRef: () => compostAnalysisWindow,
+    setRef: (w) => { compostAnalysisWindow = w; },
+    title: '퇴·액비 검정결과',
+    route: '/compost-analysis/',
+    dirName: 'compost-analysis',
+    notFoundLabel: '퇴·액비 검정결과'
+}));
+
 /** @type {Electron.BrowserWindow | null} */
 let heuktoramWindow = null;
 

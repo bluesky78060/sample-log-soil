@@ -49,6 +49,7 @@ export default defineConfig({
         manual: resolve(__dirname, 'src/manual/index.html'),
         firebaseSetup: resolve(__dirname, 'src/manual/firebase-setup.html'),
         heuktoram: resolve(__dirname, 'src/heuktoram/index.html'),
+        compostAnalysis: resolve(__dirname, 'src/compost-analysis/index.html'),
         release: resolve(__dirname, 'src/release/index.html'),
         feedback: resolve(__dirname, 'src/feedback/index.html'),
         feedbackAdmin: resolve(__dirname, 'src/feedback-admin/index.html')

@@ -93,6 +93,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // 흙토람 팝업 윈도우 열기
     openHeuktoram: () => ipcRenderer.invoke('open-heuktoram'),
 
+    // 퇴·액비 검정결과 팝업 윈도우 열기 (SLS-1-205)
+    openCompostAnalysis: () => ipcRenderer.invoke('open-compost-analysis'),
+
     // VWORLD 지번 지오코딩 (main에서 process.env.VWORLD_API_KEY 사용; 렌더러 키 노출 없음)
     vworldGeocode: (address) => ipcRenderer.invoke('vworld-geocode', { address }),
 

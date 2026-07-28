@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light" data-sample-type="compost-analysis">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>퇴·액비 검정결과</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+    <link rel="stylesheet" href="../shared/tailwind-output.css">
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="compost-analysis-style.css">
+</head>
+
+<body class="compost-analysis-page">
+    <nav class="navbar ca-navbar">
+        <button type="button" class="back-btn" id="backBtn" title="이전 페이지로"><span class="material-icons-outlined">arrow_back</span></button>
+        <div class="navbar-brand">
+            <span class="brand-icon">🐄</span>
+        </div>
+
+        <div class="navbar-divider"></div>
+
+        <div class="navbar-actions ca-toolbar">
+            <div class="toolbar-field">
+                <label class="toolbar-label">연도</label>
+                <span id="yearLabel" class="toolbar-static">-</span>
+            </div>
+            <div class="toolbar-field">
+                <label class="toolbar-label" for="bulkTestDate">검사일자</label>
+                <div class="toolbar-inline">
+                    <input type="date" id="bulkTestDate" class="toolbar-input">
+                    <button type="button" id="clearTestDateBtn" class="toolbar-btn-small" title="검사일자 일괄 삭제" aria-label="검사일자 일괄 삭제">✕</button>
+                </div>
+            </div>
+            <button type="button" id="applyBulkBtn" class="toolbar-btn" title="선택한 행에 일괄 적용">
+                <span class="material-icons-outlined">playlist_add_check</span> 일괄 적용
+            </button>
+            <button type="button" id="importResultBtn" class="toolbar-btn" title="검정결과 가져오기">
+                <span class="material-icons-outlined">upload_file</span> 결과 가져오기
+            </button>
+            <span id="recordCount" class="record-count">0건</span>
+        </div>
+    </nav>
+
+    <main class="ca-main">
+        <div id="emptyState" class="ca-empty" style="display:none;">
+            <span class="material-icons-outlined">science</span>
+            <p>표시할 접수 자료가 없습니다.</p>
+            <p class="ca-empty-hint">퇴·액비 접수 목록에서 연도를 먼저 불러온 뒤 다시 열어 주세요.</p>
+        </div>
+
+        <div class="ca-table-wrap">
+            <table class="ca-table" id="caTable">
+                <thead>
+                    <tr>
+                        <th colspan="5" class="header-group-label group-info">접수 정보</th>
+                        <th colspan="8" class="header-group-label group-result">검정 결과</th>
+                    </tr>
+                    <tr>
+                        <th class="col-checkbox sticky-col"><input type="checkbox" id="selectAll" title="전체 선택"></th>
+                        <th class="col-reception sticky-col">접수번호</th>
+                        <th class="col-farm">농장명</th>
+                        <th class="col-sampletype">시료종류</th>
+                        <th class="col-animal">축종</th>
+                        <th class="col-result">함수율<br><small>%</small></th>
+                        <th class="col-result">부숙도</th>
+                        <th class="col-result">구리<br><small>mg/kg</small></th>
+                        <th class="col-result">아연<br><small>mg/kg</small></th>
+                        <th class="col-result">염분<br><small>%</small></th>
+                        <th class="col-result">질소<br><small>%</small></th>
+                        <th class="col-result">인산<br><small>%</small></th>
+                        <th class="col-result">칼리<br><small>%</small></th>
+                    </tr>
+                </thead>
+                <tbody id="caTableBody"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- CSP가 'unsafe-inline'을 허용하지 않는다 — 모든 로직은 외부 모듈이어야 한다 -->
+    <script type="module" src="compost-analysis-entry.js"></script>
+</body>
+
+</html>

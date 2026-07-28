@@ -13,6 +13,9 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 
 beforeAll(async () => {
     await import('../../src/shared/BaseSampleManager.js')
+    // SLS-1-205: COMPOST_FIELDS/MATURITY_ORDER가 compost-fields.js로 이동했다.
+    // 정적 getter 위임이라 로드 순서에 결합되지는 않지만, 호출 시점에는 있어야 한다.
+    await import('../../src/shared/compost-fields.js')
     await import('../../src/compost/compost-script.js')
 })
 

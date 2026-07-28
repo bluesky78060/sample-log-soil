@@ -688,12 +688,12 @@
                                 <span class="version-number">v1.10.14</span>
                                 <span class="version-date">2026-07-22</span>
                             </div>
-                            <div class="version-title">개인정보보호 대응 — Firebase 클라우드 연동 UI 숨김</div>
+                            <div class="version-title">개인정보보호 대응 — 설정 화면 정리</div>
                         </div>
                     </div>
                     <ul class="change-list">
-                        <li><strong>Firebase 클라우드 연동 UI 숨김</strong> — 개인정보보호법 대응으로, 설정 화면의 "Firebase 인증 파일", "데이터 마이그레이션", "네트워크 접근 제어" 카드를 화면에서 숨겼습니다. 설명서에서도 클라우드 동기화 관련 안내를 숨기거나 Firebase 언급 없이 다시 작성했습니다(예: 다른 PC로 데이터 이동은 JSON 저장/불러오기 안내로 대체).</li>
-                        <li><strong>기존 사용 중인 경우 영향 없음</strong> — 이미 Firebase를 연동해 사용 중인 소수 사용자는 관련 기능과 자동 동기화가 기존과 동일하게 계속 동작합니다. 화면에서만 안 보일 뿐 기능 자체를 제거한 것은 아닙니다.</li>
+                        <li><strong>설정 화면 일부 항목 숨김</strong> — 개인정보보호법 대응으로, 클라우드 연동과 관련된 일부 설정 카드를 화면에서 숨겼습니다. 설명서에서도 관련 안내를 정리했습니다(예: 다른 PC로 데이터 이동은 <strong>JSON 저장/불러오기</strong> 안내로 대체).</li>
+                        <li><strong>기존 사용 중인 경우 영향 없음</strong> — 클라우드 연동을 이미 설정해 쓰고 계신 소수 사용자는 관련 기능과 자동 동기화가 기존과 동일하게 계속 동작합니다. 화면에서만 안 보일 뿐 기능 자체를 제거한 것은 아닙니다.</li>
                     </ul>
                 </div>
             </div>
@@ -1386,7 +1386,7 @@
                     <ul class="change-list">
                         <li><strong>사용 설명서 대폭 보강</strong> — 컴퓨터가 익숙하지 않아도 화면을 보고 그대로 따라 할 수 있도록, 모든 기능을 "1단계 → 2단계" 절차로 다시 정리했습니다. 단계마다 실제 화면에 번호·강조 표시를 넣은 안내 그림과 팁/주의/용어 설명을 추가했습니다.</li>
                         <li><strong>흙토람 설명 추가</strong> — 흙토람 리스트 화면(접수 정보·검정 결과 표)과 검정 결과 입력 창, 일괄 입력, 서식 내보내기 과정을 그림과 함께 새로 설명했습니다.</li>
-                        <li><strong>설정 화면 버그 수정</strong> — 설정의 "Firebase 인증 파일" 안내 문구에 HTML 태그가 그대로 글자로 보이던 문제를 바로잡았습니다.</li>
+                        <li><strong>설정 화면 버그 수정</strong> — 설정 화면의 일부 안내 문구에 HTML 태그가 그대로 글자로 보이던 문제를 바로잡았습니다.</li>
                     </ul>
                 </div>
             </div>
@@ -1684,7 +1684,6 @@
                         <li><strong>메인 페이지 토양 통계 패널 추가</strong> — 올해 접수, 이번 달 접수, 완료율 프로그레스 바, 미완료 건수를 한눈에. localStorage 기반 즉시 표시, 다크모드/모바일 대응.</li>
                         <li><strong>미완료 카운트에서 하위필지 제외</strong> — 503-1, F503-2 등은 카운트하지 않고 본필지(503, F503)만 집계. 토양 페이지 그룹핑 로직과 일관.</li>
                         <li><strong>흙토람을 토양 하위 기능으로 통합</strong> — 메인 페이지에서 흙토람 카드 제거, 토양 페이지 툴바의 흙토람 버튼으로 진입 일원화.</li>
-                        <li><strong>Firebase 설정 가이드 페이지 빌드 누락 수정</strong> — manual/firebase-setup.html, images/, screenshots/가 docs/에 정상 포함되도록 vite 플러그인 추가.</li>
                         <li><strong>GitHub Actions 안정화</strong> — Release 생성 권한(contents: write) + Node 24 강제(FORCE_JAVASCRIPT_ACTIONS_TO_NODE24) 추가.</li>
                     </ul>
                 </div>
@@ -1710,7 +1709,7 @@
                         <li><strong>토양 시료 접수 관리</strong> — 토양 분석 전용 시료 접수·관리 시스템</li>
                         <li><strong>흙토람 검정결과 가져오기</strong> — 엑셀/텍스트 업로드, 자동 매핑, 본필지/하위필지 동기화</li>
                         <li><strong>Electron 데스크톱 + 웹 듀얼 환경</strong></li>
-                        <li><strong>localStorage + Firebase Firestore 듀얼 스토리지</strong> — 오프라인 우선, 온라인 시 자동 싱크</li>
+                        <li><strong>오프라인 우선 저장</strong> — 인터넷 연결 없이도 사용할 수 있고, 연결되면 자동으로 동기화</li>
                         <li><strong>라벨 인쇄 / 자동 저장 / 통계 / 엑셀 내보내기</strong></li>
                     </ul>
                 </div>

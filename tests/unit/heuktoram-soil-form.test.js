@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import * as XLSX from 'xlsx'
+// ⚠️ 커뮤니티 xlsx는 쓰기 시 .s(스타일)를 조용히 버린다. 런타임과 같은
+//    xlsx-js-style을 써야 왕복 검증이 성립한다 (SLS-1-213).
+import * as XLSX from 'xlsx-js-style'
 
 // 흙토람 토양 일괄입력 서식(41열) 계약 (SLS-1-210)
 //
@@ -34,7 +36,28 @@ const TITLE = () => constOf('TITLE', /const HEUKTORAM_WS_TITLE = ('[^']*');/)
 const H3 = () => eval('(' + SRC.match(/const HEUKTORAM_WS_HEADER3 = (\{[\s\S]*?\});/)[1] + ')')
 const H4 = () => eval('(' + SRC.match(/const HEUKTORAM_WS_HEADER4 = (\{[\s\S]*?\});/)[1] + ')')
 
+/**
+ * 실물은 줄바꿈이 CRLF, 우리 소스는 LF다. Excel은 둘 다 같은 줄바꿈으로 렌더하므로
+ * 기능 차이가 없다 — 비교 전에 맞춘다.
+ * ⚠️ xlsx-js-style은 xlsx와 달리 CR을 보존한다. import를 바꾸면 이게 드러난다.
+ */
+const lf = (v) => String(v).replace(/\r\n/g, '\n')
+
 const col = (c) => XLSX.utils.encode_col(c)
+
+/**
+ * 흙토람 내보내기의 dataStyle을 집는다.
+ * ⚠️ `const dataStyle`이 파일에 둘 있다 — 흙토람용과 공익직불제용.
+ *    위치를 지정하지 않으면 파일 순서에 의존한다.
+ *    앵커는 호출부가 아니라 **메서드 정의**로 잡는다 — 앞쪽에 같은 문자열이 든
+ *    주석이 생기면 objectLiteral이 at > -1만 확인하므로 오류가 아니라
+ *    잘못된 값을 조용히 돌려준다.
+ */
+function soilDataStyle() {
+    const at = SRC.indexOf('applyHeaderStyles(ws, wsData) {')
+    expect(at, 'applyHeaderStyles 정의를 찾지 못했다').toBeGreaterThan(-1)
+    return objectLiteral('const dataStyle', at)
+}
 
 /**
  * 소스의 객체 리터럴을 **실제 평가**해 값을 본다 (SLS-1-212).
@@ -46,8 +69,8 @@ const col = (c) => XLSX.utils.encode_col(c)
  *    indexOf는 첫 번째를 잡고 그게 흙토람이라 지금은 맞다. 두 메서드 순서가 바뀌면
  *    조용히 엉뚱한 것을 검사하게 된다.
  */
-function objectLiteral(decl) {
-    const at = SRC.indexOf(`${decl} = {`)
+function objectLiteral(decl, after = 0) {
+    const at = SRC.indexOf(`${decl} = {`, after)
     expect(at, `${decl} 리터럴을 찾지 못했다`).toBeGreaterThan(-1)
     const i = SRC.indexOf('{', at)
     let depth = 0, end = -1
@@ -61,7 +84,7 @@ function objectLiteral(decl) {
 
 describe('흙토람 토양 서식 — 실물 대조', () => {
     it('1. A1 제목이 실물과 같다', () => {
-        expect(TITLE()).toBe(ws['A1'].v)
+        expect(TITLE()).toBe(lf(ws['A1'].v))
     })
 
     // 🚨 실물을 그대로 복사하면 안 되는 유일한 지점
@@ -70,7 +93,7 @@ describe('흙토람 토양 서식 — 실물 대조', () => {
         // 우리 파일은 **5행부터 사용자의 실제 시료**다(1~4행이 제목·안내·헤더).
         // "5번 행은 예시…삭제 후 작성"을 그대로 두면 안내를 따른 사용자가
         // 자기 첫 시료를 지운다.
-        const real = ws['A2'].v.split('\n')
+        const real = lf(ws['A2'].v).split('\n')
             .filter(l => !l.startsWith('5번 행은 예시'))
             .map(l => l.replace('5번 행의 예시내용을 삭제 후 작성하시기 바라며, 원활한', '원활한'))
             .join('\n')
@@ -85,7 +108,7 @@ describe('흙토람 토양 서식 — 실물 대조', () => {
         const diffs = []
         for (const [row, ours] of [[3, h3], [4, h4]]) {
             for (let c = 0; c < 41; c++) {
-                const real = ws[col(c) + row]?.v
+                const real = ws[col(c) + row] ? lf(ws[col(c) + row].v) : undefined
                 if ((real || '') !== (ours[c] || '')) {
                     diffs.push(`${row}행 ${col(c)}: 실물=${JSON.stringify(real)} 우리=${JSON.stringify(ours[c])}`)
                 }
@@ -168,7 +191,7 @@ describe('흙토람 토양 서식 — 실물 대조', () => {
     it('12. 데이터 셀이 텍스트 서식이다', () => {
         // 없으면 사용자가 내보낸 뒤 날짜 칸을 고칠 때 Excel이 일련번호로 바꿔
         // 업로드가 깨진다. 퇴비는 SLS-1-200에서 이미 강제했는데 토양만 빠져 있었다.
-        expect(objectLiteral('const dataStyle').numFmt).toBe('@')
+        expect(soilDataStyle().numFmt).toBe('@')
     })
 
     it('13. 안내문이 굵은 빨강 + 아래 테두리다', () => {
@@ -178,5 +201,34 @@ describe('흙토람 토양 서식 — 실물 대조', () => {
         expect(a2.font.bold).toBe(true)
         expect(a2.font.color.rgb).toBe('FFFF0000')
         expect(a2.border.bottom.style).toBe('thin')
+    })
+
+    // 🚨 여기까지는 "그 객체가 소스에 있다"만 증명했다 (SLS-1-213).
+    //    xlsx-js-style이 실제 .xlsx로 직렬화하는지는 사람이 손으로만 확인했다.
+    //    이제 테스트가 한다 — 프로덕션과 **같은 write 옵션**으로 돌린다.
+    //
+    // ⚠️ 여전히 증명하지 못하는 것: 내보내기 코드가 이 객체를 실제 셀에 **붙이는지**.
+    //    그 연결은 아직 문자열 검색에 기댄다. 닫으려면 export 메서드가 워크시트를
+    //    주입받게 고쳐 진짜 산출물을 검사해야 한다.
+    it('14. 추출한 스타일 객체가 올바른 OOXML로 직렬화된다', async () => {
+        const JSZip = (await import('jszip')).default
+
+        const sheet = XLSX.utils.aoa_to_sheet([['guide'], ['data']])
+        sheet.A1.s = objectLiteral('cellA2.s')   // 안내문 스타일
+        sheet.A2.s = soilDataStyle()             // 데이터 셀 스타일
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, sheet, 'T')
+
+        const zip = await JSZip.loadAsync(
+            XLSX.write(wb, { type: 'array', bookType: 'xlsx' }))
+        const styles = await zip.file('xl/styles.xml').async('string')
+
+        // 데이터 셀 — 텍스트 서식이 아니면 사용자가 고친 날짜가 숫자로 바뀐다
+        expect(styles, 'numFmt @ → numFmtId 49').toContain('numFmtId="49"')
+        expect(styles).toContain('applyNumberFormat="1"')
+        // 안내문 — 굵은 빨강 + 아래 구분선
+        expect(styles, '굵게').toContain('<b/>')
+        expect(styles, '빨강').toContain('rgb="FFFF0000"')
+        expect(styles, '아래 테두리').toContain('<bottom style="thin">')
     })
 })

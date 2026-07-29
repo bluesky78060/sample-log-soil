@@ -1375,8 +1375,12 @@ class HeuktoramManager {
     }
 
     /**
-     * 데이터 유효성 검사 규칙 목록 빌드
-     * 현재는 용도구분(G열)만. 향후 다른 컬럼 추가 시 이 함수만 확장.
+     * 데이터 유효성 검사 규칙 목록 빌드.
+     * F(용도구분)·G(시행 재배 전후)·U(성토여부) 세 열에 목록 검증을 건다.
+     *
+     * ⚠️ 열 문자를 바꿀 때는 buildWorksheetData의 헤더 위치와 반드시 맞출 것.
+     *    어긋나면 showErrorMessage="1" 때문에 사용자가 그 칸에 값을 넣지 못한다 —
+     *    v1.14.0에서 실제로 시료번호(H)·암모니아태질소(AH) 입력이 막혔다(SLS-1-210).
      */
     buildDataValidations(dataRowCount) {
         if (dataRowCount <= 0) return [];

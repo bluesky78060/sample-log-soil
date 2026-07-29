@@ -576,7 +576,7 @@ function updateCacheStatusUI() {
 
 // 캐시 삭제 버튼
 document.getElementById('clearCacheBtn').addEventListener('click', () => {
-    if (!confirm('캐시된 시료 데이터를 삭제하시겠습니까?\n\n삭제 후 앱을 새로고침하면 클라우드에서 데이터를 다시 불러옵니다.\n(클라우드 설정 및 연결 정보는 유지됩니다)')) {
+    if (!confirm('예전 버전에서 남은 자료를 정리하시겠습니까?\n\n토양·퇴비 접수 자료와 설정은 삭제되지 않습니다.')) {
         return;
     }
 

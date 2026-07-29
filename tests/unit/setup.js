@@ -27,5 +27,8 @@ global.localStorage = {
     setItem: (k, v) => _store.set(k, String(v)),
     removeItem: (k) => _store.delete(k),
     clear: () => _store.clear(),
-    get length() { return _store.size }
+    get length() { return _store.size },
+    // 실제 Storage 인터페이스의 일부인데 빠져 있었다 (SLS-1-217).
+    // cache-manager.js가 length/key(i)로 키를 훑으므로 없으면 TypeError로 죽는다.
+    key: (i) => [..._store.keys()][i] ?? null
 }

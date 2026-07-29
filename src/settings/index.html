@@ -735,29 +735,29 @@
             </p>
         </div>
 
-        <!-- 캐시 관리 -->
+        <!-- 예전 버전 잔재 정리 -->
         <div class="settings-card">
             <h2>
                 <span>🗑️</span>
-                캐시 관리
+                예전 버전 잔재 정리
             </h2>
 
             <div class="alert alert-info">
-                <strong>자동 캐시 정리:</strong> 매주 금요일에 자동으로 시료 데이터 캐시가 삭제됩니다.<br>
-                <small style="color: #64748b;">삭제 후 앱 시작 시 클라우드에서 데이터를 다시 불러옵니다. 설정 및 클라우드 연결 정보는 유지됩니다.</small>
+                <strong>자동 정리:</strong> 매주 금요일에 예전 버전(5종 통합본)에서 남은 자료를 자동으로 정리합니다.<br>
+                <small style="color: #64748b;">토양·퇴비 접수 자료와 설정은 삭제되지 않습니다.</small>
             </div>
 
             <div id="cacheStatusInfo" style="margin-top: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
                 <div style="font-size: 0.85rem; color: #64748b;">
-                    <div style="margin-bottom: 0.5rem;">캐시된 데이터: <strong id="cacheDataCount">확인 중...</strong></div>
-                    <div style="margin-bottom: 0.5rem;">캐시 크기: <strong id="cacheDataSize">확인 중...</strong></div>
+                    <div style="margin-bottom: 0.5rem;">정리 대상: <strong id="cacheDataCount">확인 중...</strong></div>
+                    <div style="margin-bottom: 0.5rem;">차지하는 용량: <strong id="cacheDataSize">확인 중...</strong></div>
                     <div>마지막 정리: <strong id="lastCacheClear">없음</strong></div>
                 </div>
             </div>
 
             <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
                 <button id="clearCacheBtn" class="btn btn-warning">
-                    🗑️ 지금 캐시 삭제
+                    🗑️ 지금 정리
                 </button>
                 <button id="refreshCacheStatusBtn" class="btn btn-secondary">
                     🔄 상태 새로고침
@@ -765,7 +765,7 @@
             </div>
 
             <p class="help-text" style="margin-top: 0.75rem;">
-                캐시를 삭제하면 다음 앱 실행 시 클라우드에서 데이터를 다시 불러옵니다.
+                예전 버전에서 넘어온 쓰지 않는 자료만 정리합니다. 접수 자료는 삭제되지 않습니다.
             </p>
         </div>
 

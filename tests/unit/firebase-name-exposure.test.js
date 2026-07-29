@@ -105,7 +105,12 @@ describe('사용자에게 보이는 Firebase 제품명', () => {
             ['src/shared/firebase-config.js', 'firebase_config', '기존 사용자 설정을 못 읽는다'],
             ['src/settings/settings-script.js', 'firebase_config', '기존 사용자 설정을 못 읽는다'],
             ['src/shared/cache-manager.js', 'firebase_config', '캐시 클리어가 설정까지 지운다'],
-            ['src/shared/cache-manager.js', 'firebase-auth.json', '인증 파일이 보호 목록에서 빠진다'],
+            // ❌ ['src/shared/cache-manager.js', 'firebase-auth.json', ...] 제거 (SLS-1-217)
+            //    이 행은 **주석에 걸려 있었다.** cache-manager.js에서 firebase-auth.json은
+            //    TODO 문장 안에만 등장했고 코드에는 쓰이지 않는다. 실제 보호 대상은 바로 위
+            //    행의 firebase_config(KEYS_TO_PRESERVE 항목)이고 그건 그대로 살아 있다.
+            //    사유("인증 파일이 보호 목록에서 빠진다")부터 사실이 아니었다 — 이 파일의
+            //    보호 목록에 인증 파일은 처음부터 없다.
             ['src/index.js', 'firebase-auth.json', '인증 파일을 못 찾는다'],
         ]
         for (const [file, id, why] of need) {

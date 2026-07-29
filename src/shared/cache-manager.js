@@ -35,13 +35,21 @@ const CacheManager = (function() {
     //    (퇴비 제외로 인해 통합본 출신 레거시 compostSampleLogs_* 키는 영구 보존되지만,
     //     퇴비가 정식 기능인 이상 그것은 부작용이 아니라 유실 방지다.)
     //
-    // TODO(후속 티켓): clearCache()는 여전히 soilSampleLogs*를 지우며, 삭제 후 안내가
-    //    "새로고침하면 Firebase에서 다시 불러옵니다"인 데서 보듯 Firebase가 진실의 원천이라는
-    //    전제 위에 있다. 그러나 firebase-auth.json은 빈 placeholder가 기본이라 미설정 센터에는
-    //    복구 경로가 없다. 시료 데이터 삭제를 window.firestoreDb?.isEnabled() 게이트 뒤로
-    //    옮길 것. (이 결함은 SLS-1-192 이전부터 존재)
+    // ⚠️ soilSampleLogs도 목록에서 제외됨 (SLS-1-217) — 절대 다시 추가하지 말 것.
+    //    퇴비와 **완전히 같은 이유**다. 토양은 이 저장소의 주 시료 종인데 v1.0.0부터
+    //    v1.14.2까지 이 목록에 있었고, main-init.js가 앱 시작 시 checkAndAutoClean()을
+    //    부르므로 **금요일에 앱을 켜기만 하면 접수 자료가 삭제됐다.** 게다가 자동 경로는
+    //    clearCache(false)로 alert를 끄고 메인 페이지에는 toast.js가 로드되지 않아
+    //    사용자에게 아무 신호도 가지 않는 무음 삭제였다.
+    //
+    //    이 설계는 "Firebase가 진실의 원천"이라는 전제 위에 있었다(지우고 새로고침하면
+    //    클라우드에서 다시 받는다). 그러나 토양은 Firebase를 쓰지 않으므로 복구 경로가 없다.
+    //
+    //    ❗ 게이트(window.firestoreDb?.isEnabled() 뒤로 이동)로 고치지 않은 이유:
+    //    그렇게 하면 Firebase 미사용자 — 즉 대다수 — 에게 아래 레거시 3종 청소가 아예
+    //    동작하지 않는다. 레거시 청소가 이 기능의 존재 이유이므로 목적이 사라진다.
+    //    따라서 게이트가 아니라 보호할 종을 목록에서 빼는 방식을 택했다.
     const SAMPLE_DATA_PATTERNS = [
-        'soilSampleLogs',
         'waterSampleLogs',
         'pesticideSampleLogs',
         'heavyMetalSampleLogs'
@@ -128,7 +136,7 @@ const CacheManager = (function() {
         };
 
         if (showAlert && keysToRemove.length > 0) {
-            const message = `캐시가 삭제되었습니다.\n삭제된 항목: ${keysToRemove.length}건\n\n앱을 새로고침하면 클라우드에서 데이터를 다시 불러옵니다.`;
+            const message = `예전 버전에서 남은 자료 ${keysToRemove.length}건을 정리했습니다.\n\n토양·퇴비 접수 자료는 삭제되지 않았습니다.`;
             alert(message);
         }
 
@@ -166,7 +174,7 @@ const CacheManager = (function() {
 
         // 토스트 알림 (있는 경우)
         if (result.clearedCount > 0 && window.showToast) {
-            window.showToast(`금요일 자동 캐시 정리: ${result.clearedCount}건 삭제`, 'info');
+            window.showToast(`예전 버전에서 남은 자료 ${result.clearedCount}건을 정리했습니다.`, 'info');
         }
     }
 

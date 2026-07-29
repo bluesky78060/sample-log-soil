@@ -1344,7 +1344,11 @@ class HeuktoramManager {
             if (cellA2) {
                 cellA2.s = {
                     alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
-                    font: { sz: 11, name: '맑은 고딕' }
+                    // 실물은 굵은 빨강 + 아래 테두리다 (fontId 4 = <b/> + color indexed="10",
+                    // borderId 4 = bottom thin). A1은 테두리가 없어 우연이 아니다.
+                    // 경고문이 눈에 띄어야 사용자가 읽는다 (SLS-1-212).
+                    font: { bold: true, sz: 11, color: { rgb: 'FFFF0000' }, name: '맑은 고딕' },
+                    border: { bottom: { style: 'thin', color: { rgb: 'FF000000' } } }
                 };
             }
 
@@ -1655,6 +1659,10 @@ class HeuktoramManager {
 
         // 데이터 행 스타일 (5행~): 가운데 정렬 + 테두리
         const dataStyle = {
+            // 실물은 전 데이터 셀이 텍스트 서식이다(numFmtId 49). 없으면 사용자가 내보낸 뒤
+            // 날짜 칸을 고칠 때 Excel이 일련번호로 바꿔 업로드가 깨진다 (SLS-1-212).
+            // 퇴비 내보내기는 SLS-1-200에서 이미 강제했는데 토양만 빠져 있었다.
+            numFmt: '@',
             alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
             border: {
                 top: { style: 'thin', color: { rgb: '808080' } },

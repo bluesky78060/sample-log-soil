@@ -36,6 +36,29 @@ const H4 = () => eval('(' + SRC.match(/const HEUKTORAM_WS_HEADER4 = (\{[\s\S]*?\
 
 const col = (c) => XLSX.utils.encode_col(c)
 
+/**
+ * 소스의 객체 리터럴을 **실제 평가**해 값을 본다 (SLS-1-212).
+ * `toContain("numFmt: '@'")` 같은 문자열 검사는 "그 문자열이 파일 어딘가에 있다"만
+ * 증명한다 — 그 값이 실제로 쓰이는지, 뒤에서 덮이지 않는지는 증명하지 못한다.
+ *
+ * ⚠️ 게으른 정규식은 중첩 괄호(border: { ... })에서 끊긴다 — 괄호 균형으로 잡는다.
+ * ⚠️ 파일에 `const dataStyle`이 둘 있다(흙토람, 공익직불제 applyGongikHeaderStyles).
+ *    indexOf는 첫 번째를 잡고 그게 흙토람이라 지금은 맞다. 두 메서드 순서가 바뀌면
+ *    조용히 엉뚱한 것을 검사하게 된다.
+ */
+function objectLiteral(decl) {
+    const at = SRC.indexOf(`${decl} = {`)
+    expect(at, `${decl} 리터럴을 찾지 못했다`).toBeGreaterThan(-1)
+    const i = SRC.indexOf('{', at)
+    let depth = 0, end = -1
+    for (let k = i; k < SRC.length; k++) {
+        if (SRC[k] === '{') depth++
+        else if (SRC[k] === '}' && --depth === 0) { end = k + 1; break }
+    }
+    expect(end, `${decl}의 닫는 괄호를 찾지 못했다`).toBeGreaterThan(-1)
+    return new Function(`return ${SRC.slice(i, end)}`)()
+}
+
 describe('흙토람 토양 서식 — 실물 대조', () => {
     it('1. A1 제목이 실물과 같다', () => {
         expect(TITLE()).toBe(ws['A1'].v)
@@ -139,5 +162,21 @@ describe('흙토람 토양 서식 — 실물 대조', () => {
             })).sort()
         const real = (ws['!merges'] || []).map(m => XLSX.utils.encode_range(m)).sort()
         expect(ours).toEqual(real)
+    })
+
+    // 🚨 SLS-1-210이 놓쳤던 것 — 메인 이식 중 전수 대조로 발견 (SLS-1-212)
+    it('12. 데이터 셀이 텍스트 서식이다', () => {
+        // 없으면 사용자가 내보낸 뒤 날짜 칸을 고칠 때 Excel이 일련번호로 바꿔
+        // 업로드가 깨진다. 퇴비는 SLS-1-200에서 이미 강제했는데 토양만 빠져 있었다.
+        expect(objectLiteral('const dataStyle').numFmt).toBe('@')
+    })
+
+    it('13. 안내문이 굵은 빨강 + 아래 테두리다', () => {
+        // 실물 fontId 4 = <b/> + color indexed="10", borderId 4 = bottom thin.
+        // A1은 테두리가 없어 우연이 아니다. 경고문이 눈에 띄어야 읽는다.
+        const a2 = objectLiteral('cellA2.s')
+        expect(a2.font.bold).toBe(true)
+        expect(a2.font.color.rgb).toBe('FFFF0000')
+        expect(a2.border.bottom.style).toBe('thin')
     })
 })

@@ -32,6 +32,12 @@ if (window.CacheManager) {
         const mode = await window.storageManager.init();
         if (mode === 'cloud') {
             syncStatusEl.style.display = 'block';
+            // 동기화 버튼도 여기서만 노출한다 (SLS-1-216).
+            // 클라우드 미설정 상태에서는 눌러봐야 "설정 페이지에서 인증 파일을 등록해주세요"
+            // 알림만 뜨는데, 그 authFileSection은 SLS-1-190·191에서 숨겨져 막다른 길이었다.
+            // v1.10.14가 "이미 설정해 쓰고 계신 소수 사용자는 기존과 동일하게 계속 동작합니다"
+            // 라고 약속했으므로 무조건 숨기지 않고 그들에게는 남긴다.
+            document.getElementById('syncBtn')?.style.setProperty('display', 'flex');
             updateSyncStatus();
         }
     }

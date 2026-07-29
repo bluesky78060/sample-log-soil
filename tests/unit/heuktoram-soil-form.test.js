@@ -170,14 +170,14 @@ describe('흙토람 토양 서식 — 실물 대조', () => {
         expect(dataHidden.map(m => +m[1]), '데이터 열이 숨으면 사용자가 입력을 못 한다').toEqual([])
     })
 
-    it('12. 검증 범위가 열 전체다', () => {
+    it('11. 검증 범위가 열 전체다', () => {
         // 데이터 행 수로 끊으면 사용자가 행을 덧붙였을 때 그 행에는
         // 드롭다운도 오입력 차단도 없다. 실물은 F3:F1048576처럼 열 전체다.
         const body = SRC.match(/buildDataValidations\(dataRowCount\)[\s\S]*?\n    \}/)[0]
         expect(body).toContain('const endRow = 1048576')
     })
 
-    it('11. 병합이 실물과 같다 (30개, 범위까지)', () => {
+    it('12. 병합이 실물과 같다 (30개, 범위까지)', () => {
         const merges = SRC.match(/applyHeaderMerges\(ws\) \{[\s\S]*?\n    \}/)[0]
         const ours = [...merges.matchAll(/\{ s: \{ r: (\d+), c: (\d+) \}, e: \{ r: (\d+), c: (\d+) \} \}/g)]
             .map(m => XLSX.utils.encode_range({
@@ -188,13 +188,13 @@ describe('흙토람 토양 서식 — 실물 대조', () => {
     })
 
     // 🚨 SLS-1-210이 놓쳤던 것 — 메인 이식 중 전수 대조로 발견 (SLS-1-212)
-    it('12. 데이터 셀이 텍스트 서식이다', () => {
+    it('13. 데이터 셀이 텍스트 서식이다', () => {
         // 없으면 사용자가 내보낸 뒤 날짜 칸을 고칠 때 Excel이 일련번호로 바꿔
         // 업로드가 깨진다. 퇴비는 SLS-1-200에서 이미 강제했는데 토양만 빠져 있었다.
         expect(soilDataStyle().numFmt).toBe('@')
     })
 
-    it('13. 안내문이 굵은 빨강 + 아래 테두리다', () => {
+    it('14. 안내문이 굵은 빨강 + 아래 테두리다', () => {
         // 실물 fontId 4 = <b/> + color indexed="10", borderId 4 = bottom thin.
         // A1은 테두리가 없어 우연이 아니다. 경고문이 눈에 띄어야 읽는다.
         const a2 = objectLiteral('cellA2.s')
@@ -207,10 +207,10 @@ describe('흙토람 토양 서식 — 실물 대조', () => {
     //    xlsx-js-style이 실제 .xlsx로 직렬화하는지는 사람이 손으로만 확인했다.
     //    이제 테스트가 한다 — 프로덕션과 **같은 write 옵션**으로 돌린다.
     //
-    // ⚠️ 여전히 증명하지 못하는 것: 내보내기 코드가 이 객체를 실제 셀에 **붙이는지**.
-    //    그 연결은 아직 문자열 검색에 기댄다. 닫으려면 export 메서드가 워크시트를
-    //    주입받게 고쳐 진짜 산출물을 검사해야 한다.
-    it('14. 추출한 스타일 객체가 올바른 OOXML로 직렬화된다', async () => {
+    // ⚠️ 이 테스트가 증명하지 못하는 것: 내보내기 코드가 이 객체를 실제 셀에 **붙이는지**.
+    //    → tests/e2e/heuktoram-export-real-output.spec.js가 덮는다 (SLS-1-214).
+    //      실제 다운로드 파일의 셀 s= 인덱스를 해석해 확인한다.
+    it('15. 추출한 스타일 객체가 올바른 OOXML로 직렬화된다', async () => {
         const JSZip = (await import('jszip')).default
 
         const sheet = XLSX.utils.aoa_to_sheet([['guide'], ['data']])

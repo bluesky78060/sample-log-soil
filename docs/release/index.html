@@ -598,12 +598,41 @@
         <!-- 타임라인 -->
         <div class="timeline">
 
+            <!-- v1.14.4 -->
+            <!-- data-popup 미부착: 팝업 기능 자체를 추가한 릴리스라 알릴 내용이 사용자 조치를
+                 요구하지 않는다. 또한 이 버전 첫 실행 시점에는 lastSeenVersion 기록이 없어
+                 (첫 설치로 취급) 어차피 뜨지 않는다. 수정사항 팝업은 v1.14.5부터 동작한다. -->
+            <div class="version-entry">
+                <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.4</span>
+                                <span class="version-date">2026-07-30</span>
+                            </div>
+                            <div class="version-title">📢 중요 안내와 공지사항을 팝업으로 알려드립니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>공지사항이 프로그램 실행 시 바로 뜹니다.</strong> 그동안은 문의/건의 게시판에 들어가야 공지를 볼 수 있었습니다. 이제 새 공지가 올라오면 프로그램을 켤 때 안내창으로 알려드립니다. 한 번 확인하시면 다시 뜨지 않습니다.</li>
+                        <li><strong>프로그램을 새 버전으로 올리면 무엇이 바뀌었는지 보여드립니다.</strong> 중요한 수정 사항을 놓치지 않도록 첫 실행 때 안내창으로 표시합니다. (다음 버전부터 동작합니다)</li>
+                        <li><strong>동기화 버튼을 정리했습니다</strong> — 클라우드를 사용하지 않는 환경에서는 눌러도 안내만 떠서 혼란스러웠던 버튼을 숨겼습니다. 이미 클라우드를 쓰고 계신 경우에는 그대로 표시됩니다.</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- v1.14.3 -->
             <!-- data-popup: 새 버전 첫 실행 시 팝업으로 알린다 (SLS-1-218).
                  version-entry에 붙이면 이 버전의 모든 항목이, li에만 붙이면 그 항목만 나온다.
-                 표시가 없는 버전은 팝업에 나오지 않는다 — 모든 릴리스가 팝업까지 필요하진 않다. -->
+                 표시가 없는 버전은 팝업에 나오지 않는다 — 모든 릴리스가 팝업까지 필요하진 않다.
+                 v1.14.4가 최신이 된 뒤에도 이 표시는 유지한다 — 낮은 버전에서 한 번에
+                 올라오는 사용자에게 데이터 유실 수정을 반드시 알려야 한다. -->
             <div class="version-entry" data-popup>
-                <div class="version-dot latest"></div>
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -612,9 +641,6 @@
                                 <span class="version-date">2026-07-29</span>
                             </div>
                             <div class="version-title">⚠️ 중요 — 금요일에 접수 자료가 사라지던 문제 수정</div>
-                        </div>
-                        <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

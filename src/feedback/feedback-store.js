@@ -155,9 +155,24 @@ class FirestoreFeedbackStore extends FeedbackStore {
         return window.feedbackFirebase?.getUid?.() || null;
     }
 
-    async listNotices() {
+    /**
+     * 공지 목록.
+     * @param {{limit?: number}} [opts] limit을 주면 서버측에서 최신순 N건만 가져온다 (SLS-1-219).
+     *
+     * ⚠️ limit 없이 호출하면 기존 동작 그대로(전체 조회 + 클라이언트 정렬)다.
+     *    orderBy를 무조건 걸면 안 된다 — Firestore의 orderBy는 해당 필드가 **없는 문서를
+     *    아예 제외**하므로, 과거 콘솔에서 createdAt 없이 만든 공지가 게시판 목록에서
+     *    사라진다. 게시판(feedback-script.js:51)은 인자 없이 부르므로 무손상이다.
+     *    팝업(notice-popup.js)은 새 관리자 폼이 createdAt을 항상 쓰는 문서만 대상으로
+     *    하므로 limit을 써도 안전하다.
+     */
+    async listNotices(opts = {}) {
         try {
-            const snap = await this._db().collection(FEEDBACK_NOTICE_COLLECTION).get();
+            let query = this._db().collection(FEEDBACK_NOTICE_COLLECTION);
+            if (opts.limit) {
+                query = query.orderBy('createdAt', 'desc').limit(opts.limit);
+            }
+            const snap = await query.get();
             const list = [];
             snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
             return list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));

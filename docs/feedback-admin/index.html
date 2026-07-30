@@ -71,12 +71,13 @@
         .toast.success { background: #16a34a; } .toast.error { background: #dc2626; } .toast.warning { background: #f59e0b; color: #1c1917; } .toast.info { background: #2563eb; }
         .toast-icon { font-size: 1.2rem; } .toast-message { flex: 1; font-size: 0.875rem; font-weight: 500; }
     </style>
-  <script type="module" crossorigin src="../assets/feedbackAdmin-Cix9wpKp.js"></script>
+  <script type="module" crossorigin src="../assets/feedbackAdmin-hOoSshvB.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-D6gMnemd.js">
   <link rel="modulepreload" crossorigin href="../assets/logger-Bx3YsiDi.js">
   <link rel="modulepreload" crossorigin href="../assets/constants-BelMyZiF.js">
   <link rel="modulepreload" crossorigin href="../assets/toast-CYVUzQgW.js">
+  <link rel="modulepreload" crossorigin href="../assets/notice-date-CpCNTsCR.js">
   <link rel="modulepreload" crossorigin href="../assets/index.esm-k5uDoaEq.js">
   <link rel="modulepreload" crossorigin href="../assets/feedback-firebase-B6kONoGL.js">
   <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
@@ -120,6 +121,24 @@
                     <input type="text" id="noticeTitle" placeholder="공지 제목" maxlength="200">
                     <label for="noticeBody">내용</label>
                     <textarea id="noticeBody" placeholder="공지 내용" maxlength="2000"></textarea>
+
+                    <!-- 팝업 알림 (SLS-1-219) — 기본 꺼짐.
+                         모든 공지를 팝업으로 띄우면 사용자가 읽지 않고 닫는 습관이 생겨
+                         정작 중요할 때 놓친다. 반드시 알아야 하는 것만 켠다. -->
+                    <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; font-weight: 500;">
+                        <input type="checkbox" id="noticePopup" style="width: auto; margin: 0;">
+                        앱 실행 시 팝업으로 알림
+                    </label>
+                    <small style="display: block; color: #94a3b8; margin: 0.25rem 0 0.5rem 1.6rem;">
+                        데스크톱 앱에서만 뜹니다. 사용자가 한 번 확인하면 다시 뜨지 않습니다.
+                    </small>
+
+                    <label for="noticeUntil">팝업 표시 종료일 (선택)</label>
+                    <input type="date" id="noticeUntil">
+                    <small style="display: block; color: #94a3b8; margin: 0.25rem 0 0.5rem 0;">
+                        <strong>팝업에만</strong> 적용됩니다 — 게시판 목록에는 계속 남습니다. 비워두면 팝업이 계속 뜹니다.
+                    </small>
+
                     <button type="submit" class="btn-primary">공지 등록</button>
                 </form>
                 <div id="noticeList" style="margin-top: 1rem;"></div>

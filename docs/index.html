@@ -1066,13 +1066,70 @@
         [data-theme="dark"] .whatsnew-items {
             color: #d4d4d8;
         }
+
+        /* 공지사항 팝업 (SLS-1-219) */
+        .notice-entry + .notice-entry {
+            margin-top: 1.5rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid #E8E4DF;
+        }
+
+        .notice-entry-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .notice-title {
+            font-weight: 600;
+            color: #3C3530;
+            line-height: 1.5;
+        }
+
+        .notice-date {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            flex-shrink: 0;
+        }
+
+        /* 🚨 pre-wrap이 개행을 보존한다. 관리자 입력은 textarea라 여러 줄을 전제하고
+              기존 표시처 두 곳은 개행을 <br>로 바꾼다(feedback-script.js:62,
+              admin-script.js:144). textContent만 쓰면 한 줄로 뭉개진다. */
+        .notice-popup-body {
+            white-space: pre-wrap;
+            color: #4b5563;
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        #noticeModal .sync-modal-body {
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+
+        [data-theme="dark"] .notice-entry + .notice-entry {
+            border-top-color: #3f3f46;
+        }
+
+        [data-theme="dark"] .notice-title {
+            color: #e4e4e7;
+        }
+
+        [data-theme="dark"] .notice-popup-body {
+            color: #d4d4d8;
+        }
     </style>
-  <script type="module" crossorigin src="./assets/main-DoXlCcge.js"></script>
+  <script type="module" crossorigin src="./assets/main-C5EpnmtL.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/frame-guard-BIL41LH3.js">
   <link rel="modulepreload" crossorigin href="./assets/logger-Bx3YsiDi.js">
   <link rel="modulepreload" crossorigin href="./assets/index.esm-k5uDoaEq.js">
   <link rel="modulepreload" crossorigin href="./assets/storage-manager-NkZUqJOM.js">
   <link rel="modulepreload" crossorigin href="./assets/cache-manager-ByTTmbN8.js">
+  <link rel="modulepreload" crossorigin href="./assets/notice-date-CpCNTsCR.js">
+  <link rel="modulepreload" crossorigin href="./assets/feedback-firebase-B6kONoGL.js">
+  <link rel="modulepreload" crossorigin href="./assets/feedback-store-DbdbKrt5.js">
   <link rel="stylesheet" crossorigin href="./assets/tailwind-output-uplGniQ-.css">
 </head>
 
@@ -1126,6 +1183,27 @@
     </div>
 
     <!-- 동기화 결과 모달 -->
+    <!-- 공지사항 팝업 (SLS-1-219) — 기본 숨김, src/notice-popup.js가 조건 충족 시 노출.
+         내용은 게시판 Firestore(feedbackNotices)에서 오므로 배포 없이 바꿀 수 있다.
+         Electron 전용 — 웹에서는 게시판 Firebase 설정이 없어 뜨지 않는다. -->
+    <div class="sync-modal" id="noticeModal">
+        <div class="sync-modal-content">
+            <div class="sync-modal-header">
+                <div class="sync-modal-title">
+                    <span>📢</span>
+                    <span>공지사항</span>
+                </div>
+                <button class="sync-modal-close notice-close" type="button" aria-label="닫기">&times;</button>
+            </div>
+            <div class="sync-modal-body" id="noticeBody">
+                <!-- notice-popup.js가 채운다 (textContent만 사용) -->
+            </div>
+            <div class="sync-modal-footer">
+                <button class="sync-modal-btn" id="noticeOk" type="button">확인</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 새로워진 내용 팝업 (SLS-1-218) — 기본 숨김, src/whatsnew.js가 조건 충족 시 노출.
          sync-modal 스타일을 재사용한다(구조가 같고 이미 다크모드까지 지원). -->
     <div class="sync-modal" id="whatsnewModal">

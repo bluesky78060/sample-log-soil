@@ -136,11 +136,24 @@ async function loadNotices() {
     docs.forEach((n) => {
         const card = document.createElement('div');
         card.className = 'item';
+        // 팝업 여부·만료 상태 표시 (SLS-1-219) — 관리자가 목록에서 바로 알 수 있게
+        // ⚠️ 여기서 직접 날짜를 만들지 말 것. UTC(toISOString)로 계산하면 KST에서
+        //    매일 00:00~08:59에 팝업(로컬 기준)과 하루 어긋난다 — 코드리뷰 MAJOR.
+        const expired = window.isNoticeExpired(n.until);
+        const badges = [];
+        if (n.popup === true) {
+            badges.push(expired
+                ? '<span class="meta">📢 팝업(종료됨)</span>'
+                : '<span class="meta">📢 팝업</span>');
+        }
+        if (n.until) badges.push(`<span class="meta">~${esc(n.until)}</span>`);
+
         card.innerHTML = window.sanitizeHTML(`
             <div class="item-head">
                 <span class="title">${esc(n.title)}</span>
                 <span class="meta">${esc(fmtDate(n.createdAt))}</span>
             </div>
+            ${badges.length ? `<div>${badges.join(' ')}</div>` : ''}
             <div class="body">${esc(n.body).replace(/\n/g, '<br>')}</div>
         `);
         const del = document.createElement('button');
@@ -158,10 +171,23 @@ async function addNotice(e) {
     const title = $('noticeTitle').value.trim();
     const body = $('noticeBody').value.trim();
     if (!title || !body) { window.showToast?.('제목과 내용을 입력하세요.', 'warning'); return; }
+    // 팝업 알림 / 표시 종료일 (SLS-1-219)
+    const popup = $('noticePopup')?.checked === true;
+    const until = ($('noticeUntil')?.value || '').trim();
     try {
-        await db().collection(NOTICE_COL).add({ title, body, createdAt: new Date().toISOString() });
+        await db().collection(NOTICE_COL).add({
+            title,
+            body,
+            createdAt: new Date().toISOString(),
+            // popup은 항상 boolean으로 저장한다. notice-popup.js가 `=== true`로 엄격
+            // 비교하므로, 이 필드가 없는 기존 공지는 팝업에 나오지 않는다(의도).
+            popup,
+            ...(until ? { until } : {}),
+        });
         $('noticeTitle').value = '';
         $('noticeBody').value = '';
+        if ($('noticePopup')) $('noticePopup').checked = false;
+        if ($('noticeUntil')) $('noticeUntil').value = '';
         window.showToast?.('공지가 등록되었습니다.', 'success');
         await loadNotices();
     } catch (e2) {

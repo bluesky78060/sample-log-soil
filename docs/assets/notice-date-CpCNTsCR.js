@@ -1,0 +1,1 @@
+function i(t=new Date){const e=r=>String(r).padStart(2,"0");return`${t.getFullYear()}-${e(t.getMonth()+1)}-${e(t.getDate())}`}function n(t,e=i()){return t?e>t:!1}window.noticeTodayStr=i;window.isNoticeExpired=n;

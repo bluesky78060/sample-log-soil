@@ -12,6 +12,12 @@
 
 const SEEN_KEY = 'lastSeenVersion';
 
+// 이 팝업이 닫히면(또는 애초에 안 뜨면) resolve된다. 공지 팝업(SLS-1-219)이 기다린다.
+let _markClosed;
+const closedPromise = new Promise((resolve) => { _markClosed = resolve; });
+/** 여러 번 불려도 안전하다 (Promise는 한 번만 resolve된다) */
+function markClosed() { _markClosed?.(); }
+
 /**
  * '1.9.0' vs '1.14.0' 을 문자열로 비교하면 틀린다 ('1.9' > '1.14').
  * 자리별 숫자로 비교한다.
@@ -141,6 +147,7 @@ function initWhatsNew() {
     const close = () => {
         modal.classList.remove('show');   // ① UI 먼저
         rememberVersion(current);          // ② 기록은 try/catch 안에서
+        markClosed();                      // ③ 뒤따르는 팝업을 풀어준다
     };
 
     okBtn.addEventListener('click', close);
@@ -152,14 +159,26 @@ function initWhatsNew() {
     });
 
     modal.classList.add('show');
+    return true;   // 띄웠다 — whenClosed()는 닫힐 때까지 대기한다
 }
 
 // 팝업 때문에 앱이 안 켜지면 본말이 전도된다. 실패는 콘솔에만 남긴다.
+// 띄우지 못했거나(대다수 경로) 실패했으면 즉시 markClosed() — 뒤따르는 팝업이
+// 영원히 기다리지 않게 한다(SLS-1-219).
 try {
-    initWhatsNew();
+    if (!initWhatsNew()) markClosed();
 } catch (e) {
     (window.logger?.warn || console.warn)('[whatsnew] 초기화 실패:', e?.message || e);
+    markClosed();
 }
+
+// 이 팝업이 닫힌(또는 애초에 안 뜬) 뒤에 다른 팝업을 띄우기 위한 프로덕션 API (SLS-1-219).
+// 두 팝업이 같은 .sync-modal z-index를 공유해 동시에 뜨면 겹쳐 깨진다.
+//
+// ⚠️ 아래 __whatsnew(테스트 전용)에 얹지 않는다. 거기에 프로덕션 API를 넣으면
+//    "프로덕션 동작에는 쓰이지 않는다"는 주석이 거짓이 되어, 후임자가 그 객체를
+//    마음대로 바꿔도 된다고 오판한다.
+window.whatsNewPopup = { whenClosed: () => closedPromise };
 
 // 테스트용 노출 (프로덕션 동작에는 쓰이지 않는다)
 window.__whatsnew = { compareVersions, pickEntries, initWhatsNew, resolveCurrentVersion, SEEN_KEY };

@@ -11,6 +11,11 @@ import './shared/theme.js';
 import './shared/cache-manager.js';
 import './shared/main-init.js';
 
+// 새로워진 내용 팝업 (SLS-1-218) — 생성물을 먼저 올린 뒤 팝업 모듈이 읽는다.
+// main-init 다음에 둔다: Firebase·자동저장·통계 초기화와 경쟁하지 않게 한다.
+import './shared/whatsnew-data.js';
+import './whatsnew.js';
+
 // 게시판은 데스크톱(Electron) 전용 — 웹에선 진입 버튼을 숨긴다 (SLS-1-151).
 // 버튼은 기본 display:none이며, Electron일 때만 노출한다(fail-closed).
 document.addEventListener('DOMContentLoaded', () => {

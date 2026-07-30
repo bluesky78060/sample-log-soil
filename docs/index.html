@@ -986,8 +986,88 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 15px rgba(124, 144, 130, 0.4);
         }
+
+        /* 새로워진 내용 팝업 (SLS-1-218) — sync-modal 구조를 그대로 쓰고 본문만 추가 */
+        .whatsnew-entry + .whatsnew-entry {
+            margin-top: 1.5rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid #E8E4DF;
+        }
+
+        .whatsnew-entry-head {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .whatsnew-version {
+            font-weight: 600;
+            color: #7C9082;
+            font-size: 0.95rem;
+        }
+
+        .whatsnew-date {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        .whatsnew-title {
+            font-weight: 600;
+            color: #3C3530;
+            margin-bottom: 0.6rem;
+            line-height: 1.5;
+        }
+
+        .whatsnew-items {
+            margin: 0;
+            padding-left: 1.2rem;
+            color: #4b5563;
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .whatsnew-items li + li {
+            margin-top: 0.5rem;
+        }
+
+        /* 항목이 많으면 팝업이 화면을 넘지 않게 본문만 스크롤한다 */
+        #whatsnewModal .sync-modal-body {
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+
+        #whatsnewModal .sync-modal-footer {
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        /* '전체 보기'는 링크(a)라 버튼 스타일에 텍스트 정렬이 필요하다 */
+        .whatsnew-more {
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            background: #94a3b8;
+        }
+
+        .whatsnew-more:hover {
+            box-shadow: 0 4px 15px rgba(148, 163, 184, 0.4);
+        }
+
+        [data-theme="dark"] .whatsnew-entry + .whatsnew-entry {
+            border-top-color: #3f3f46;
+        }
+
+        [data-theme="dark"] .whatsnew-title {
+            color: #e4e4e7;
+        }
+
+        [data-theme="dark"] .whatsnew-items {
+            color: #d4d4d8;
+        }
     </style>
-  <script type="module" crossorigin src="./assets/main-DdrGVfVH.js"></script>
+  <script type="module" crossorigin src="./assets/main-DoXlCcge.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/frame-guard-BIL41LH3.js">
   <link rel="modulepreload" crossorigin href="./assets/logger-Bx3YsiDi.js">
   <link rel="modulepreload" crossorigin href="./assets/index.esm-k5uDoaEq.js">
@@ -1046,6 +1126,27 @@
     </div>
 
     <!-- 동기화 결과 모달 -->
+    <!-- 새로워진 내용 팝업 (SLS-1-218) — 기본 숨김, src/whatsnew.js가 조건 충족 시 노출.
+         sync-modal 스타일을 재사용한다(구조가 같고 이미 다크모드까지 지원). -->
+    <div class="sync-modal" id="whatsnewModal">
+        <div class="sync-modal-content">
+            <div class="sync-modal-header">
+                <div class="sync-modal-title">
+                    <span>✨</span>
+                    <span>새로워진 내용</span>
+                </div>
+                <button class="sync-modal-close whatsnew-close" type="button" aria-label="닫기">&times;</button>
+            </div>
+            <div class="sync-modal-body" id="whatsnewBody">
+                <!-- whatsnew.js가 채운다 (textContent만 사용) -->
+            </div>
+            <div class="sync-modal-footer">
+                <a href="release/index.html" class="sync-modal-btn whatsnew-more">전체 보기</a>
+                <button class="sync-modal-btn" id="whatsnewOk" type="button">확인</button>
+            </div>
+        </div>
+    </div>
+
     <div class="sync-modal" id="syncModal">
         <div class="sync-modal-content">
             <div class="sync-modal-header">

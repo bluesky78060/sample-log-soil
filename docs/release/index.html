@@ -599,7 +599,10 @@
         <div class="timeline">
 
             <!-- v1.14.3 -->
-            <div class="version-entry">
+            <!-- data-popup: 새 버전 첫 실행 시 팝업으로 알린다 (SLS-1-218).
+                 version-entry에 붙이면 이 버전의 모든 항목이, li에만 붙이면 그 항목만 나온다.
+                 표시가 없는 버전은 팝업에 나오지 않는다 — 모든 릴리스가 팝업까지 필요하진 않다. -->
+            <div class="version-entry" data-popup>
                 <div class="version-dot latest"></div>
                 <div class="version-card">
                     <div class="version-card-header">

@@ -1071,3 +1071,98 @@ document.getElementById('cropDataUploadBtn')?.addEventListener('click', async ()
 
 // 페이지 로드 시 상태 표시
 updateCropDataStatusUI();
+
+// ============================================================
+// 접수번호 정합성 점검 (SLS-1-223)
+//
+// 성토 시료는 접수번호가 'F'로 시작해야 한다(F 접두 ⟺ 구분='성토').
+// 이 불변식이 깨진 레코드는 채번 풀 분류가 어긋나 조용한 중복의 원인이 된다.
+// 읽기 전용이다 — 재번호는 접수번호가 이미 라벨·흙토람 내보내기에 쓰였을 수 있어
+// 담당자 판단이 필요하다.
+// ============================================================
+
+/** localStorage의 모든 연도별 토양 접수 자료를 모은다 */
+function collectAllSoilLogs() {
+    const byYear = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const m = key && key.match(/^soilSampleLogs_(\d{4})$/);
+        if (!m) continue;
+        let logs = [];
+        try {
+            const parsed = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(parsed)) logs = parsed;
+        } catch (_) { /* 손상된 항목은 건너뛴다 */ }
+        byYear.push({ year: Number(m[1]), logs });
+    }
+    return byYear.sort((a, b) => a.year - b.year);
+}
+
+/** 결과 표의 한 행 */
+function auditRow(cells, opts) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display: flex; gap: 0.75rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; font-size: 0.85rem;'
+        + (opts && opts.header ? ' font-weight: 600; color: #334155; background: #f8fafc;' : ' color: #475569;');
+    cells.forEach((text, i) => {
+        const cell = document.createElement('span');
+        cell.style.cssText = i === cells.length - 1 ? 'flex: 1;' : 'min-width: 5.5rem;';
+        cell.textContent = text;   // 사용자 데이터 — textContent로만 넣는다
+        row.appendChild(cell);
+    });
+    return row;
+}
+
+function renderAuditResult(byYear) {
+    const box = document.getElementById('auditReceptionResult');
+    if (!box) return;
+    box.textContent = '';
+
+    const RN = window.ReceptionNumber;
+    if (!RN || typeof RN.auditReceptionNumbers !== 'function') {
+        box.appendChild(auditRow(['점검 모듈을 불러올 수 없습니다. 페이지를 새로고침해 주세요.']));
+        return;
+    }
+
+    let totalRecords = 0;
+    let totalViolations = 0;
+    let totalDuplicates = 0;
+
+    for (const { year, logs } of byYear) {
+        const { violations, duplicates } = RN.auditReceptionNumbers(logs);
+        totalRecords += logs.length;
+        totalViolations += violations.length;
+        totalDuplicates += duplicates.length;
+        if (violations.length === 0 && duplicates.length === 0) continue;
+
+        const title = document.createElement('div');
+        title.style.cssText = 'margin-top: 0.75rem; font-weight: 600; color: #b91c1c;';
+        title.textContent = `${year}년 — 규칙 위반 ${violations.length}건 / 중복 번호 ${duplicates.length}건`;
+        box.appendChild(title);
+
+        const table = document.createElement('div');
+        table.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-top: 0.4rem;';
+        table.appendChild(auditRow(['구분', '접수번호', '성명', '사유'], { header: true }));
+        for (const v of violations) {
+            table.appendChild(auditRow([v.subCategory || '-', v.receptionNumber, v.name || '-', v.reason]));
+        }
+        for (const d of duplicates) {
+            const names = d.records.map(r => r.name || '-').join(', ');
+            table.appendChild(auditRow([d.landClass1, d.base, `${d.count}건`, `같은 번호가 ${d.count}건 (${names})`]));
+        }
+        box.appendChild(table);
+    }
+
+    const summary = document.createElement('div');
+    const clean = totalViolations === 0 && totalDuplicates === 0;
+    summary.style.cssText = 'margin-top: 0.75rem; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem;'
+        + (clean ? ' background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534;'
+                 : ' background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;');
+    summary.textContent = clean
+        ? `이상 없음 — ${byYear.length}개 연도 ${totalRecords}건을 확인했습니다.`
+        : `확인 필요 — 규칙 위반 ${totalViolations}건, 중복 번호 ${totalDuplicates}건. 접수번호는 라벨·내보내기에 이미 쓰였을 수 있어 자동으로 고치지 않습니다.`;
+    box.appendChild(summary);
+}
+
+document.getElementById('auditReceptionBtn')?.addEventListener('click', () => {
+    renderAuditResult(collectAllSoilLogs());
+});

@@ -2166,6 +2166,26 @@ class SoilSampleManager extends window.BaseSampleManager {
         const effectiveSubCategory = firstParcelCategory || mainSubCategory;
         const effectivePurpose = firstParcelPurpose || formData.get('purpose');
 
+        // 접수번호 표기와 구분의 불변식을 지킨다 — `F` 접두 ⟺ 구분='성토' (SLS-1-223).
+        //
+        // 이 화면은 접수번호와 구분을 독립적으로 받는다. 구분만 성토→논으로 바꾸면
+        // 원본 `F9`가 그대로 남아 불변식이 깨진 레코드가 만들어지고, 그 레코드는
+        // 채번 풀 분류가 어긋나 조용한 중복의 씨앗이 된다.
+        // 자동 재부여는 하지 않는다 — 접수번호가 이미 라벨·흙토람 내보내기에 쓰였을 수 있어
+        // 조용히 바꾸는 것이 더 위험하다. 대신 무엇을 고쳐야 하는지 알린다.
+        const editedNumber = formData.get('receptionNumber') || '';
+        const violation = window.ReceptionNumber.namespaceViolation(
+            window.ReceptionNumber.baseOf(editedNumber),
+            effectiveSubCategory === '성토'
+        );
+        if (editedNumber && violation) {
+            const guide = effectiveSubCategory === '성토'
+                ? `성토 시료는 접수번호가 F로 시작해야 합니다 (현재: ${editedNumber}).`
+                : `F로 시작하는 접수번호는 성토 시료에만 씁니다 (현재: ${editedNumber}, 구분: ${effectiveSubCategory}).`;
+            this.showToast(`${violation}. ${guide} 구분과 접수번호를 함께 맞춰 주세요.`, 'error');
+            return;
+        }
+
         const updatedLog = {
             ...existingLog,
             receptionNumber: formData.get('receptionNumber'),

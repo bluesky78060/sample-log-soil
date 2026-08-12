@@ -210,16 +210,17 @@
      */
     function collectExistingNumbers(logs, landClass1, opts) {
         const fill = !!(opts && opts.fill);
-        // computeNextNumber(reception-number.js)와 같이 기본 경지구분으로 폴백한다
         const target = landClass1 || LAND_CLASS1_DEFAULT;
+        const RN = window.ReceptionNumber;
         const set = new Set();
         for (const log of (logs || [])) {
             if (!log || !log.receptionNumber) continue;
             if ((log.landClass1 || LAND_CLASS1_DEFAULT) !== target) continue;
-            if (fill !== (log.subCategory === '성토')) continue;
-            const base = String(log.receptionNumber).split('-')[0].trim();
-            if (!fill && base.startsWith('F')) continue;
-            set.add(fill ? base.replace('F', '') : base);
+            const base = RN.baseOf(log.receptionNumber);
+            // 시퀀스 분리는 **표기 기준**이다 (SLS-1-223) — computeNextNumber와 같은 판별자.
+            // 헬퍼를 직접 쓰므로 규칙이 어긋날 수 없다.
+            if (fill !== RN.isFillNotation(base)) continue;
+            set.add(fill ? base.slice(1) : base);
         }
         return set;
     }
@@ -291,11 +292,8 @@
      * @returns {string|null} 위반 사유, 정상이면 null
      */
     function namespaceViolation(base, isFill) {
-        const hasF = base.toUpperCase().startsWith('F');
-        if (isFill === hasF) return null;
-        return isFill
-            ? '구분=성토인데 접수번호가 F로 시작하지 않음'
-            : '접수번호가 F로 시작하는데 구분이 성토가 아님';
+        // 규칙은 reception-number.js 한 곳에만 둔다 (SLS-1-223)
+        return window.ReceptionNumber.namespaceViolation(base, isFill);
     }
 
     /** 번호 집합에서 다음 번호를 추정한다 (매니저 미준비 시 폴백) */

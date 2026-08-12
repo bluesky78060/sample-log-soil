@@ -23,4 +23,7 @@ import '../cropData.js';
 import '../shared/crop-data-loader.js';
 
 // Main script
+// 접수번호 정합성 점검이 window.ReceptionNumber를 쓴다 (SLS-1-223)
+import '../soil/reception-number.js';
+
 import './settings-script.js';

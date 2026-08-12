@@ -735,6 +735,34 @@
             </p>
         </div>
 
+        <!-- 접수번호 정합성 점검 (SLS-1-223) -->
+        <div class="settings-card">
+            <h2>
+                <span>🔍</span>
+                접수번호 정합성 점검
+            </h2>
+
+            <div class="alert alert-info">
+                접수번호가 규칙에 맞는지 확인합니다. <strong>읽기 전용이며 아무것도 고치지 않습니다.</strong><br>
+                <small style="color: #64748b;">
+                    성토 시료는 접수번호가 <code>F</code>로 시작해야 합니다. 이 규칙이 어긋난 자료가 있으면
+                    접수번호가 중복될 수 있어 확인이 필요합니다.
+                </small>
+            </div>
+
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+                <button type="button" id="auditReceptionBtn" class="btn btn-secondary">
+                    🔍 점검 실행
+                </button>
+            </div>
+
+            <div id="auditReceptionResult" style="margin-top: 1rem;"></div>
+
+            <p class="help-text" style="margin-top: 0.75rem;">
+                모든 연도의 접수 자료를 확인합니다. 이상이 발견되면 담당자 판단이 필요하므로 자동으로 고치지 않습니다.
+            </p>
+        </div>
+
         <!-- 예전 버전 잔재 정리 -->
         <div class="settings-card">
             <h2>

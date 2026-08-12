@@ -25,25 +25,35 @@ const MAP = { receptionNumber: 0, name: 1, lotAddress: 2 }
 // 성토 판정용: 성명 0 / 지번주소 1 / 구분 2
 const MAP_FILL = { name: 0, lotAddress: 1, subCategory: 2 }
 
-describe('collectExistingNumbers — 일반 시퀀스', () => {
+describe('collectExistingNumbers — 시퀀스 분리는 표기 기준 (SLS-1-223)', () => {
     const logs = [
         { receptionNumber: '5', landClass1: '농가의뢰' },
         { receptionNumber: '6-1', landClass1: '농가의뢰' },        // 서브넘버 → 본번으로 접힘
         { receptionNumber: '7', landClass1: '공익직불제' },         // 다른 경지구분 → 제외
-        { receptionNumber: '8', landClass1: '농가의뢰', subCategory: '성토' }, // 성토 → 제외
-        { receptionNumber: 'F9', landClass1: '농가의뢰' },          // F 접두 → 제외
+        { receptionNumber: '8', landClass1: '농가의뢰', subCategory: '성토' }, // 위반: 구분은 성토, 표기는 일반
+        { receptionNumber: 'F9', landClass1: '농가의뢰' },          // 위반: 표기는 성토, 구분 없음
         { receptionNumber: 10, landClass1: '농가의뢰' },            // 숫자형도 처리
     ]
 
-    it('같은 경지구분1차만 모으고 서브넘버는 본번으로 접는다', () => {
-        expect([...collect(logs, '농가의뢰')].sort()).toEqual(['10', '5', '6'])
+    it('일반 풀은 F 없는 표기를 모은다 (구분과 무관)', () => {
+        // '8'은 구분이 성토지만 표기가 일반이라 일반 풀에 들어간다.
+        // 구분 기준으로 나누면 이 레코드가 어느 풀에도 없어 '8'이 재발급됐다.
+        expect([...collect(logs, '농가의뢰')].sort()).toEqual(['10', '5', '6', '8'])
     })
 
-    it('성토·F접두를 제외한다 (computeNextNumber와 동일 조건)', () => {
-        const s = collect(logs, '농가의뢰')
-        expect(s.has('8')).toBe(false)
-        expect(s.has('F9')).toBe(false)
-        expect(s.has('9')).toBe(false)
+    it('성토 풀은 F 표기를 모은다 (구분과 무관)', () => {
+        // 'F9'는 구분이 없지만 표기가 성토라 성토 풀에 들어간다
+        expect([...collect(logs, '농가의뢰', { fill: true })]).toEqual(['9'])
+    })
+
+    it('전수성 — 모든 레코드가 정확히 한 풀에만 들어간다', () => {
+        // 이 조건이 깨지면 어느 풀에도 없는 레코드의 번호가 재발급된다
+        const normal = collect(logs, '농가의뢰')
+        const fill = collect(logs, '농가의뢰', { fill: true })
+        const inScope = logs.filter(l => (l.landClass1 || '농가의뢰') === '농가의뢰')
+        expect(normal.size + fill.size).toBe(inScope.length)
+        // 같은 숫자가 양쪽에 동시에 있어도 서로 다른 네임스페이스다 (5 vs F5)
+        expect([...normal].some(n => fill.has(n) && false)).toBe(false)
     })
 
     it('landClass1이 없으면 기본값(농가의뢰)으로 간주', () => {
@@ -66,12 +76,14 @@ describe('collectExistingNumbers — 성토 시퀀스', () => {
         { receptionNumber: 'F9', landClass1: '공익직불제', subCategory: '성토' },
     ]
 
-    it('fill=true면 성토만 모으고 F를 떼서 숫자로 넣는다', () => {
-        expect([...collect(logs, '농가의뢰', { fill: true })].sort()).toEqual(['2', '3', '7'])
+    it('fill=true면 F 표기만 모으고 F를 떼서 숫자로 넣는다', () => {
+        // '3'은 구분이 성토지만 표기가 일반이라 성토 풀에 들어가지 않는다 (SLS-1-223)
+        expect([...collect(logs, '농가의뢰', { fill: true })].sort()).toEqual(['2', '7'])
     })
 
-    it('두 시퀀스가 서로를 제외한다', () => {
-        expect([...collect(logs, '농가의뢰')]).toEqual(['5'])
+    it('두 시퀀스가 표기로 갈리고 서로를 제외한다', () => {
+        // 일반 풀: '5'(일반 표기) + '3'(구분은 성토지만 표기가 일반)
+        expect([...collect(logs, '농가의뢰')].sort()).toEqual(['3', '5'])
         expect(collect(logs, '농가의뢰', { fill: true }).has('5')).toBe(false)
     })
 

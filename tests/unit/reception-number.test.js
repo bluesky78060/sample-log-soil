@@ -92,3 +92,160 @@ describe('computeNextNumber — 성토(F) 채번', () => {
         expect(RN.computeNextNumber(logs, '개량제', { fill: true })).toBe(1)
     })
 })
+
+// ============================================================
+// 표기 기준 네임스페이스 (SLS-1-223)
+// ============================================================
+
+describe('computeNextNumber — 정상 데이터에서 구 규칙과 동일 (속성 테스트)', () => {
+    // 이 변경의 안전성 근거: 불변식(F 접두 ⟺ 구분='성토')이 지켜지는 레코드에서는
+    // 표기 기준과 구분 기준이 **같은 결과**를 낸다. 건강한 대장에서는 no-op이다.
+    // 구 구현을 여기 복사해 대조한다 — 구현이 바뀌면 이 테스트가 알려준다.
+    const DEF = '농가의뢰'
+    function computeNextNumberOld(logs, targetClass, opts) {
+        const o = opts || {}
+        const fill = !!o.fill
+        const def = o.defaultClass || DEF
+        const target = targetClass || def
+        let maxNumber = 0
+        for (const log of (Array.isArray(logs) ? logs : [])) {
+            if (!log || !log.receptionNumber) continue
+            const isFill = log.subCategory === '성토'
+            if (fill !== isFill) continue
+            if ((log.landClass1 || def) !== target) continue
+            const baseNumber = String(log.receptionNumber).split('-')[0]
+            if (!fill && baseNumber.startsWith('F')) continue
+            const numStr = fill ? baseNumber.replace('F', '') : baseNumber
+            const num = parseInt(numStr, 10)
+            if (!isNaN(num) && num > maxNumber) maxNumber = num
+        }
+        return maxNumber + 1
+    }
+
+    const CLASSES = ['농가의뢰', '공익직불제', '대표필지']
+    const CATS = ['논', '밭', '과수', '시설']
+
+    /** 불변식을 지키는 대장을 만든다 — 성토면 F 접두, 아니면 평번호 */
+    function makeCleanLedger(rand, n) {
+        const logs = []
+        for (let i = 0; i < n; i++) {
+            const fill = rand() < 0.4
+            const num = 1 + Math.floor(rand() * 40)
+            const sub = rand() < 0.15 ? (1 + Math.floor(rand() * 3)) : 0
+            logs.push({
+                receptionNumber: (fill ? `F${num}` : String(num)) + (sub ? `-${sub}` : ''),
+                subCategory: fill ? '성토' : CATS[Math.floor(rand() * CATS.length)],
+                landClass1: CLASSES[Math.floor(rand() * CLASSES.length)],
+            })
+        }
+        return logs
+    }
+
+    /** 결정적 의사난수 (시드 고정 — 실패를 재현할 수 있어야 한다) */
+    function makeRand(seed) {
+        let s = seed
+        return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff }
+    }
+
+    it('불변식을 지키는 임의 대장 500개에서 구/신 결과가 항상 같다', () => {
+        const mismatches = []
+        for (let seed = 1; seed <= 500; seed++) {
+            const rand = makeRand(seed)
+            const logs = makeCleanLedger(rand, 1 + Math.floor(rand() * 12))
+            for (const cls of CLASSES) {
+                for (const fill of [false, true]) {
+                    const oldV = computeNextNumberOld(logs, cls, { fill })
+                    const newV = RN.computeNextNumber(logs, cls, { fill })
+                    if (oldV !== newV) mismatches.push({ seed, cls, fill, oldV, newV })
+                }
+            }
+        }
+        expect(mismatches.slice(0, 5), `불일치 ${mismatches.length}건`).toEqual([])
+    })
+
+    it('불변식이 깨진 레코드에서만 달라진다', () => {
+        // 구분은 성토인데 표기가 일반 → 구 규칙은 어느 풀에도 안 넣어 '3'을 재발급했다
+        const bad = [{ receptionNumber: '3', subCategory: '성토', landClass1: '농가의뢰' }]
+        expect(computeNextNumberOld(bad, '농가의뢰')).toBe(1)   // 구: 일반 다음이 1 → '3'과 충돌 위험
+        expect(RN.computeNextNumber(bad, '농가의뢰')).toBe(4)      // 신: 표기가 일반이므로 4
+        expect(computeNextNumberOld(bad, '농가의뢰', { fill: true })).toBe(4) // 구: 성토 풀에 3
+        expect(RN.computeNextNumber(bad, '농가의뢰', { fill: true })).toBe(1)    // 신: F 표기 없음
+    })
+
+    it('표기가 성토인데 구분이 아닌 레코드도 표기대로 분류된다', () => {
+        const bad = [{ receptionNumber: 'F9', subCategory: '논', landClass1: '농가의뢰' }]
+        expect(RN.computeNextNumber(bad, '농가의뢰', { fill: true })).toBe(10)
+        expect(RN.computeNextNumber(bad, '농가의뢰')).toBe(1)
+    })
+
+    it('소문자 f도 성토 표기로 본다', () => {
+        const logs = [{ receptionNumber: 'f5', subCategory: '성토', landClass1: '농가의뢰' }]
+        expect(RN.computeNextNumber(logs, '농가의뢰', { fill: true })).toBe(6)
+        expect(RN.computeNextNumber(logs, '농가의뢰')).toBe(1)
+    })
+})
+
+describe('namespaceViolation', () => {
+    const v = (base, isFill) => window.ReceptionNumber.namespaceViolation(base, isFill)
+
+    it('불변식을 지키면 null', () => {
+        expect(v('5', false)).toBeNull()
+        expect(v('F5', true)).toBeNull()
+        expect(v('f5', true)).toBeNull()
+    })
+
+    it('어긋나면 방향별 사유를 돌려준다', () => {
+        expect(v('5', true)).toContain('F로 시작하지 않음')
+        expect(v('F5', false)).toContain('구분이 성토가 아님')
+    })
+})
+
+describe('auditReceptionNumbers', () => {
+    const audit = (logs) => window.ReceptionNumber.auditReceptionNumbers(logs)
+
+    it('정상 대장에서는 위반·중복 0건', () => {
+        const r = audit([
+            { id: 'a', receptionNumber: '1', subCategory: '논', landClass1: '농가의뢰' },
+            { id: 'b', receptionNumber: 'F1', subCategory: '성토', landClass1: '농가의뢰' },
+            { id: 'c', receptionNumber: '1', subCategory: '논', landClass1: '공익직불제' },
+        ])
+        expect(r.violations).toEqual([])
+        expect(r.duplicates).toEqual([])
+    })
+
+    it('양방향 위반을 찾는다', () => {
+        const r = audit([
+            { id: 'a', receptionNumber: '3', subCategory: '성토', landClass1: '농가의뢰' },
+            { id: 'b', receptionNumber: 'F9', subCategory: '논', landClass1: '농가의뢰' },
+        ])
+        expect(r.violations.map(x => x.id).sort()).toEqual(['a', 'b'])
+        expect(r.violations.find(x => x.id === 'a').reason).toContain('F로 시작하지 않음')
+        expect(r.violations.find(x => x.id === 'b').reason).toContain('구분이 성토가 아님')
+    })
+
+    it('같은 경지구분1차 안의 같은 본번을 중복으로 묶는다', () => {
+        const r = audit([
+            { id: 'a', receptionNumber: '5', subCategory: '논', landClass1: '농가의뢰' },
+            { id: 'b', receptionNumber: '5-1', subCategory: '논', landClass1: '농가의뢰' },
+            { id: 'c', receptionNumber: '5', subCategory: '논', landClass1: '공익직불제' },
+        ])
+        expect(r.duplicates).toHaveLength(1)
+        expect(r.duplicates[0].landClass1).toBe('농가의뢰')
+        expect(r.duplicates[0].base).toBe('5')
+        expect(r.duplicates[0].count).toBe(2)
+    })
+
+    it('F5와 5는 서로 다른 표기라 중복이 아니다', () => {
+        const r = audit([
+            { id: 'a', receptionNumber: '5', subCategory: '논', landClass1: '농가의뢰' },
+            { id: 'b', receptionNumber: 'F5', subCategory: '성토', landClass1: '농가의뢰' },
+        ])
+        expect(r.duplicates).toEqual([])
+    })
+
+    it('빈 입력·접수번호 없는 레코드는 건너뛴다', () => {
+        expect(audit([])).toEqual({ violations: [], duplicates: [] })
+        expect(audit(null)).toEqual({ violations: [], duplicates: [] })
+        expect(audit([{ id: 'x' }, { id: 'y', receptionNumber: '' }])).toEqual({ violations: [], duplicates: [] })
+    })
+})

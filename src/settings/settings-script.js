@@ -1089,11 +1089,15 @@ function collectAllSoilLogs() {
         const m = key && key.match(/^soilSampleLogs_(\d{4})$/);
         if (!m) continue;
         let logs = [];
+        let broken = false;
         try {
             const parsed = JSON.parse(localStorage.getItem(key));
             if (Array.isArray(parsed)) logs = parsed;
-        } catch (_) { /* 손상된 항목은 건너뛴다 */ }
-        byYear.push({ year: Number(m[1]), logs });
+            else broken = true;      // 배열이 아니면 읽을 수 없는 상태다
+        } catch (_) {
+            broken = true;           // 파싱 불가를 '이상 없음'에 합산하지 않는다
+        }
+        byYear.push({ year: Number(m[1]), logs, broken });
     }
     return byYear.sort((a, b) => a.year - b.year);
 }
@@ -1126,40 +1130,68 @@ function renderAuditResult(byYear) {
     let totalRecords = 0;
     let totalViolations = 0;
     let totalDuplicates = 0;
+    let totalMalformed = 0;
 
-    for (const { year, logs } of byYear) {
-        const { violations, duplicates } = RN.auditReceptionNumbers(logs);
+    const ROW_LIMIT = 200;   // 대량 데이터에서 동기 렌더가 화면을 멈추지 않게
+    let brokenYears = 0;
+
+    for (const { year, logs, broken } of byYear) {
+        if (broken) brokenYears++;
+        const { violations, duplicates, malformed } = RN.auditReceptionNumbers(logs);
         totalRecords += logs.length;
         totalViolations += violations.length;
         totalDuplicates += duplicates.length;
-        if (violations.length === 0 && duplicates.length === 0) continue;
+        totalMalformed += malformed.length;
+        if (violations.length === 0 && duplicates.length === 0 && malformed.length === 0) continue;
 
         const title = document.createElement('div');
         title.style.cssText = 'margin-top: 0.75rem; font-weight: 600; color: #b91c1c;';
-        title.textContent = `${year}년 — 규칙 위반 ${violations.length}건 / 중복 번호 ${duplicates.length}건`;
+        title.textContent = `${year}년 — 규칙 위반 ${violations.length}건 / 중복 번호 ${duplicates.length}건`
+            + (malformed.length ? ` / 번호 읽기 불가 ${malformed.length}건` : '');
         box.appendChild(title);
 
         const table = document.createElement('div');
         table.style.cssText = 'border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-top: 0.4rem;';
         table.appendChild(auditRow(['구분', '접수번호', '성명', '사유'], { header: true }));
-        for (const v of violations) {
-            table.appendChild(auditRow([v.subCategory || '-', v.receptionNumber, v.name || '-', v.reason]));
-        }
+
+        let shown = 0;
+        const add = (cells) => { if (shown < ROW_LIMIT) { table.appendChild(auditRow(cells)); shown++; } };
+        for (const v of violations) add([v.subCategory || '-', v.receptionNumber, v.name || '-', v.reason]);
+        for (const m of malformed) add([m.subCategory || '-', m.receptionNumber, m.name || '-', m.reason]);
         for (const d of duplicates) {
             const names = d.records.map(r => r.name || '-').join(', ');
-            table.appendChild(auditRow([d.landClass1, d.base, `${d.count}건`, `같은 번호가 ${d.count}건 (${names})`]));
+            add([d.landClass1, d.base, `${d.count}건`, `같은 번호가 ${d.count}건 (${names})`]);
         }
+        const total = violations.length + malformed.length + duplicates.length;
+        if (total > shown) table.appendChild(auditRow([`… 외 ${total - shown}건 생략`]));
         box.appendChild(table);
     }
 
     const summary = document.createElement('div');
-    const clean = totalViolations === 0 && totalDuplicates === 0;
+    const problems = totalViolations + totalDuplicates + totalMalformed;
+    const nothingToCheck = byYear.length === 0;
+    // 확인하지 않은 상태를 '이상 없음'과 같은 색으로 보고하지 않는다.
+    // 설정 화면은 토양 데이터를 로드하지 않으므로, 담당자가 해당 연도를 한 번도 열지
+    // 않은 기기에서는 저장소가 비어 있다 — 그것은 '이상 없음'이 아니다.
+    const clean = !nothingToCheck && problems === 0 && brokenYears === 0;
     summary.style.cssText = 'margin-top: 0.75rem; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem;'
         + (clean ? ' background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534;'
+                 : nothingToCheck ? ' background: #fffbeb; border: 1px solid #fde68a; color: #92400e;'
                  : ' background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;');
-    summary.textContent = clean
-        ? `이상 없음 — ${byYear.length}개 연도 ${totalRecords}건을 확인했습니다.`
-        : `확인 필요 — 규칙 위반 ${totalViolations}건, 중복 번호 ${totalDuplicates}건. 접수번호는 라벨·내보내기에 이미 쓰였을 수 있어 자동으로 고치지 않습니다.`;
+    if (nothingToCheck) {
+        summary.textContent = '확인할 자료가 없습니다 — 이 기기의 저장소에 토양 접수 자료가 없습니다. '
+            + '토양 화면에서 대상 연도를 먼저 열어 주세요. (클라우드에만 있는 자료는 이 점검 대상이 아닙니다.)';
+    } else if (clean) {
+        summary.textContent = `이상 없음 — ${byYear.length}개 연도 ${totalRecords}건을 확인했습니다.`;
+    } else {
+        const parts = [];
+        if (totalViolations) parts.push(`규칙 위반 ${totalViolations}건`);
+        if (totalDuplicates) parts.push(`중복 번호 ${totalDuplicates}건`);
+        if (totalMalformed) parts.push(`번호 읽기 불가 ${totalMalformed}건`);
+        if (brokenYears) parts.push(`읽을 수 없는 연도 ${brokenYears}개`);
+        summary.textContent = `확인 필요 — ${parts.join(', ')}. `
+            + '접수번호는 라벨·내보내기에 이미 쓰였을 수 있어 자동으로 고치지 않습니다.';
+    }
     box.appendChild(summary);
 }
 

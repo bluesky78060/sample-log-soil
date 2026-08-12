@@ -193,20 +193,14 @@
     // ============================================================
 
     /**
-     * 기존 레코드에서 "같은 경지구분1차 + 같은 시퀀스(일반/성토)" 범위의 접수번호 집합.
+     * 기존 레코드에서 "같은 경지구분1차 + 같은 시퀀스" 범위의 접수번호 집합.
      *
-     * ⚠️ 이 함수의 분류 규칙은 `reception-number.js`의 `computeNextNumber`와
-     * **한 줄씩 같아야 한다.** 어긋나면 미리보기가 보여준 번호와 실제 저장 번호가 달라진다
-     * (SLS-1-222이 정확히 그 결함이었다):
-     *  - 성토(`subCategory==='성토'`)는 F 접두의 별 시퀀스이고 두 시퀀스는 서로를 제외한다
-     *  - 일반 시퀀스에서는 `F` 접두 번호를 제외한다
-     *  - 성토 시퀀스에서는 `F`를 떼고 숫자만 비교한다
-     *  - 서브넘버(`5-1`)는 본번(`5`)으로 접어 넣는다
+     * 시퀀스 분리는 **접수번호 표기** 기준이다 (SLS-1-223) — `subCategory`를 보지 않는다.
+     * 규칙을 복제하지 않고 `reception-number.js`의 헬퍼(`baseOf`·`isFillNotation`)를
+     * 직접 호출하므로 `computeNextNumber`와 어긋날 수 없다.
      *
-     * @param {Array<Object>} logs
-     * @param {string} landClass1
-     * @param {{fill?: boolean}} [opts]
-     * @returns {Set<string>}
+     * 전수성: 모든 레코드가 정확히 한 풀에 들어간다. 이 조건이 깨지면
+     * 어느 풀에도 없는 레코드의 번호가 재발급된다.
      */
     function collectExistingNumbers(logs, landClass1, opts) {
         const fill = !!(opts && opts.fill);

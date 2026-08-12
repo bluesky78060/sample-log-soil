@@ -425,9 +425,11 @@ describe('computePreview — F 접두 ⟺ 구분=성토 불변식 (SLS-1-222 적
         expect(r.items[0].reason).toContain('구분이 성토가 아님')
     })
 
-    it('소문자 f도 F 접두로 본다', () => {
-        expect(pv([['f1', 'A', '주소', '논']]).items[0].status).toBe('err')
-        expect(pv([['f1', 'A', '주소', '성토']]).items[0].status).toBe('new')
+    it('소문자 f는 일반 표기다 — 판별자를 나머지 경로와 맞춘다 (SLS-1-223)', () => {
+        // reception-number.js의 isFillNotation이 정확한 'F'만 성토로 본다.
+        // 'f1'은 일반 표기이므로 구분이 논이면 정상, 성토면 위반이다.
+        expect(pv([['f1', 'A', '주소', '논']]).items[0].status).toBe('new')
+        expect(pv([['f1', 'A', '주소', '성토']]).items[0].status).toBe('err')
     })
 
     it('서브넘버가 붙어도 본번의 접두로 판정한다', () => {

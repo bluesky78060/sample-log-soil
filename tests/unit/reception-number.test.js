@@ -132,11 +132,18 @@ describe('computeNextNumber — 정상 데이터에서 구 규칙과 동일 (속
             const fill = rand() < 0.4
             const num = 1 + Math.floor(rand() * 40)
             const sub = rand() < 0.15 ? (1 + Math.floor(rand() * 3)) : 0
-            logs.push({
-                receptionNumber: (fill ? `F${num}` : String(num)) + (sub ? `-${sub}` : ''),
+            const asNumber = !fill && !sub && rand() < 0.15   // 숫자형 receptionNumber
+            const rn = (fill ? `F${num}` : String(num)) + (sub ? `-${sub}` : '')
+            const rec = {
+                receptionNumber: asNumber ? num : rn,
                 subCategory: fill ? '성토' : CATS[Math.floor(rand() * CATS.length)],
-                landClass1: CLASSES[Math.floor(rand() * CLASSES.length)],
-            })
+            }
+            // landClass1 누락·빈 문자열도 섞는다 (|| def 폴백 경로)
+            const clsPick = rand()
+            if (clsPick < 0.1) { /* 누락 */ }
+            else if (clsPick < 0.15) rec.landClass1 = ''
+            else rec.landClass1 = CLASSES[Math.floor(rand() * CLASSES.length)]
+            logs.push(rec)
         }
         return logs
     }
@@ -178,10 +185,15 @@ describe('computeNextNumber — 정상 데이터에서 구 규칙과 동일 (속
         expect(RN.computeNextNumber(bad, '농가의뢰')).toBe(1)
     })
 
-    it('소문자 f도 성토 표기로 본다', () => {
+    it('소문자 f는 일반 표기다 — 판별자를 나머지 4곳과 맞춘다', () => {
+        // _parseReceptionNumber·reception-group·정렬·importer가 모두 정확한 'F'로
+        // 판단한다. 여기서만 관대하면 판별자가 또 갈린다 (리뷰 지적).
         const logs = [{ receptionNumber: 'f5', subCategory: '성토', landClass1: '농가의뢰' }]
-        expect(RN.computeNextNumber(logs, '농가의뢰', { fill: true })).toBe(6)
+        expect(RN.computeNextNumber(logs, '농가의뢰', { fill: true })).toBe(1)
+        // 'f5'는 일반 풀에 들어가지만 parseInt('f5')=NaN이라 max에 기여하지 않는다
         expect(RN.computeNextNumber(logs, '농가의뢰')).toBe(1)
+        // 점검이 이 레코드를 놓치지 않는다
+        expect(RN.auditReceptionNumbers(logs).malformed).toHaveLength(1)
     })
 })
 
@@ -191,7 +203,12 @@ describe('namespaceViolation', () => {
     it('불변식을 지키면 null', () => {
         expect(v('5', false)).toBeNull()
         expect(v('F5', true)).toBeNull()
-        expect(v('f5', true)).toBeNull()
+    })
+
+    it('소문자 f는 일반 표기이므로 구분이 성토면 위반이다', () => {
+        // 판별자를 나머지 4곳(정확한 'F')과 맞춘 결과
+        expect(v('f5', true)).toContain('F로 시작하지 않음')
+        expect(v('f5', false)).toBeNull()
     })
 
     it('어긋나면 방향별 사유를 돌려준다', () => {
@@ -223,16 +240,38 @@ describe('auditReceptionNumbers', () => {
         expect(r.violations.find(x => x.id === 'b').reason).toContain('구분이 성토가 아님')
     })
 
-    it('같은 경지구분1차 안의 같은 본번을 중복으로 묶는다', () => {
+    it('정상 서브넘버는 중복이 아니다 (한 필지 다작물 — 리뷰 오탐 정정)', () => {
+        // 작물 2개 필지는 '12', '12-1'을 정상 발급한다. 본번으로 묶으면 이런
+        // 건강한 레코드가 전부 중복으로 오탐돼 도구가 쓸모없어진다.
+        const r = audit([
+            { id: 'a', receptionNumber: '12', name: '홍길동', subCategory: '논', landClass1: '농가의뢰' },
+            { id: 'b', receptionNumber: '12-1', name: '홍길동', subCategory: '논', landClass1: '농가의뢰' },
+            { id: 'c', receptionNumber: 'F7', name: '김철수', subCategory: '성토', landClass1: '농가의뢰' },
+            { id: 'd', receptionNumber: 'F7-1', name: '김철수', subCategory: '성토', landClass1: '농가의뢰' },
+        ])
+        expect(r.duplicates).toEqual([])
+        expect(r.violations).toEqual([])
+    })
+
+    it('표기가 완전히 같을 때만 중복으로 묶는다', () => {
         const r = audit([
             { id: 'a', receptionNumber: '5', subCategory: '논', landClass1: '농가의뢰' },
-            { id: 'b', receptionNumber: '5-1', subCategory: '논', landClass1: '농가의뢰' },
+            { id: 'b', receptionNumber: '5', subCategory: '논', landClass1: '농가의뢰' },
             { id: 'c', receptionNumber: '5', subCategory: '논', landClass1: '공익직불제' },
         ])
         expect(r.duplicates).toHaveLength(1)
         expect(r.duplicates[0].landClass1).toBe('농가의뢰')
-        expect(r.duplicates[0].base).toBe('5')
         expect(r.duplicates[0].count).toBe(2)
+    })
+
+    it('번호를 읽을 수 없는 레코드는 malformed로 분류한다', () => {
+        const r = audit([
+            { id: 'a', receptionNumber: '-1', landClass1: '농가의뢰' },
+            { id: 'b', receptionNumber: '  ', landClass1: '농가의뢰' },
+            { id: 'c', receptionNumber: 'abc', landClass1: '농가의뢰' },
+        ])
+        expect(r.malformed).toHaveLength(3)
+        expect(r.duplicates).toEqual([])   // 노이즈를 중복에 섞지 않는다
     })
 
     it('F5와 5는 서로 다른 표기라 중복이 아니다', () => {
@@ -244,8 +283,9 @@ describe('auditReceptionNumbers', () => {
     })
 
     it('빈 입력·접수번호 없는 레코드는 건너뛴다', () => {
-        expect(audit([])).toEqual({ violations: [], duplicates: [] })
-        expect(audit(null)).toEqual({ violations: [], duplicates: [] })
-        expect(audit([{ id: 'x' }, { id: 'y', receptionNumber: '' }])).toEqual({ violations: [], duplicates: [] })
+        const empty = { violations: [], duplicates: [], malformed: [] }
+        expect(audit([])).toEqual(empty)
+        expect(audit(null)).toEqual(empty)
+        expect(audit([{ id: 'x' }, { id: 'y', receptionNumber: '' }])).toEqual(empty)
     })
 })

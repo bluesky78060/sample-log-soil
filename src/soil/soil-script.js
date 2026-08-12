@@ -2018,6 +2018,10 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         const formData = new FormData(this.form);
 
+        // 저장 경로 3개가 공유하는 불변식 검사 (SLS-1-223).
+        // _submitSingleEdit에만 두었더니 신규 등록·그룹 수정으로 위반 레코드가 계속 만들어졌다.
+        if (!this._checkReceptionNamespace(validParcels, formData)) return;
+
         if (this.editingGroupId) return this._submitGroupEdit(validParcels, formData);
         if (this.editingLogId) return this._submitSingleEdit(validParcels, formData);
         return this._submitNewRegistration(validParcels, formData);
@@ -2098,6 +2102,62 @@ class SoilSampleManager extends window.BaseSampleManager {
     /**
      * 그룹 수정 모드: 기존 그룹을 통째로 교체. 삭제될 멤버가 있으면 확인 후 진행(취소 시 원본 복원).
      */
+    /**
+     * 접수번호 표기와 구분의 불변식 검사 — `F` 접두 ⟺ 구분='성토' (SLS-1-223).
+     *
+     * 세 저장 경로(_submitNewRegistration · _submitSingleEdit · _submitGroupEdit)가
+     * 공유한다. 한 곳에만 두었더니 나머지 두 경로로 위반 레코드가 계속 만들어졌다.
+     *
+     * **필지 전수를 본다.** 저장되는 subCategory는 필지 값이 우선하고
+     * (`soil-log-record.js`의 `parcel.category || common.subCategory`),
+     * 필지 카드의 구분 select는 접수번호를 다시 뽑지 않는다. 첫 필지만 보면
+     * 두 번째 필지의 성토가 빠져나간다.
+     *
+     * **이미 위반이던 레코드의 정당한 수정은 막지 않는다.** 수정으로 위반이
+     * 새로 생기거나 대상이 바뀔 때만 차단한다 — 그러지 않으면 손상 데이터를 가진
+     * 사용자가 전화번호 오타조차 고칠 수 없다(정직한 출구가 없어진다).
+     *
+     * 자동 재부여는 하지 않는다 — 접수번호가 이미 라벨·흙토람 내보내기에 쓰였을 수
+     * 있어 조용히 바꾸는 것이 더 위험하다. 무엇을 고쳐야 하는지 알린다.
+     *
+     * @returns {boolean} 저장을 계속해도 되는가
+     */
+    _checkReceptionNamespace(validParcels, formData) {
+        const RN = window.ReceptionNumber;
+        const editedNumber = String(formData.get('receptionNumber') || '').trim();
+        if (!editedNumber) return true;   // 번호 없음은 채번 단계가 처리한다
+
+        const base = RN.baseOf(editedNumber);
+        const mainSub = formData.get('subCategory') || '-';
+        // 필지 전수 — 하나라도 위반이면 막는다
+        const cats = (validParcels || []).map(p => p.category || mainSub);
+        if (cats.length === 0) cats.push(mainSub);
+
+        const offending = cats.find(cat => RN.namespaceViolation(base, cat === '성토'));
+        if (!offending) return true;
+
+        // 수정 중이고 원래도 같은 위반이었다면 통과시킨다 (이번 수정이 만든 것이 아니다)
+        const editingId = this.editingLogId || this.editingGroupId;
+        if (editingId) {
+            const before = this.sampleLogs.find(l => l.id === this.editingLogId || l.groupId === this.editingGroupId);
+            if (before) {
+                const sameNumber = RN.baseOf(before.receptionNumber || '') === base;
+                const wasViolating = !!RN.namespaceViolation(
+                    RN.baseOf(before.receptionNumber || ''),
+                    before.subCategory === '성토'
+                );
+                if (sameNumber && wasViolating && before.subCategory === offending) return true;
+            }
+        }
+
+        const violation = RN.namespaceViolation(base, offending === '성토');
+        const guide = offending === '성토'
+            ? `성토 시료는 접수번호가 F로 시작해야 합니다 (현재: ${editedNumber}).`
+            : `F로 시작하는 접수번호는 성토 시료에만 씁니다 (현재: ${editedNumber}, 구분: ${offending}).`;
+        this.showToast(`${violation}. ${guide} 구분과 접수번호를 함께 맞춰 주세요.`, 'error');
+        return false;
+    }
+
     _submitGroupEdit(validParcels, formData) {
         const baseReceptionNumber = formData.get('receptionNumber');
         const { isFillNumber, baseNumber } = this._parseReceptionNumber(baseReceptionNumber);
@@ -2165,26 +2225,6 @@ class SoilSampleManager extends window.BaseSampleManager {
         const mainSubCategory = formData.get('subCategory') || '-';
         const effectiveSubCategory = firstParcelCategory || mainSubCategory;
         const effectivePurpose = firstParcelPurpose || formData.get('purpose');
-
-        // 접수번호 표기와 구분의 불변식을 지킨다 — `F` 접두 ⟺ 구분='성토' (SLS-1-223).
-        //
-        // 이 화면은 접수번호와 구분을 독립적으로 받는다. 구분만 성토→논으로 바꾸면
-        // 원본 `F9`가 그대로 남아 불변식이 깨진 레코드가 만들어지고, 그 레코드는
-        // 채번 풀 분류가 어긋나 조용한 중복의 씨앗이 된다.
-        // 자동 재부여는 하지 않는다 — 접수번호가 이미 라벨·흙토람 내보내기에 쓰였을 수 있어
-        // 조용히 바꾸는 것이 더 위험하다. 대신 무엇을 고쳐야 하는지 알린다.
-        const editedNumber = formData.get('receptionNumber') || '';
-        const violation = window.ReceptionNumber.namespaceViolation(
-            window.ReceptionNumber.baseOf(editedNumber),
-            effectiveSubCategory === '성토'
-        );
-        if (editedNumber && violation) {
-            const guide = effectiveSubCategory === '성토'
-                ? `성토 시료는 접수번호가 F로 시작해야 합니다 (현재: ${editedNumber}).`
-                : `F로 시작하는 접수번호는 성토 시료에만 씁니다 (현재: ${editedNumber}, 구분: ${effectiveSubCategory}).`;
-            this.showToast(`${violation}. ${guide} 구분과 접수번호를 함께 맞춰 주세요.`, 'error');
-            return;
-        }
 
         const updatedLog = {
             ...existingLog,
@@ -5200,11 +5240,12 @@ class SoilSampleManager extends window.BaseSampleManager {
             },
             getExistingLogs: () => this.sampleLogs,
             autoNumberFilter: (log) => {
+                // 시퀀스 판별은 표기 기준이다 (SLS-1-223) — subCategory를 보지 않는다.
+                // 구 판별자를 남겨두면 불변식이 깨진 레코드가 이 필터에서 제외돼
+                // 그 번호가 재발급된다(조용한 중복).
                 if (!log.receptionNumber) return false;
-                if (log.subCategory === '성토') return false;
-                const base = log.receptionNumber.split('-')[0];
-                if (base.startsWith('F')) return false;
-                return true;
+                const RN = window.ReceptionNumber;
+                return !RN.isFillNotation(RN.baseOf(log.receptionNumber));
             },
             autoNumberExtract: (log) => {
                 const base = log.receptionNumber.split('-')[0];

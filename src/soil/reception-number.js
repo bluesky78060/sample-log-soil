@@ -21,9 +21,16 @@
         return String(receptionNumber).split('-')[0].trim();
     }
 
-    /** 본번 표기가 성토 네임스페이스(F 접두)인가 */
+    /**
+     * 본번 표기가 성토 네임스페이스(F 접두)인가.
+     *
+     * **대소문자를 구분한다** — `_parseReceptionNumber`·`reception-group.js`·정렬·
+     * importer가 모두 정확한 `'F'`로 판단하므로 여기서만 관대하면 판별자가 또 갈린다
+     * (SLS-1-223 리뷰). 소문자 `'f5'`는 일반 표기로 보고, 구분이 성토면
+     * `namespaceViolation`이 위반으로 잡아 점검에 드러난다.
+     */
     function isFillNotation(base) {
-        return base.toUpperCase().startsWith('F');
+        return String(base).startsWith('F');
     }
 
     /**
@@ -96,21 +103,27 @@
      * @param {Array<Object>} logs
      * @param {Object} [opts]
      * @param {string} [opts.defaultClass='농가의뢰']
-     * @returns {{violations: Array<Object>, duplicates: Array<Object>}}
+     * @returns {{violations: Array<Object>, duplicates: Array<Object>, malformed: Array<Object>}}
      *   violations: 불변식이 깨진 레코드 (양방향)
-     *   duplicates: 같은 경지구분1차 안에서 같은 본번 표기를 가진 묶음
+     *   duplicates: 같은 경지구분1차 안에서 **표기가 완전히 같은** 묶음
+     *   malformed: 본번을 읽을 수 없는 레코드 (`'-1'`, `'  '` 등)
+     *
+     * ⚠️ 중복 판정은 **표기 전체**로 한다. 본번으로 묶으면 한 필지 다작물이 만드는
+     * 정상 서브넘버(`'12'`, `'12-1'`)가 전부 중복으로 오탐된다 — 실제로 그렇게 만들었다가
+     * 리뷰에서 잡혔다. 진짜 중복은 표기 완전일치였다(`'3'` 두 건, `'F1'` 두 건).
      */
     function auditReceptionNumbers(logs, opts) {
         const def = (opts && opts.defaultClass) || DEFAULT_LAND_CLASS;
         const list = Array.isArray(logs) ? logs : [];
         const violations = [];
+        const malformed = [];
         const byKey = new Map();
 
         for (const log of list) {
             if (!log || !log.receptionNumber) continue;
             const landClass1 = log.landClass1 || def;
+            const notation = String(log.receptionNumber).trim();
             const base = baseOf(log.receptionNumber);
-            const reason = namespaceViolation(base, log.subCategory === '성토');
             const info = {
                 id: log.id,
                 receptionNumber: String(log.receptionNumber),
@@ -118,11 +131,20 @@
                 landClass1,
                 subCategory: log.subCategory || '',
             };
+
+            // 본번을 읽을 수 없는 레코드는 별 분류 — 중복 집계에 섞으면 의미 없는 노이즈가 된다
+            if (base === '' || Number.isNaN(parseInt(isFillNotation(base) ? base.slice(1) : base, 10))) {
+                malformed.push({ ...info, reason: '접수번호에서 번호를 읽을 수 없음' });
+                continue;
+            }
+
+            const reason = namespaceViolation(base, log.subCategory === '성토');
             if (reason) violations.push({ ...info, reason });
 
-            // 키를 파싱하지 않고 값에 담는다 — 경지구분 이름에 어떤 문자가 있어도 안전하다
-            const key = landClass1 + '\u0000' + base;
-            if (!byKey.has(key)) byKey.set(key, { landClass1, base, records: [] });
+            // 키를 파싱하지 않고 값에 담는다 — 경지구분 이름에 어떤 문자가 있어도 안전하다.
+            // 표기 전체를 키로 쓴다 (본번으로 묶으면 정상 서브넘버가 오탐된다)
+            const key = landClass1 + '\u0000' + notation;
+            if (!byKey.has(key)) byKey.set(key, { landClass1, base: notation, records: [] });
             byKey.get(key).records.push(info);
         }
 
@@ -134,7 +156,7 @@
                 count: group.records.length, records: group.records,
             });
         }
-        return { violations, duplicates };
+        return { violations, duplicates, malformed };
     }
 
     window.ReceptionNumber = {

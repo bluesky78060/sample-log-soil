@@ -32,8 +32,12 @@ test.describe('접수번호 네임스페이스 불변식 (SLS-1-223)', () => {
             localStorage.setItem(`soilSampleLogs_${y}`, JSON.stringify([
                 { id: 'a', receptionNumber: '3', name: '위반1', subCategory: '성토', landClass1: '농가의뢰' },
                 { id: 'b', receptionNumber: 'F9', name: '위반2', subCategory: '논', landClass1: '농가의뢰' },
+                // 진짜 중복은 표기 완전일치다 ('5'와 '5-1'은 정상 서브넘버라 중복이 아니다)
                 { id: 'c', receptionNumber: '5', name: '중복1', subCategory: '논', landClass1: '농가의뢰' },
-                { id: 'd', receptionNumber: '5-1', name: '중복2', subCategory: '논', landClass1: '농가의뢰' },
+                { id: 'd', receptionNumber: '5', name: '중복2', subCategory: '논', landClass1: '농가의뢰' },
+                // 정상 서브넘버 — 오탐되면 안 된다
+                { id: 'e', receptionNumber: '8', name: '다작물', subCategory: '논', landClass1: '농가의뢰' },
+                { id: 'f', receptionNumber: '8-1', name: '다작물', subCategory: '논', landClass1: '농가의뢰' },
             ]));
         }, year);
 
@@ -57,6 +61,9 @@ test.describe('접수번호 네임스페이스 불변식 (SLS-1-223)', () => {
             localStorage.setItem(`soilSampleLogs_${y}`, JSON.stringify([
                 { id: 'a', receptionNumber: '1', name: '정상1', subCategory: '논', landClass1: '농가의뢰' },
                 { id: 'b', receptionNumber: 'F1', name: '정상2', subCategory: '성토', landClass1: '농가의뢰' },
+                // 한 필지 다작물이 만드는 정상 서브넘버 — 중복으로 오탐되면 안 된다
+                { id: 'c', receptionNumber: '2', name: '다작물', subCategory: '논', landClass1: '농가의뢰' },
+                { id: 'd', receptionNumber: '2-1', name: '다작물', subCategory: '논', landClass1: '농가의뢰' },
             ]));
         }, year);
 
@@ -99,6 +106,36 @@ test.describe('접수번호 네임스페이스 불변식 (SLS-1-223)', () => {
         const after = await page.evaluate(() =>
             (window.soilManager.sampleLogs || []).map((l) => ({ no: String(l.receptionNumber), sub: l.subCategory })));
         expect(after).toEqual([{ no: 'F1', sub: '성토' }]);
+    });
+
+    test('신규 등록에서 필지 구분만 성토로 바꿔도 위반 저장이 막힌다', async ({ page }) => {
+        // 리뷰 지적(M-2): 검사가 _submitSingleEdit에만 있어 신규 등록·그룹 수정으로
+        // 위반 레코드가 계속 만들어졌다. 필지 구분이 권위값이고, 필지 구분 select는
+        // 접수번호를 다시 뽑지 않으므로 타이핑 한 번 없이 위반이 생긴다.
+        await page.goto('/soil/');
+        await page.waitForLoadState('networkidle');
+        await page.waitForFunction(() => typeof window.soilManager !== 'undefined');
+        await page.evaluate(() => localStorage.clear());
+        await page.reload();
+        await page.waitForLoadState('networkidle');
+        await page.waitForFunction(() => typeof window.soilManager !== 'undefined');
+
+        await page.fill('#name', '홍길동');
+        await page.locator('.lot-address-input').first().fill('봉화읍 내성리 1');
+        // 상단 구분은 논(기본) → 접수번호는 일반 표기로 자동 부여된다
+        const assigned = await page.locator('#receptionNumber').inputValue();
+        expect(assigned).not.toMatch(/^F/);
+
+        // 필지 구분만 성토로 바꾼다 — 접수번호는 그대로다
+        const parcelCategory = page.locator('.parcel-category-select').first();
+        if (await parcelCategory.count() > 0) await parcelCategory.selectOption('성토');
+
+        await page.click('#navSubmitBtn');
+        await page.waitForTimeout(500);
+
+        // 저장이 막혀 대장이 비어 있어야 한다
+        const count = await page.evaluate(() => (window.soilManager.sampleLogs || []).length);
+        expect(count).toBe(0);
     });
 
     test('가져오기 자동채번이 손상 레코드의 번호를 재발급하지 않는다', async ({ page }) => {

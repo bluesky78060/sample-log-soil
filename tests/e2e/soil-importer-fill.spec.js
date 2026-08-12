@@ -181,13 +181,72 @@ test.describe('성토 행 가져오기 접수번호 (SLS-1-222)', () => {
         // 자동부여 체크를 해제해 매핑된 수동 번호를 쓰게 한다
         await modal.locator('[data-el="autoNumber"]').uncheck();
 
-        await expect(modal.locator('.sri-pill.dup')).toContainText('중복 2');
+        // 이 입력(성토인데 F 없는 번호)은 F 접두 ⟺ 구분 불변식 위반이라
+        // 중복 판정보다 먼저 오류로 막힌다 — 더 일찍, 더 분명하게 반려된다
+        await expect(modal.locator('.sri-pill.err')).toContainText('오류 2');
         await expect(modal.locator('[data-act="import"]')).toBeDisabled();
 
-        // 기본 정책(건너뛰기)에서 한 건도 등록되지 않고 대장이 그대로여야 한다
+        // 한 건도 등록되지 않고 대장이 그대로여야 한다
         const persisted = await readPersisted(page);
         expect(persisted.map((s) => s.receptionNumber)).toEqual(['1', '2']);
         expectUniqueReceptionNumbers(persisted);
+    });
+
+    test('F 접두와 구분이 어긋난 행은 오류로 막힌다', async ({ page }) => {
+        // 이 불변식이 깨진 레코드는 두 채번 풀 어디에도 안 들어가서, 뒤따르는
+        // 자동부여가 같은 번호를 다시 부여해도 경고가 없었다 (적대적 검증 발견).
+        await page.click('#soilImportBtn');
+        const modal = page.locator('#soilImporterModal');
+        await expect(modal).toBeVisible();
+        await modal.locator('input[name="sriMode"][value="paste"]').check();
+        await modal.locator('[data-el="textarea"]').fill([
+            '접수번호\t성명\t지번주소\t구분',
+            '3\t성토A\t봉화읍 내성리 1\t성토',      // 성토인데 F 없음
+            'F1\t일반A\t봉화읍 내성리 2\t논',        // F인데 성토 아님
+            '\t자동A\t봉화읍 내성리 3\t논',          // 정상(자동부여)
+        ].join('\n'));
+        await modal.locator('[data-act="automap"]').click();
+        await modal.locator('[data-el="autoNumber"]').uncheck();
+
+        await expect(modal.locator('.sri-pill.err')).toContainText('오류 2');
+        await expect(modal.locator('.sri-pv-table tbody tr.is-err')).toHaveCount(2);
+        await expect(modal.locator('[data-act="dlErrorCsv"]')).toBeVisible();
+        await expect(modal.locator('[data-act="import"]')).toContainText('1건 가져오기');
+
+        await modal.locator('[data-act="import"]').click();
+        await expect(modal).toBeHidden();
+
+        // 오류 2건은 등록되지 않고, 정상 1건만 들어간다 → 대장 중복 0
+        const persisted = await readPersisted(page);
+        expect(persisted).toHaveLength(1);
+        expect(persisted[0].receptionNumber).toBe('1');
+        expectUniqueReceptionNumbers(persisted);
+    });
+
+    test('수동 → 자동 방향에서도 대장 접수번호가 유일하다', async ({ page }) => {
+        // 적대적 검증의 지적: 이 티켓의 검증이 전부 "미리보기 = 저장" 축이었고
+        // 양쪽이 사이좋게 틀린 경우는 그 축으로 잡히지 않는다.
+        // 여기서는 "최종 대장에 중복 0"을 독립 축으로 단정한다.
+        await page.click('#soilImportBtn');
+        const modal = page.locator('#soilImporterModal');
+        await modal.locator('input[name="sriMode"][value="paste"]').check();
+        await modal.locator('[data-el="textarea"]').fill([
+            '접수번호\t성명\t지번주소\t구분',
+            'F3\t성토A\t봉화읍 내성리 1\t성토',   // 수동
+            '\t일반A\t봉화읍 내성리 2\t논',        // 자동
+            '\t일반B\t봉화읍 내성리 3\t논',        // 자동
+            '\t성토B\t봉화읍 내성리 4\t성토',      // 자동
+        ].join('\n'));
+        await modal.locator('[data-act="automap"]').click();
+        await modal.locator('[data-el="autoNumber"]').uncheck();
+        await modal.locator('[data-act="import"]').click();
+        await expect(modal).toBeHidden();
+
+        const persisted = await readPersisted(page);
+        expect(persisted).toHaveLength(4);
+        expectUniqueReceptionNumbers(persisted);
+        // 수동 F3이 성토 커서를 밀어 다음 성토는 F4
+        expect(persisted.map((s) => s.receptionNumber)).toEqual(['F3', '1', '2', 'F4']);
     });
 
     test('일반 행만 가져오면 기존 동작이 유지된다 (회귀 방지)', async ({ page }) => {

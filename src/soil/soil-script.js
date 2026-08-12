@@ -999,7 +999,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         // 제외하므로 카운터가 전진하지 않고, 가져온 성토 행 전부가 '1'로 저장된다.
         // 그 뒤로는 일반 접수의 자동채번도 1번에 고정된다 (SLS-1-222).
         const isFill = src.subCategory === '성토';
-        let receptionNumber = (src.receptionNumber != null && String(src.receptionNumber).trim() !== '')
+        const receptionNumber = (src.receptionNumber != null && String(src.receptionNumber).trim() !== '')
             ? String(src.receptionNumber).trim()
             : (isFill
                 ? this.generateNextFillReceptionNumber(landClass1)

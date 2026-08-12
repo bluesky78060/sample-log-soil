@@ -251,21 +251,28 @@ describe('computePreview — 수동 번호 중복은 시퀀스 무관·표기 �
         nextFillNumber: opts.nextFillNumber ?? 1,
     })
 
-    it('성토 행의 F 없는 수동 번호가 기존 일반 번호와 충돌하면 dup', () => {
+    // 들어오는 행의 F 접두 ⟺ 구분 불일치는 이제 진입점에서 err로 막힌다.
+    // 그래도 표기 기반 교차 검사는 살아 있어야 한다 — **대장이 이미 손상된 경우**
+    // (성토 레코드가 F 없는 번호를 갖고 있는 등)에는 그것만이 중복을 잡는다.
+    it('손상된 대장의 성토 레코드(F 없음)와 일반 수동 번호가 충돌하면 dup', () => {
         const logs = [
-            { receptionNumber: '1', subCategory: '논', landClass1: '농가의뢰' },
-            { receptionNumber: '2', subCategory: '논', landClass1: '농가의뢰' },
-            { receptionNumber: '3', subCategory: '논', landClass1: '농가의뢰' },
+            { receptionNumber: '3', subCategory: '성토', landClass1: '농가의뢰' }, // 손상 레코드
         ]
-        const r = withPools(logs, [
-            ['1', 'A', '주소', '성토'], ['2', 'B', '주소', '성토'], ['3', 'C', '주소', '성토'],
-        ], { nextNumber: 4 })
-        expect(r.items.map(i => i.status)).toEqual(['dup', 'dup', 'dup'])
-        expect(r.willImport).toBe(0)   // 기본 정책(skip)에서 한 건도 등록되지 않는다
+        const r = withPools(logs, [['3', 'A', '주소', '논']], { nextNumber: 1 })
+        expect(r.items[0].status).toBe('dup')
+        expect(r.willImport).toBe(0)   // 기본 정책(skip)에서 등록되지 않는다
     })
 
-    it('배치 내부에서도 시퀀스를 넘어 충돌을 잡는다', () => {
-        const r = withPools([], [['1', 'A', '주소', '논'], ['1', 'B', '주소', '성토']])
+    it('손상된 대장의 일반 레코드(F 접두)와 성토 수동 번호가 충돌하면 dup', () => {
+        const logs = [
+            { receptionNumber: 'F1', subCategory: '논', landClass1: '농가의뢰' }, // 손상 레코드
+        ]
+        const r = withPools(logs, [['F1', 'A', '주소', '성토']], { nextFillNumber: 2 })
+        expect(r.items[0].status).toBe('dup')
+    })
+
+    it('배치 내부에서 같은 표기가 반복되면 두 번째가 dup', () => {
+        const r = withPools([], [['1', 'A', '주소', '논'], ['1', 'B', '주소', '논']])
         expect(r.items.map(i => i.status)).toEqual(['new', 'dup'])
     })
 
@@ -336,9 +343,9 @@ describe('computePreview — 저장되지 않는 행은 배치 집합에도 남�
     const MAP_FULL = { receptionNumber: 0, name: 1, lotAddress: 2, subCategory: 3 }
 
     it('건너뛴 성토 중복 뒤의 자동부여가 매니저와 같은 번호를 보여준다', () => {
-        // 대장: F1(성토) · 2(일반). 배치: 성토 수동 '2'(일반 2와 표기 충돌 → skip) + 성토 자동
+        // 대장: F1(성토) · 2(일반). 배치: 성토 수동 'F1'(기존 F1과 충돌 → skip) + 성토 자동
         const r = preview({
-            rows: [['2', 'A', '주소', '성토'], ['', 'B', '주소', '성토']],
+            rows: [['F1', 'A', '주소', '성토'], ['', 'B', '주소', '성토']],
             mapping: MAP_FULL, landClass1: '농가의뢰', dupPolicy: 'skip',
             logs: [
                 { receptionNumber: 'F1', subCategory: '성토', landClass1: '농가의뢰' },
@@ -380,3 +387,115 @@ describe('collectExistingNumbers — 기본 경지구분 폴백 (computeNextNumb
     })
 })
 
+
+describe('computePreview — F 접두 ⟺ 구분=성토 불변식 (SLS-1-222 적대적 검증)', () => {
+    // 이 불변식이 깨진 레코드는 두 채번 풀 어디에도 들어가지 않는다
+    // (일반 풀은 F 접두 제외, 성토 풀은 구분≠성토 제외).
+    // 그래서 뒤따르는 자동부여가 같은 번호를 다시 부여해도 경고가 없었다.
+    const MAP_FULL = { receptionNumber: 0, name: 1, lotAddress: 2, subCategory: 3 }
+    const pv = (rows, logs = [], opts = {}) => preview({
+        rows, mapping: MAP_FULL, landClass1: '농가의뢰', logs,
+        nextNumber: opts.nextNumber ?? 1, nextFillNumber: opts.nextFillNumber ?? 1,
+        dupPolicy: opts.dupPolicy || 'skip',
+    })
+
+    it('구분=성토인데 접수번호에 F가 없으면 err', () => {
+        const r = pv([['3', 'A', '주소', '성토']])
+        expect(r.items[0].status).toBe('err')
+        expect(r.items[0].reason).toContain('F로 시작하지 않음')
+        expect(r.stats.err).toBe(1)
+        expect(r.willImport).toBe(0)
+    })
+
+    it('접수번호가 F로 시작하는데 구분이 성토가 아니면 err', () => {
+        const r = pv([['F1', 'A', '주소', '논']])
+        expect(r.items[0].status).toBe('err')
+        expect(r.items[0].reason).toContain('구분이 성토가 아님')
+    })
+
+    it('소문자 f도 F 접두로 본다', () => {
+        expect(pv([['f1', 'A', '주소', '논']]).items[0].status).toBe('err')
+        expect(pv([['f1', 'A', '주소', '성토']]).items[0].status).toBe('new')
+    })
+
+    it('서브넘버가 붙어도 본번의 접두로 판정한다', () => {
+        expect(pv([['F5-1', 'A', '주소', '논']]).items[0].status).toBe('err')
+        expect(pv([['5-1', 'A', '주소', '성토']]).items[0].status).toBe('err')
+    })
+
+    it('불변식을 지키는 수동 번호는 정상 통과한다', () => {
+        expect(pv([['F5', 'A', '주소', '성토']]).items[0].status).toBe('new')
+        expect(pv([['5', 'A', '주소', '논']]).items[0].status).toBe('new')
+    })
+
+    it('자동부여 행은 이 검사를 타지 않는다 (접두를 구조적으로 맞춰 부여한다)', () => {
+        const r = pv([['', 'A', '주소', '성토'], ['', 'B', '주소', '논']])
+        expect(r.items.map(i => i.status)).toEqual(['new', 'new'])
+        expect(r.items.map(i => i.display)).toEqual(['F1', '1'])
+    })
+})
+
+describe('접수번호 유일성 — 미리보기=저장과 별개의 독립 축 (SLS-1-222 적대적 검증)', () => {
+    // 적대적 검증의 지적: 이 티켓의 검증이 전부 "미리보기 = 저장" 축이었고,
+    // **양쪽이 사이좋게 틀린** 경우(중복이 양쪽에 똑같이 생기는 경우)는 그 축으로
+    // 잡히지 않는다. 그래서 "최종 대장에 중복 0"을 별도로 단정한다.
+    const MAP_FULL = { receptionNumber: 0, name: 1, lotAddress: 2, subCategory: 3 }
+    // beforeAll 이후에 참조해야 한다 — describe 본문은 모듈 로드 전에 평가된다
+    const computeNextNumber = (...a) => window.ReceptionNumber.computeNextNumber(...a)
+
+    /** addImportedRecord + _commit을 재현해 최종 대장을 만든다 */
+    function commitAll(logs, rows, dupPolicy = 'skip') {
+        const saved = logs.map(l => ({ ...l }))
+        const add = (rec) => {
+            const lc = rec.landClass1 || '농가의뢰'
+            const fill = rec.subCategory === '성토'
+            const n = (rec.receptionNumber != null && String(rec.receptionNumber).trim() !== '')
+                ? String(rec.receptionNumber).trim()
+                : (fill ? `F${computeNextNumber(saved, lc, { fill: true })}`
+                        : String(computeNextNumber(saved, lc)))
+            saved.push({ receptionNumber: n, subCategory: rec.subCategory, landClass1: lc })
+            return n
+        }
+        const p = preview({
+            rows, mapping: MAP_FULL, landClass1: '농가의뢰', logs, dupPolicy,
+            nextNumber: computeNextNumber(logs, '농가의뢰'),
+            nextFillNumber: computeNextNumber(logs, '농가의뢰', { fill: true }),
+        })
+        const applied = p.items
+            .filter(it => it.status !== 'err' && !(it.status === 'dup' && it.skip))
+            .map(it => { const r = { ...it.rec }; if (it.auto) delete r.receptionNumber; return add(r) })
+        return { preview: p, applied, ledger: saved.map(s => s.receptionNumber) }
+    }
+    const dupCount = (ledger) => ledger.length - new Set(ledger).size
+
+    it('수동 → 자동 방향: 성토 수동 번호가 뒤따르는 일반 자동과 겹치지 않는다', () => {
+        // 수정 전: 미리보기·저장 모두 3, 1, 2, 3 → 대장에 '3' 두 건
+        const r = commitAll([], [
+            ['3', 'A', '주소', '성토'], ['', 'B', '주소', '논'], ['', 'C', '주소', '논'], ['', 'D', '주소', '논'],
+        ])
+        expect(dupCount(r.ledger), `대장: ${r.ledger.join(', ')}`).toBe(0)
+    })
+
+    it('수동 → 자동 방향: 일반 F 번호가 뒤따르는 성토 자동과 겹치지 않는다', () => {
+        // 수정 전: 미리보기에 이미 F1, F1이 보였다
+        const r = commitAll([], [['F1', 'A', '주소', '논'], ['', 'B', '주소', '성토']])
+        expect(dupCount(r.ledger), `대장: ${r.ledger.join(', ')}`).toBe(0)
+    })
+
+    it('일반·성토 혼재 자동부여 배치에서 대장 중복 0', () => {
+        const r = commitAll(
+            [{ receptionNumber: '7', subCategory: '논', landClass1: '농가의뢰' },
+             { receptionNumber: 'F4', subCategory: '성토', landClass1: '농가의뢰' }],
+            [['', 'A', '주소', '논'], ['', 'B', '주소', '성토'], ['', 'C', '주소', '밭'], ['', 'D', '주소', '성토']],
+        )
+        expect(dupCount(r.ledger), `대장: ${r.ledger.join(', ')}`).toBe(0)
+        expect(r.applied).toEqual(['8', 'F5', '9', 'F6'])
+    })
+
+    it('미리보기 번호와 실제 저장 번호가 일치한다 (기존 축도 함께 유지)', () => {
+        const r = commitAll([], [['', 'A', '주소', '성토'], ['', 'B', '주소', '논'], ['', 'C', '주소', '성토']])
+        const shown = r.preview.items.map(i => i.display)
+        expect(shown).toEqual(r.applied)
+        expect(dupCount(r.ledger)).toBe(0)
+    })
+})

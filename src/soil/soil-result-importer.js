@@ -248,6 +248,56 @@
         return set;
     }
 
+    /** 매핑된 컬럼의 셀 값 (미매핑이면 빈 문자열) */
+    function cellOf(row, mapping, key) {
+        const idx = mapping[key];
+        if (idx == null || idx < 0) return '';
+        return String(row[idx] ?? '').trim();
+    }
+
+    /** 한 행 → 접수 레코드 (매핑되지 않은 필드는 빈 문자열) */
+    function buildRecord(row, mapping, landClass1) {
+        const get = (key) => cellOf(row, mapping, key);
+        return {
+            name: get('name'),
+            phoneNumber: get('phoneNumber'),
+            lotAddress: get('lotAddress'),
+            cropsDisplay: get('cropsDisplay'),
+            area: get('area'),
+            subCategory: get('subCategory'),
+            purpose: get('purpose'),
+            note: get('note'),
+            businessRegNo: get('businessRegNo'),
+            addressRoad: get('addressRoad'),
+            date: get('date'),
+            landClass1,
+        };
+    }
+
+    /**
+     * 접수번호 접두와 구분의 불변식 검사 — `F` 접두 ⟺ 구분='성토'.
+     *
+     * 이 불변식이 깨진 레코드는 두 채번 풀 **어디에도 들어가지 않는다**
+     * (일반 풀은 F 접두를 제외하고, 성토 풀은 구분이 성토가 아닌 것을 제외한다).
+     * 그래서 뒤따르는 자동부여가 같은 번호를 다시 부여해도 아무 경고가 없다.
+     * 실측 (SLS-1-222 적대적 검증):
+     *   [성토 수동 '3', 일반 자동 ×3] → 3, 1, 2, 3   ← '3' 두 건
+     *   [논 수동 'F1', 성토 자동 ×1]  → F1, F1        ← 미리보기에 이미 중복
+     * 자동부여 쪽에서 표기 충돌을 피하게 하면 매니저의 채번과 어긋나므로
+     * (매니저는 그 검사를 하지 않는다) 진입점에서 막는 것이 유일하게 정합적이다.
+     *
+     * @param {string} base 접수번호 본번 표기
+     * @param {boolean} isFill 구분이 '성토'인가
+     * @returns {string|null} 위반 사유, 정상이면 null
+     */
+    function namespaceViolation(base, isFill) {
+        const hasF = base.toUpperCase().startsWith('F');
+        if (isFill === hasF) return null;
+        return isFill
+            ? '구분=성토인데 접수번호가 F로 시작하지 않음'
+            : '접수번호가 F로 시작하는데 구분이 성토가 아님';
+    }
+
     /** 번호 집합에서 다음 번호를 추정한다 (매니저 미준비 시 폴백) */
     function inferNextNumber(existing) {
         let maxN = 0;
@@ -323,25 +373,8 @@
         const stats = { total: rows.length, new: 0, dup: 0, err: 0 };
 
         rows.forEach((row) => {
-            const get = (key) => {
-                const idx = mapping[key];
-                if (idx == null || idx < 0) return '';
-                return String(row[idx] ?? '').trim();
-            };
-            const rec = {
-                name: get('name'),
-                phoneNumber: get('phoneNumber'),
-                lotAddress: get('lotAddress'),
-                cropsDisplay: get('cropsDisplay'),
-                area: get('area'),
-                subCategory: get('subCategory'),
-                purpose: get('purpose'),
-                note: get('note'),
-                businessRegNo: get('businessRegNo'),
-                addressRoad: get('addressRoad'),
-                date: get('date'),
-                landClass1,
-            };
+            const get = (key) => cellOf(row, mapping, key);
+            const rec = buildRecord(row, mapping, landClass1);
 
             // 식별 정보 없는 빈 행 → 오류
             if (!rec.name && !rec.lotAddress) {
@@ -379,6 +412,14 @@
                 items.push({ status: 'new', display: recNo, rec: { ...rec, receptionNumber: undefined }, auto: true });
             } else {
                 const base = String(recNo).split('-')[0].trim();
+
+                // 접두와 구분이 어긋난 행은 반려한다 (사유는 namespaceViolation 주석 참조)
+                const violation = namespaceViolation(base, isFill);
+                if (violation) {
+                    stats.err++;
+                    items.push({ status: 'err', reason: violation, display: recNo, rec });
+                    return;
+                }
 
                 // 중복 판정은 **표기 그대로, 시퀀스 무관**이다 (폼 등록 경로와 동일 규칙).
                 // 시퀀스별로 나눠 판정하면 구분='성토' 행의 수동 번호 `5`가 일반 `5`와
@@ -705,7 +746,8 @@
         <span class="sri-muted">중복 접수번호가 있을 때:</span>
         <div class="sri-opt-sub">
           <label class="sri-radio"><input type="radio" name="sriDup" value="skip" checked> 건너뛰기</label>
-          <label class="sri-radio"><input type="radio" name="sriDup" value="overwrite"> 그래도 추가(덮어쓰기)</label>
+          <!-- '덮어쓰기'는 사실이 아니다 — _commit이 기존 레코드를 찾지 않고 추가만 한다 (SLS-1-222 리뷰) -->
+          <label class="sri-radio"><input type="radio" name="sriDup" value="overwrite"> 그래도 추가 <span class="sri-muted">(같은 접수번호가 중복 등록됨)</span></label>
         </div>
       </div>
     </section>
@@ -1192,7 +1234,7 @@
             const year = (mgr && mgr.selectedYear) || new Date().getFullYear();
 
             // 일반과 성토(F 접두)는 완전히 분리된 채번이라 양쪽을 다 넘겨야 한다.
-            // 한쪽만 넘기면 성토 행 미리보기가 실제 저장 번호와 어긋난다 (SAMPL-1-153).
+            // 한쪽만 넘기면 성토 행 미리보기가 실제 저장 번호와 어긋난다 (SLS-1-222).
             // 번호 풀은 computePreview가 이 로그에서 직접 도출한다 (하나를 빠뜨릴 수 없게)
             const logs = this._existingLogs();
 

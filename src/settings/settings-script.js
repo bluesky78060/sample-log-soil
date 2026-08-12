@@ -1136,7 +1136,13 @@ function renderAuditResult(byYear) {
     let brokenYears = 0;
 
     for (const { year, logs, broken } of byYear) {
-        if (broken) brokenYears++;
+        if (broken) {
+            brokenYears++;
+            const warn = document.createElement('div');
+            warn.style.cssText = 'margin-top: 0.5rem; font-size: 0.85rem; color: #b91c1c;';
+            warn.textContent = `${year}년 — 저장된 자료를 읽을 수 없습니다(형식 손상).`;
+            box.appendChild(warn);
+        }
         const { violations, duplicates, malformed } = RN.auditReceptionNumbers(logs);
         totalRecords += logs.length;
         totalViolations += violations.length;
@@ -1160,7 +1166,7 @@ function renderAuditResult(byYear) {
         for (const m of malformed) add([m.subCategory || '-', m.receptionNumber, m.name || '-', m.reason]);
         for (const d of duplicates) {
             const names = d.records.map(r => r.name || '-').join(', ');
-            add([d.landClass1, d.base, `${d.count}건`, `같은 번호가 ${d.count}건 (${names})`]);
+            add([d.landClass1, d.notation, `${d.count}건`, `같은 번호가 ${d.count}건 (${names})`]);
         }
         const total = violations.length + malformed.length + duplicates.length;
         if (total > shown) table.appendChild(auditRow([`… 외 ${total - shown}건 생략`]));
@@ -1169,7 +1175,8 @@ function renderAuditResult(byYear) {
 
     const summary = document.createElement('div');
     const problems = totalViolations + totalDuplicates + totalMalformed;
-    const nothingToCheck = byYear.length === 0;
+    // 연도 키가 있어도 레코드가 0건이면 '확인했다'고 할 수 없다
+    const nothingToCheck = byYear.length === 0 || totalRecords === 0;
     // 확인하지 않은 상태를 '이상 없음'과 같은 색으로 보고하지 않는다.
     // 설정 화면은 토양 데이터를 로드하지 않으므로, 담당자가 해당 연도를 한 번도 열지
     // 않은 기기에서는 저장소가 비어 있다 — 그것은 '이상 없음'이 아니다.

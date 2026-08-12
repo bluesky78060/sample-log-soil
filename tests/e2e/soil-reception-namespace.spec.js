@@ -120,7 +120,17 @@ test.describe('접수번호 네임스페이스 불변식 (SLS-1-223)', () => {
         await page.waitForLoadState('networkidle');
         await page.waitForFunction(() => typeof window.soilManager !== 'undefined');
 
+        // 필수 필드를 전부 채운다 — 하나라도 비면 HTML5 검증이 토스트 없이 막아
+        // 테스트가 '잘못된 이유로' 통과한다 (리뷰 지적)
         await page.fill('#name', '홍길동');
+        await page.fill('#phoneNumber', '010-1111-2222');
+        await page.locator('#purpose').selectOption({ index: 1 });
+        await page.evaluate(() => {
+            const d = document.getElementById('date');
+            if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+            const rm = document.getElementById('receptionMethod');
+            if (rm && !rm.value) rm.value = '방문';
+        });
         await page.locator('.lot-address-input').first().fill('봉화읍 내성리 1');
         // 상단 구분은 논(기본) → 접수번호는 일반 표기로 자동 부여된다
         const assigned = await page.locator('#receptionNumber').inputValue();
@@ -131,11 +141,45 @@ test.describe('접수번호 네임스페이스 불변식 (SLS-1-223)', () => {
         if (await parcelCategory.count() > 0) await parcelCategory.selectOption('성토');
 
         await page.click('#navSubmitBtn');
-        await page.waitForTimeout(500);
+
+        // 차단 사유에 결합한다 — 다른 검증으로 막혀도 통과하면 이 가드를 검증하지 못한다
+        await expect(page.locator('.toast-message').last()).toContainText('F로 시작해야 합니다');
 
         // 저장이 막혀 대장이 비어 있어야 한다
         const count = await page.evaluate(() => (window.soilManager.sampleLogs || []).length);
         expect(count).toBe(0);
+    });
+
+    test('이미 위반인 레코드의 정당한 수정은 막지 않는다', async ({ page }) => {
+        // 리뷰 지적(M-3): existingLog 비교가 없으면 점검이 찾아준 위반 레코드의
+        // 전화번호 오타조차 고칠 수 없다 — 정직한 출구가 없어진다.
+        await page.goto('/soil/');
+        await page.waitForLoadState('networkidle');
+        await page.waitForFunction(() => typeof window.soilManager !== 'undefined');
+        await page.evaluate(() => localStorage.clear());
+        await seedLedger(page, [{
+            id: 'bad-1', receptionNumber: 'F9', name: '위반레코드', phoneNumber: '010-0000-0000',
+            date: '2026-08-01', subCategory: '논', purpose: '일반재배',   // ← F인데 구분이 논 (위반)
+            landClass1: '농가의뢰', receptionMethod: '방문', note: '',
+            groupId: 'g-bad', parcelIndex: 1, totalParcels: 1,
+            lotAddress: '봉화읍 내성리 9', area: '100', cropsDisplay: '벼',
+            parcels: [{ id: 'p1', lotAddress: '봉화읍 내성리 9', isMountain: false, subLots: [],
+                        crops: [{ name: '벼', area: '100' }], category: '논', purpose: '일반재배', note: '' }],
+        }]);
+
+        await page.click('.nav-btn[data-view="list"]');
+        await page.click('.btn-edit');
+        await expect(page.locator('#receptionNumber')).toHaveValue('F9');
+
+        // 접수번호·구분은 그대로 두고 전화번호만 고친다
+        await page.fill('#phoneNumber', '010-9999-8888');
+        await page.click('#navSubmitBtn');
+        await page.waitForTimeout(500);
+
+        // 저장이 되어야 한다 (위반은 원래도 있었고 이 수정이 만든 것이 아니다)
+        const saved = await page.evaluate(() =>
+            (window.soilManager.sampleLogs || []).map((l) => ({ no: String(l.receptionNumber), tel: l.phoneNumber })));
+        expect(saved).toEqual([{ no: 'F9', tel: '010-9999-8888' }]);
     });
 
     test('가져오기 자동채번이 손상 레코드의 번호를 재발급하지 않는다', async ({ page }) => {

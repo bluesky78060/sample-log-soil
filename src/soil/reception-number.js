@@ -26,8 +26,8 @@
      *
      * **대소문자를 구분한다** — `_parseReceptionNumber`·`reception-group.js`·정렬·
      * importer가 모두 정확한 `'F'`로 판단하므로 여기서만 관대하면 판별자가 또 갈린다
-     * (SLS-1-223 리뷰). 소문자 `'f5'`는 일반 표기로 보고, 구분이 성토면
-     * `namespaceViolation`이 위반으로 잡아 점검에 드러난다.
+     * (SLS-1-223 리뷰). 소문자 `'f5'`는 일반 표기로 본다 — 그 표기는 번호를 읽을 수
+     * 없으므로(`parseInt('f5')` → NaN) 점검의 `malformed`에 드러난다.
      */
     function isFillNotation(base) {
         return String(base).startsWith('F');
@@ -105,7 +105,7 @@
      * @param {string} [opts.defaultClass='농가의뢰']
      * @returns {{violations: Array<Object>, duplicates: Array<Object>, malformed: Array<Object>}}
      *   violations: 불변식이 깨진 레코드 (양방향)
-     *   duplicates: 같은 경지구분1차 안에서 **표기가 완전히 같은** 묶음
+     *   duplicates: 같은 경지구분1차 안에서 **표기가 완전히 같은** 묶음 ({landClass1, notation, count, records})
      *   malformed: 본번을 읽을 수 없는 레코드 (`'-1'`, `'  '` 등)
      *
      * ⚠️ 중복 판정은 **표기 전체**로 한다. 본번으로 묶으면 한 필지 다작물이 만드는
@@ -144,7 +144,7 @@
             // 키를 파싱하지 않고 값에 담는다 — 경지구분 이름에 어떤 문자가 있어도 안전하다.
             // 표기 전체를 키로 쓴다 (본번으로 묶으면 정상 서브넘버가 오탐된다)
             const key = landClass1 + '\u0000' + notation;
-            if (!byKey.has(key)) byKey.set(key, { landClass1, base: notation, records: [] });
+            if (!byKey.has(key)) byKey.set(key, { landClass1, notation, records: [] });
             byKey.get(key).records.push(info);
         }
 
@@ -152,7 +152,7 @@
         for (const group of byKey.values()) {
             if (group.records.length < 2) continue;
             duplicates.push({
-                landClass1: group.landClass1, base: group.base,
+                landClass1: group.landClass1, notation: group.notation,
                 count: group.records.length, records: group.records,
             });
         }

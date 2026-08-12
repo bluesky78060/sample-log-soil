@@ -112,6 +112,8 @@ class SoilSampleManager extends window.BaseSampleManager {
         this._webAutoSaveOnSave = true;
         this.regionSelectionModalData = null;
         this.editingLogId = null;
+        this.editingGroupId = null;      // undefined면 groupId 없는 레코드에 오매칭된다 (SLS-1-223 리뷰)
+        this.editingGroupLogs = null;
         this.pendingMailDateIds = [];
 
         // Pagination state (soil uses its own pagination, NOT PaginationManager)
@@ -2129,27 +2131,42 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         const base = RN.baseOf(editedNumber);
         const mainSub = formData.get('subCategory') || '-';
-        // 필지 전수 — 하나라도 위반이면 막는다
-        const cats = (validParcels || []).map(p => p.category || mainSub);
-        if (cats.length === 0) cats.push(mainSub);
 
-        const offending = cats.find(cat => RN.namespaceViolation(base, cat === '성토'));
-        if (!offending) return true;
+        // 검사 범위는 모드에 맞춘다 (SLS-1-223 리뷰).
+        // 그룹 수정·신규 등록은 필지마다 레코드가 생기므로 전수를 본다.
+        // 단건 수정은 레코드가 하나이고 그 subCategory는 첫 필지 값이므로
+        // 전수를 보면 저장 결과보다 엄격해져 정합 레코드도 막힌다.
+        const parcelCats = (validParcels || []).map(p => p.category || mainSub);
+        const cats = this.editingLogId && !this.editingGroupId
+            ? [parcelCats[0] || mainSub]
+            : (parcelCats.length ? parcelCats : [mainSub]);
 
-        // 수정 중이고 원래도 같은 위반이었다면 통과시킨다 (이번 수정이 만든 것이 아니다)
-        const editingId = this.editingLogId || this.editingGroupId;
-        if (editingId) {
-            const before = this.sampleLogs.find(l => l.id === this.editingLogId || l.groupId === this.editingGroupId);
-            if (before) {
-                const sameNumber = RN.baseOf(before.receptionNumber || '') === base;
-                const wasViolating = !!RN.namespaceViolation(
-                    RN.baseOf(before.receptionNumber || ''),
-                    before.subCategory === '성토'
-                );
-                if (sameNumber && wasViolating && before.subCategory === offending) return true;
-            }
+        // 위반 구분을 **전부** 모은다. 하나만 보면 나머지 필지의 신규 위반이 새어나간다.
+        const offendingCats = [...new Set(cats.filter(c => RN.namespaceViolation(base, c === '성토')))];
+        if (offendingCats.length === 0) return true;
+
+        // 수정 중이라면, 이번 수정이 위반을 **새로 만들거나 늘렸을 때만** 막는다.
+        // 원래도 위반이던 레코드의 정당한 수정(전화번호 오타 등)을 막으면
+        // 손상 데이터를 가진 사용자에게 정직한 출구가 없어진다.
+        if (this.editingLogId || this.editingGroupId) {
+            const beforeLogs = this.editingGroupId
+                ? (this.editingGroupLogs || this.sampleLogs.filter(l => l.groupId === this.editingGroupId))
+                : this.sampleLogs.filter(l => l.id === this.editingLogId);
+            // 같은 네임스페이스(F 여부)에서 이미 위반이던 구분들.
+            // 그룹은 멤버 번호가 base, base+1… 로 갈리므로 본번 일치가 아니라 F 여부로 본다.
+            const wasOffending = new Set(
+                beforeLogs
+                    .filter((l) => {
+                        const b = RN.baseOf(l.receptionNumber || '');
+                        return RN.isFillNotation(b) === RN.isFillNotation(base)
+                            && RN.namespaceViolation(b, l.subCategory === '성토');
+                    })
+                    .map((l) => l.subCategory)
+            );
+            if (offendingCats.every((c) => wasOffending.has(c))) return true;   // 악화 없음
         }
 
+        const offending = offendingCats[0];
         const violation = RN.namespaceViolation(base, offending === '성토');
         const guide = offending === '성토'
             ? `성토 시료는 접수번호가 F로 시작해야 합니다 (현재: ${editedNumber}).`
@@ -5231,6 +5248,15 @@ class SoilSampleManager extends window.BaseSampleManager {
                 };
             },
             skipRowCheck: (record) => {
+                // 접수번호 표기와 구분의 불변식을 이 경로에서도 지킨다 (SLS-1-223 리뷰).
+                // 이 레거시 경로는 UI에서 도달 불가지만(SLS-1-224) 배선이 남아 있어,
+                // 되살아나면 위반 레코드를 만든다.
+                const RN = window.ReceptionNumber;
+                const rn = String(record.receptionNumber || '').trim();
+                if (rn) {
+                    const v = RN.namespaceViolation(RN.baseOf(rn), record.subCategory === '성토');
+                    if (v) return v;
+                }
                 if (!record.lotAddress && record.cropsDisplay === '-' && !record.name) return `필지주소, 작물, 성명이 모두 비어 있어 건너뜁니다.`;
                 return null;
             },

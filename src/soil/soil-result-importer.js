@@ -68,6 +68,83 @@
     const FIELD_ORDER = new Map(TARGET_FIELDS.map((f, i) => [f.key, i]));
 
     // ============================================================
+    // 가져오기 기본 서식 (SLS-1-225)
+    // ============================================================
+    //
+    // ⚠️ 신규 기능이 아니라 **복구**다. 구 모달(#excelImportModal)에
+    //    '📄 엑셀 서식 다운로드'(index.html:827)와 _downloadTemplate()
+    //    (excel-import-manager.js:123)이 있었으나, 구 모달 진입점이 hidden 처리되면서
+    //    의도치 않게 함께 사라졌다. 구 구현의 구조(sanitizeExcelAoa 포함)를 따른다.
+    //
+    // 왜 시트를 나누나: 경지구분은 행 단위로 넣을 열이 없다(3단계에서 일괄 지정).
+    //   한 시트에 자체·대표필지를 섞으면 어느 행이 어느 구분인지 알 수 없다.
+    //   시트명을 LAND_CLASS1_OPTIONS 값과 같게 두어, 후속 '시트 일괄 가져오기'에서
+    //   시트명 → 경지구분으로 그대로 쓸 수 있게 한다.
+    //
+    // 개인정보: 자체·대표필지는 성명·연락처·농가주소를 **넣지 않는다**. 식별 조건이
+    //   OR(:345)이고 행 검사도 name||lotAddress(:372)라 지번주소만으로 통과한다.
+    //   열이 없으면 실수로 채울 자리도 없다 — 규칙이 아니라 구조로 막는다.
+
+    /** 필드 키 → 서식 헤더. 문자열 리터럴로 적지 말 것(라벨 변경 시 매핑이 조용히 깨진다) */
+    const fieldLabel = (key) => TARGET_FIELDS.find((f) => f.key === key)?.label ?? key;
+
+    const TPL_NO_PII = ['receptionNumber', 'lotAddress', 'cropsDisplay', 'area', 'subCategory', 'purpose', 'note'];
+    const TPL_FARMER = ['receptionNumber', 'name', 'phoneNumber', 'addressRoad',
+        'lotAddress', 'cropsDisplay', 'area', 'subCategory', 'purpose', 'note'];
+
+    const TEMPLATE_SHEETS = [
+        { name: '자체', fields: TPL_NO_PII },
+        { name: '대표필지', fields: TPL_NO_PII },
+        { name: '농가의뢰', fields: TPL_FARMER },
+        // 공익직불제 = 농가의뢰 + 경영체등록번호 + 접수일자
+        { name: '공익직불제', fields: [...TPL_FARMER, 'businessRegNo', 'date'] },
+    ];
+
+    // 예시 행 값. 키가 없는 필드는 빈 칸으로 나간다.
+    //
+    // ⚠️ 지번주소에 경고를 넣는 이유: 예시 행을 지우지 않고 가져오면 식별 검사(:345, :372)를
+    //    그대로 통과해 쓰레기 데이터가 들어간다. 안내를 비고에만 두면 가장 안 보는 칸이라
+    //    소용이 없다. **식별 필드 자체**를 눈에 띄게 해야 미리보기에서 바로 걸린다.
+    // ⚠️ 접수번호는 비운다 — 도구 자신의 권장값이 '(비움 · 자동부여)'(:1151)다.
+    //    예시에 501을 넣으면 그 권장과 모순되고, 수동 번호로 오인된다.
+    // ⚠️ soil-entry.js는 스타일 없는 xlsx를 import하므로 색·굵게는 불가. 강조는 텍스트로만.
+    const TEMPLATE_SAMPLE = {
+        lotAddress: '⚠예시 – 삭제 후 사용⚠ 경상북도 봉화군 봉화읍 문단리 699',
+        cropsDisplay: '고추',
+        area: '1500',
+        subCategory: '밭',
+        purpose: '일반재배',
+        name: '홍길동',
+        phoneNumber: '010-1234-5678',
+        addressRoad: '경상북도 봉화군 봉화읍 내성리 100',
+        businessRegNo: '1234567890',
+        date: '2026-08-12',
+        note: '이 행은 예시입니다. 지우고 사용하세요.',
+    };
+
+    /**
+     * 서식 시트 구성을 만든다 — DOM·다운로드 부작용 없음(단위 테스트용).
+     *
+     * ⚠️ _downloadTemplate()에서 이 로직을 분리해 둔 이유: window.XLSX는 모듈 네임스페이스
+     *    객체(frozen)라 테스트에서 writeFile을 가로채기 까다롭고, 실제로 그 때문에 테스트가
+     *    조용히 통과한 사고가 있었다(tests/e2e/soil-export-sheets.spec.js:1-7).
+     *    순수 함수로 두면 헤더·예시 행을 직접 검증할 수 있다.
+     *
+     * @returns {Array<{name: string, headers: string[], rows: Array<Array<string>>}>}
+     */
+    function buildTemplateSheets() {
+        return TEMPLATE_SHEETS.map((sheet) => ({
+            name: sheet.name,
+            // fields를 함께 돌려준다 — 테스트가 "열이 **올바른 필드에** 매핑됐는가"를
+            // 확인하려면 헤더와 필드 키의 대응이 필요하다. 인덱스 집합만 보면
+            // 엉뚱한 필드에 붙어도 통과한다 (codex 리뷰 MINOR-1).
+            fields: [...sheet.fields],
+            headers: sheet.fields.map(fieldLabel),
+            rows: [sheet.fields.map((key) => TEMPLATE_SAMPLE[key] ?? '')],
+        }));
+    }
+
+    // ============================================================
     // 헬퍼
     // ============================================================
     function normalizeHeader(text) {
@@ -520,6 +597,12 @@
 .sri-dz-btn{margin-top:14px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;
   padding:10px 22px;border-radius:10px;font-weight:600;cursor:pointer;font-size:.88rem;font-family:inherit}
 .sri-dz-btn:hover{filter:brightness(1.05)}
+/* 서식 다운로드 (SLS-1-225) — 모드 카드 2개와 경쟁하지 않게 낮은 채도로 둔다 */
+.sri-tpl{margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sri-tpl-btn{border:1px solid #cbd5e1;background:#f8fafc;color:#334155;padding:7px 14px;
+  border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit}
+.sri-tpl-btn:hover{background:#f1f5f9;border-color:#94a3b8}
+.sri-tpl-hint{font-size:.78rem;color:#94a3b8;flex:1;min-width:200px}
 .sri-fileinfo{margin-top:12px;font-size:.84rem;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;
   border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:6px}
 .sri-fileinfo[hidden]{display:none}
@@ -688,6 +771,13 @@
           <div class="sri-dz-sub">또는 아래 버튼으로 파일을 선택합니다 (.xlsx / .xls / .csv)</div>
           <button type="button" class="sri-dz-btn" data-act="pick">파일 선택</button>
         </div>
+        <!-- 서식 다운로드 (SLS-1-225) — dropzone 아래, 파일 업로드 **전에** 보여야 한다.
+             fileOpts는 파일 로드 후에야 hidden이 풀리므로 그 안에 두면 안 된다.
+             문구는 구 모달(index.html:827)을 계승한다. -->
+        <div class="sri-tpl">
+          <button type="button" class="sri-tpl-btn" data-act="dlTemplate">📄 엑셀 서식 다운로드</button>
+          <span class="sri-tpl-hint">서식에 맞춰 데이터를 입력하면 컬럼 매핑이 자동으로 됩니다. 경지구분별로 시트가 나뉘어 있습니다.</span>
+        </div>
         <div class="sri-fileinfo" data-el="fileInfo" hidden></div>
         <div class="sri-file-opts" data-el="fileOpts" hidden>
           <div class="sri-fo">
@@ -841,6 +931,7 @@
                 else if (act === 'import') this._commit();
                 else if (act === 'automap') this._autoMap();
                 else if (act === 'dlErrorCsv') this._downloadErrorCsv();
+                else if (act === 'dlTemplate') this._downloadTemplate();
                 else if (act === 'pick') { e.stopPropagation(); this._els.fileInput?.click(); }
             });
             // 오버레이 클릭 → 닫기 (다이얼로그 내부 클릭은 무시)
@@ -1364,6 +1455,34 @@
         }
 
         // ----------------------------------------------------------
+        // 가져오기 기본 서식 다운로드 (SLS-1-225)
+        // ----------------------------------------------------------
+        _downloadTemplate() {
+            // ⚠️ 이 파일은 IIFE라 XLSX 식별자가 스코프에 없다. _handleFile()(:1056-1057)과
+            //    동일하게 지역 별칭 + 미존재 가드를 둔다. 없으면 ReferenceError로 죽는다.
+            const XLSX = window.XLSX;
+            if (!XLSX) { toast('엑셀 라이브러리를 사용할 수 없습니다.', 'error'); return; }
+            try {
+                const wb = XLSX.utils.book_new();
+                for (const sheet of buildTemplateSheets()) {
+                    // sanitizeExcelAoa: 수식 인젝션 방지. 셀이 전부 하드코딩 상수라 실제
+                    // 위험은 낮지만 다른 내보내기 경로와 일관되게 둔다(구 구현도 동일).
+                    const aoa = window.sanitizeExcelAoa
+                        ? window.sanitizeExcelAoa([sheet.headers, ...sheet.rows])
+                        : [sheet.headers, ...sheet.rows];
+                    const ws = XLSX.utils.aoa_to_sheet(aoa);
+                    ws['!cols'] = sheet.headers.map((h) => ({ wch: Math.max(12, h.length * 2 + 4) }));
+                    XLSX.utils.book_append_sheet(wb, ws, sheet.name);
+                }
+                XLSX.writeFile(wb, '토양_가져오기_서식.xlsx');
+                toast('서식 파일을 다운로드했습니다.', 'success');
+            } catch (err) {
+                logErr('서식 다운로드 실패:', err);
+                toast('서식 파일을 만들 수 없습니다.', 'error');
+            }
+        }
+
+        // ----------------------------------------------------------
         // 오류 행 CSV 다운로드
         // ----------------------------------------------------------
         _downloadErrorCsv() {
@@ -1439,6 +1558,8 @@
         normalizeHeader, scoreFieldHeader, computeAutoMapping, auditDuplicateKeywords,
         // 접수번호 채번 (SLS-1-222) — 성토/일반 시퀀스 분리가 여기서 결정된다
         collectExistingNumbers, collectLiteralNumbers, computePreview,
+        // 서식 생성 (SLS-1-225) — DOM·다운로드 부작용 없음
+        buildTemplateSheets, fieldLabel,
     };
 
     // 로드 시 1회: 교차 필드 중복 키워드가 있으면 콘솔 경고(개발 보조)

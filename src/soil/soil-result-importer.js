@@ -57,6 +57,11 @@
         // 공익직불제용 (선택) — gongik:true 인 항목은 경지구분1차='공익직불제'일 때 강조
         { key: 'businessRegNo',   label: '경영체등록번호', optional: true, gongik: true,
           auto: ['경영체등록번호', '농업경영체등록번호', '농업경영체', '경영체', '경영체번호', '경영체등록', '등록번호', '경영등록번호', 'businessregno', 'bizregno', 'bizno', 'businessno', 'farmbizno'] },
+        { key: 'addressPostcode', label: '우편번호', optional: true,
+          // ⚠️ '번호'·'등록번호' 같은 짧은 키워드는 넣지 않는다 — 접수번호·경영체등록번호와 겹친다.
+          //    로드 시 auditDuplicateKeywords()가 교차 중복을 경고한다.
+          auto: ['우편번호', '우편', '신우편번호', '도로명우편번호',
+                 'zip', 'zipcode', 'zipno', 'postcode', 'postalcode', 'post'] },
         { key: 'addressRoad',     label: '농가주소(경작자)', optional: true, gongik: true,
           // '농가' 단독은 성명(name)과 의미 충돌하므로 제외, '농가주소' 등 명시 키워드만 사용
           auto: ['농가주소', '농업인주소', '경영체주소', '경작자주소', '거주지주소', '거주지', '도로명주소', '도로명', '주소도로명', '신청인주소', '의뢰인주소', '대표자주소', 'farmeraddr', 'addressroad', 'roadaddr', 'roadaddress'] },
@@ -89,7 +94,7 @@
     const fieldLabel = (key) => TARGET_FIELDS.find((f) => f.key === key)?.label ?? key;
 
     const TPL_NO_PII = ['receptionNumber', 'lotAddress', 'cropsDisplay', 'area', 'subCategory', 'purpose', 'note'];
-    const TPL_FARMER = ['receptionNumber', 'name', 'phoneNumber', 'addressRoad',
+    const TPL_FARMER = ['receptionNumber', 'name', 'phoneNumber', 'addressPostcode', 'addressRoad',
         'lotAddress', 'cropsDisplay', 'area', 'subCategory', 'purpose', 'note'];
 
     const TEMPLATE_SHEETS = [
@@ -116,6 +121,7 @@
         purpose: '일반재배',
         name: '홍길동',
         phoneNumber: '010-1234-5678',
+        addressPostcode: '36628',
         addressRoad: '경상북도 봉화군 봉화읍 내성리 100',
         businessRegNo: '1234567890',
         date: '2026-08-12',
@@ -328,9 +334,62 @@
     }
 
     /** 한 행 → 접수 레코드 (매핑되지 않은 필드는 빈 문자열) */
+    /**
+     * 주소 문자열 앞의 '(NNNNN) ' 우편번호 접두를 떼어낸다 (SLS-1-226).
+     *
+     * 정규식은 라벨 추출(soil-script.js:3269)과 **같은 형태**여야 한다 —
+     * 여기서 만든 address를 거기서 다시 읽기 때문이다.
+     */
+    /** 전각 괄호·숫자를 ASCII로. 길이가 1:1로 유지되어 원본을 같은 위치에서 자를 수 있다. */
+    function toAsciiDigits(str) {
+        return String(str || '')
+            .replace(/（/g, '(').replace(/）/g, ')')
+            .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+    }
+
+    function splitPostcodePrefix(road) {
+        const raw = String(road || '');
+        // ⚠️ 엑셀 자료에는 전각 괄호·숫자와 괄호 안 공백이 섞여 들어온다(codex 리뷰 MINOR).
+        //    '（３６６２８） 주소', '( 36628 ) 주소' 같은 형태를 놓치면 우편번호가 조용히 빈다.
+        //    정규화는 **판정에만** 쓰고 잘라낸 나머지는 원본에서 가져온다 — 주소 본문을 바꾸지 않는다.
+        const m = toAsciiDigits(raw).match(/^\(\s*(\d{5})\s*\)\s*/);
+        return m ? { zip: m[1], rest: raw.slice(m[0].length) } : { zip: '', rest: raw };
+    }
+
+    /**
+     * 엑셀의 우편번호·농가주소로 앱 규약에 맞는 주소 3종을 만든다 (SLS-1-226).
+     *
+     * 규약(address.js:340-344): address = `(우편번호) 도로명주소`, 우편번호가 없으면 빈 문자열.
+     *
+     * ⚠️ 우편번호 출처가 둘이다. 사용자 자료 형태가 제각각이라 둘 다 받는다.
+     *      ① '우편번호' 열 (5자리 숫자일 때만)
+     *      ② 주소 앞의 '(NNNNN) ' 접두
+     *    ①이 우선이다 — 열이 더 명시적이다. 이때 주소에 접두가 있어도 **떼어내고** 열 값을 쓴다
+     *    (그래야 '(36628) (36628) …' 이중 접두가 안 생긴다).
+     *
+     * ⚠️ 5자리가 아닌 값(구 6자리 '123-456', 오타)은 우편번호로 쓰지 않는다.
+     *    조용히 틀린 우편번호가 인쇄되는 것보다 비는 편이 낫다.
+     *
+     * ⚠️ addressRoad에는 접두를 뗀 순수 도로명을 넣는다 — 개별 입력의 roadInput도
+     *    접두가 없고(address.js:302), 목록이 addressRoad를 그대로 보여주기 때문이다.
+     */
+    function buildAddressFields(rawPostcode, rawRoad) {
+        const { zip: inlineZip, rest } = splitPostcodePrefix(rawRoad);
+        const colZip = toAsciiDigits(rawPostcode).trim();
+        const zip = /^\d{5}$/.test(colZip) ? colZip : inlineZip;
+        const road = rest.trim();
+        return {
+            addressPostcode: zip,
+            addressRoad: road,
+            address: (zip && road) ? `(${zip}) ${road}` : '',
+        };
+    }
+
     function buildRecord(row, mapping, landClass1) {
         const get = (key) => cellOf(row, mapping, key);
+        const addr = buildAddressFields(get('addressPostcode'), get('addressRoad'));
         return {
+            ...addr,
             name: get('name'),
             phoneNumber: get('phoneNumber'),
             lotAddress: get('lotAddress'),
@@ -340,7 +399,6 @@
             purpose: get('purpose'),
             note: get('note'),
             businessRegNo: get('businessRegNo'),
-            addressRoad: get('addressRoad'),
             date: get('date'),
             landClass1,
         };
@@ -1560,6 +1618,8 @@
         collectExistingNumbers, collectLiteralNumbers, computePreview,
         // 서식 생성 (SLS-1-225) — DOM·다운로드 부작용 없음
         buildTemplateSheets, fieldLabel,
+        // 주소 조합 (SLS-1-226)
+        buildRecord, buildAddressFields, splitPostcodePrefix, toAsciiDigits,
     };
 
     // 로드 시 1회: 교차 필드 중복 키워드가 있으면 콘솔 경고(개발 보조)

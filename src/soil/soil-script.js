@@ -3265,13 +3265,56 @@ class SoilSampleManager extends window.BaseSampleManager {
     // 라벨 인쇄 기능
     // ========================================
 
+    /**
+     * 라벨용 주소·우편번호를 뽑는다 (SLS-1-226).
+     *
+     * ⚠️ 원래는 `log.address`만 재파싱했다. 그래서 **엑셀로 가져온 건은 라벨이 비었다** —
+     *    가져오기는 addressRoad만 채우고 address는 빈 채로 두기 때문이다.
+     *    address 규약(address.js:340)이 "우편번호가 없으면 빈 문자열"이라, 우편번호를
+     *    안 적은 자료는 주소까지 통째로 사라졌다.
+     *
+     * ⚠️ 이 파일의 다른 주소 소비처는 전부 addressRoad를 먼저 본다 —
+     *    목록(:3732), 등록결과 모달(:3315), 공익직불제(:4997).
+     *    Base에도 같은 취지의 훅이 있고(BaseSampleManager.getLabelAddressParts) 퇴비는 그걸 쓴다.
+     *    **라벨만 혼자 다른 패턴이었다.**
+     *
+     * 분리 필드를 우선하고, address 재파싱은 레거시 데이터용 폴백으로 남긴다.
+     * 이 순서 덕분에 **이미 가져온 기존 레코드도 재가져오기 없이 고쳐진다.**
+     *
+     * @param {Object} log
+     * @returns {{address: string, postalCode: string}}
+     */
+    _extractLabelAddress(log) {
+        const road = (log.addressRoad || '').trim();
+        if (road) {
+            const detail = (log.addressDetail || '').trim();
+            // ⚠️ 혼합 레코드 보완 (codex 리뷰 MAJOR): addressRoad는 있는데 addressPostcode만
+            //    비고 우편번호가 레거시 address 접두에만 남아 있는 경우가 있다.
+            //    분리 필드를 우선하되, 비었을 때만 접두에서 끌어온다 —
+            //    안 그러면 주소는 나오는데 우편번호만 사라진다.
+            let postalCode = log.addressPostcode || '';
+            if (!postalCode) {
+                const m = (log.address || '').match(/^\((\d{5})\)\s*/);
+                if (m) postalCode = m[1];
+            }
+            return {
+                address: [road, detail].filter(Boolean).join(' '),
+                postalCode,
+            };
+        }
+        // 레거시: 분리 필드가 없던 시절의 레코드 — address에 '(우편번호) 주소'로 뭉쳐 있다
+        const addressFull = log.address || '';
+        const zipMatch = addressFull.match(/^\((\d{5})\)\s*/);
+        return {
+            address: zipMatch ? addressFull.replace(zipMatch[0], '') : addressFull,
+            postalCode: zipMatch ? zipMatch[1] : (log.addressPostcode || ''),
+        };
+    }
+
     openLabelPrintWithData(logs) {
         const labelData = logs.map(log => {
-            const addressFull = log.address || '';
-            const zipMatch = addressFull.match(/^\((\d{5})\)\s*/);
-            const postalCode = zipMatch ? zipMatch[1] : '';
-            const address = zipMatch ? addressFull.replace(zipMatch[0], '') : addressFull;
-            return { name: log.name || '', address: address, postalCode: postalCode };
+            const { address, postalCode } = this._extractLabelAddress(log);
+            return { name: log.name || '', address, postalCode };
         });
 
         const uniqueMap = new Map();

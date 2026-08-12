@@ -992,10 +992,18 @@ class SoilSampleManager extends window.BaseSampleManager {
         const src = record || {};
         const landClass1 = src.landClass1 || LAND_CLASS1_DEFAULT;
 
-        // 접수번호: 지정값 우선, 없으면 경지구분 1차별 독립 번호 자동 부여
+        // 접수번호: 지정값 우선, 없으면 경지구분 1차별 독립 번호 자동 부여.
+        //
+        // 성토(subCategory='성토')는 'F' 접두의 **별 시퀀스**를 쓴다. 이 분기가 없으면
+        // computeNextNumber가 일반 체계(fill=false)로 계산하며 방금 저장한 성토 레코드를
+        // 제외하므로 카운터가 전진하지 않고, 가져온 성토 행 전부가 '1'로 저장된다.
+        // 그 뒤로는 일반 접수의 자동채번도 1번에 고정된다 (SLS-1-222).
+        const isFill = src.subCategory === '성토';
         let receptionNumber = (src.receptionNumber != null && String(src.receptionNumber).trim() !== '')
             ? String(src.receptionNumber).trim()
-            : String(this.getNextNumberForClass(this.selectedYear, landClass1));
+            : (isFill
+                ? this.generateNextFillReceptionNumber(landClass1)
+                : String(this.getNextNumberForClass(this.selectedYear, landClass1)));
 
         const lotAddress = src.lotAddress || '';
         const cropsDisplay = src.cropsDisplay || '-';

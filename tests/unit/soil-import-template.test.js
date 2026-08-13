@@ -103,7 +103,7 @@ describe('가져오기와의 왕복 (실제 원본 파일로 확인)', () => {
     //    → **구분(논/밭/과수)은 수동 매핑이 필요하다.**
     //    결함이 아니라 "원본 그대로"를 택한 대가다. 조용히 두지 않고 여기 고정한다.
     it('8. 구분(2차)은 자동으로 붙지 않는다 — 원본 그대로의 대가', () => {
-        const headers = aoaOf('시료접수대장')[2].map(String)
+        const headers = aoaOf('농가의뢰')[2].map(String)
         const mapping = fns.computeAutoMapping(headers)
 
         expect(mapping.subCategory, '2단 헤더가 풀렸다면 이 테스트를 갱신하라').toBeUndefined()
@@ -116,7 +116,7 @@ describe('가져오기와의 왕복 (실제 원본 파일로 확인)', () => {
 
     // SLS-1-234: 경지구분은 이제 **1차 필드**에 붙는다. 필지구분은 여전히 대응 필드가 없다.
     it('9. 필지구분은 막히고, 경지구분은 1차에 붙는다', () => {
-        const headers = aoaOf('시료접수대장')[2].map(String)
+        const headers = aoaOf('농가의뢰')[2].map(String)
         const m = fns.computeAutoMapping(headers)
         const used = new Set(Object.values(m))
         expect(used.has(headers.indexOf('필지구분')), '필지구분이 매핑됐다').toBe(false)

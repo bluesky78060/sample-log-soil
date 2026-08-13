@@ -200,13 +200,13 @@ describe('원본 서식과 우편번호', () => {
     }
 
     it('8. 원본 서식에는 우편번호 열이 없다 (자동조회로 채워야 한다)', async () => {
-        const headers = await headersOf('시료접수대장')
+        const headers = await headersOf('농가의뢰')
         expect(headers, '원본에 우편번호 열이 생겼다면 이 테스트와 안내문을 갱신하라')
             .not.toContain('우편번호')
     })
 
     it('9. 농가 주소 열은 있다 — 자동조회의 입력이 된다', async () => {
-        const headers = await headersOf('시료접수대장')
+        const headers = await headersOf('농가의뢰')
         const mapping = fns.computeAutoMapping(headers)
         expect(headers[mapping.addressRoad], '농가 주소가 안 붙으면 자동조회도 못 쓴다')
             .toBe('농가 주소')

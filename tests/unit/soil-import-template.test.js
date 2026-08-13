@@ -114,11 +114,22 @@ describe('가져오기와의 왕복 (실제 원본 파일로 확인)', () => {
         expect(headers[mapping.date]).toBe('접수일자')
     })
 
-    it('9. 필지구분·경지구분은 여전히 막힌다 (SLS-1-230)', () => {
+    // SLS-1-234: 경지구분은 이제 **1차 필드**에 붙는다. 필지구분은 여전히 대응 필드가 없다.
+    it('9. 필지구분은 막히고, 경지구분은 1차에 붙는다', () => {
         const headers = aoaOf('시료접수대장')[2].map(String)
-        const used = new Set(Object.values(fns.computeAutoMapping(headers)))
+        const m = fns.computeAutoMapping(headers)
+        const used = new Set(Object.values(m))
         expect(used.has(headers.indexOf('필지구분')), '필지구분이 매핑됐다').toBe(false)
-        expect(used.has(headers.indexOf('경지구분')), '경지구분(1차)이 매핑됐다').toBe(false)
+        expect(headers[m.landClass1]?.trim(), '경지구분이 1차에 안 붙었다').toBe('경지구분')
+    })
+
+    // 🚨 자체·대표필지가 섞이는 유일한 시트다. 여기서 1차가 안 잡히면 기능이 무의미해진다.
+    //    서식의 헤더 문구가 바뀌면 여기서 빨간 불이 켜져야 한다.
+    it('9-b. 자제, 대표필지 시트에서도 1차 열이 잡힌다', () => {
+        const headers = aoaOf('자제, 대표필지')[2].map(String)
+        const m = fns.computeAutoMapping(headers)
+        expect(headers[m.landClass1]?.trim(), '1차 열을 못 찾았다 — 서식 헤더가 바뀌었는가')
+            .toMatch(/경지구분/)
     })
 
     // 🚨 이걸 안 막으면 '홍길동 / 경기도 시흥시 포동 389'가 정상 접수로 들어간다.

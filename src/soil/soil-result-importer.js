@@ -49,7 +49,11 @@
         { key: 'area',            label: '면적',
           auto: ['면적', '재배면적', '경작면적', '필지면적', '농지면적', '포장면적', '시료면적', '제곱미터', '평방미터', 'area', 'size'] },
         { key: 'subCategory',     label: '구분',
-          auto: ['구분', '지목', '토지구분', '전답구분', '논밭구분', '시료구분', '경지지목', 'category', 'type', 'gubun'] },
+          // ⚠️ '경지구분2차'를 **완전일치**로 못박는다. 안 그러면 landClass1의 '지구분'(3자)이
+          //    부분 포함 점수(303)로 '구분'(2자, 302)을 이겨 **2차를 1차로 가져간다.**
+          //    접두/접미로 착각하기 쉬운데 둘 다 INCLUDE라 길이가 승부를 가른다.
+          auto: ['구분', '지목', '토지구분', '전답구분', '논밭구분', '시료구분', '경지지목',
+                 '경지구분2차', '경지구분 2차', '경지구분2', '경지2차', 'category', 'type', 'gubun'] },
         { key: 'purpose',         label: '목적',
           auto: ['목적', '용도', '사용용도', '분석목적', '검정목적', '신청목적', '의뢰목적', '시료목적', 'purpose', 'usage', 'use'] },
         { key: 'note',            label: '비고',
@@ -65,6 +69,16 @@
         { key: 'addressRoad',     label: '농가주소(경작자)', optional: true, gongik: true,
           // '농가' 단독은 성명(name)과 의미 충돌하므로 제외, '농가주소' 등 명시 키워드만 사용
           auto: ['농가주소', '농업인주소', '경영체주소', '경작자주소', '거주지주소', '거주지', '도로명주소', '도로명', '주소도로명', '신청인주소', '의뢰인주소', '대표자주소', 'farmeraddr', 'addressroad', 'roadaddr', 'roadaddress'] },
+        // 경지구분 1차 (SLS-1-234) — 행마다 다를 수 있다.
+        // ⚠️ 헤더가 정확히 '경지구분'이면 1차인지 2차인지 **헤더만으로는 알 수 없다.**
+        //    그래도 1차 키워드로 둔다 — 2단 병합 헤더에서 '경지구분'이 붙은 열은
+        //    세 시트 모두 왼쪽(1차)이기 때문이다.
+        //    평평한 1행 헤더 파일에서 그 열에 논/밭이 든 경우는 **값을 보고 바로잡는다**
+        //    (refineMappingByValues). 안 그러면 전 행이 오류가 되어 가져오기가 통째로 막힌다.
+        // ⚠️ '경지구분2차'·'경지구분2'는 subCategory 쪽에 완전일치로 못박아 두었다.
+        //    둘 다 부분 포함이라 길이가 승부를 가르는데 '지구분'(3자)이 '구분'(2자)을 이긴다.
+        { key: 'landClass1',      label: '경지구분1차', optional: true,
+          auto: ['경지구분', '경지구분1차', '경지구분1', '지구분', '경지1차', 'landclass1'] },
         { key: 'date',            label: '접수일자', optional: true, gongik: true,
           auto: ['접수일자', '접수일', '접수날짜', '조사일자', '조사일', '분석의뢰일', '의뢰일', '의뢰일자', '신청일', '신청일자', '채취일', '채취일자', '시료채취일', '채취년월일', '채취연월일', '시료채취년월일', '등록일', '등록일자', '일자', '날짜', 'date', 'regdate', 'recvdate'] },
     ];
@@ -111,22 +125,16 @@
      * ⚠️ 키워드('구분')를 지우는 방식으로 고치지 않는다. 헤더가 그냥 '구분'인 서식이
      *    잘 동작 중이라 그걸 깨뜨린다. 제외 목록이 영향 범위가 좁다.
      *
-     * ⚠️ '경지구분'·'경지구분1차'도 막는다. 이 앱에서 **경지구분은 1차**(자체/대표필지/
-     *    농가의뢰/공익직불제)를 뜻하고, 2차(논/밭/과수/시설)는 '구분'이라고 부른다
-     *    (TARGET_FIELDS의 subCategory 라벨). 1차는 모달에서 배치 단위로 고르는 값이라
-     *    가져오기 대상 필드가 아닌데, '구분' 접미 일치로 2차에 들어간다.
-     *    실물 서식에서 subCategory에 '농가의뢰'가 저장되는 것을 확인했다.
-     *    막으면 자동 추정만 사라져 눈에 보이지만, 안 막으면 조용히 틀린 값이 저장된다.
-     *
-     * ⚠️ '경지구분2차'는 **막지 않는다** — 그건 정확히 우리 subCategory다.
+     * ⚠️ '경지 구분'은 이제 **막지 않는다.** SLS-1-230에서 막았던 이유는 "대응 필드가
+     *    없는데 '구분' 접미로 2차에 붙는다"였는데, SLS-1-234에서 1차 필드가 생겼다.
+     *    2단 병합 헤더에서 '경지구분'이 붙은 열은 세 시트 모두 **왼쪽(1차)**이라
+     *    1차로 읽는 것이 맞다. 값이 1차 목록에 없으면 오류 행이 되어 눈에 보인다.
      *
      * ⚠️ **자동 추정에만** 적용한다. 사용자가 직접 고르는 수동 매핑은 막지 않는다.
      */
     const HEADER_DENYLIST = new Set(
         // ⚠️ 사람이 읽는 표기 그대로 적고 normalizeHeader로 맞춘다.
-        //    정규화를 빼면 '경지구분 1차'가 헤더 '경지구분1차'와 어긋나 새어 나간다.
-        ['필지 구분', '본필지 구분', '필지 유형', '경지 구분', '경지구분 1차', '경지구분 1']
-            .map(normalizeHeader)
+        ['필지 구분', '본필지 구분', '필지 유형'].map(normalizeHeader)
     );
 
     // ── 자동매핑 점수 상수 ───────────────────────────────────────
@@ -186,6 +194,37 @@
             if (s > best) best = s;
         }
         return best;
+    }
+
+    /** 경지구분 2차로 쓰이는 값들 — 1차 목록과 겹치지 않는다 */
+    const SUBCATEGORY_VALUES = ['논', '밭', '과수', '시설', '성토'];
+
+    /**
+     * 값을 보고 1차↔2차 매핑을 바로잡는다 (SLS-1-234, codex 코드리뷰 MAJOR).
+     *
+     * 🚨 헤더가 그냥 '경지구분'이면 1차인지 2차인지 **헤더만으로는 알 수 없다.**
+     *    서식(2단 병합 헤더)에서는 왼쪽이라 1차가 맞지만, 평평한 1행 헤더 파일에서
+     *    그 열에 논/밭이 들어 있으면 1차로 읽혀 **전 행이 오류가 되고 가져오기가 통째로 막힌다.**
+     *
+     * ⚠️ 값이 1차 목록에 **하나도 없고** 2차 값이 있을 때만 옮긴다. 애매하면 손대지 않는다 —
+     *    추측으로 옮기다가 멀쩡한 매핑을 망가뜨리는 쪽이 더 나쁘다.
+     *
+     * ⚠️ subCategory가 이미 다른 열에 잡혀 있으면 옮기지 않는다. 그 열을 빼앗으면
+     *    제대로 잡힌 2차가 사라진다.
+     */
+    function refineMappingByValues(mapping, rows) {
+        const col = mapping?.landClass1;
+        if (col == null || mapping.subCategory != null) return mapping;
+        const values = (rows || []).slice(0, 30)
+            .map((r) => String(r?.[col] ?? '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean);
+        if (values.length === 0) return mapping;
+        if (values.some((v) => LAND_CLASS1_OPTIONS.includes(v))) return mapping;
+        if (!values.some((v) => SUBCATEGORY_VALUES.includes(v))) return mapping;
+        const next = { ...mapping };
+        delete next.landClass1;
+        next.subCategory = col;
+        return next;
     }
 
     /**
@@ -439,14 +478,37 @@
         return false;
     }
 
+    /**
+     * 행의 경지구분 1차를 정한다 (SLS-1-234).
+     *
+     * ⚠️ 목록에 없는 값을 **조용히 기본값으로 바꾸지 않는다.** 엉뚱한 경지구분으로
+     *    저장되면 흙토람 내보내기·통계·접수번호 시퀀스가 함께 어긋난다.
+     *    대신 사유에 빠져나갈 길을 적어 작업자가 고를 수 있게 한다.
+     *
+     * ⚠️ 빈 칸은 오류가 아니다 — 한 행만 비워 두는 경우가 흔하고,
+     *    그때는 창에서 고른 값을 쓰는 것이 자연스럽다.
+     */
+    function resolveLandClass1(raw, fallback) {
+        const v = String(raw ?? '').replace(/\s+/g, ' ').trim();
+        if (!v) return { value: fallback, error: '' };
+        if (LAND_CLASS1_OPTIONS.includes(v)) return { value: v, error: '' };
+        return {
+            value: fallback,
+            error: `경지구분 1차 '${v}'를 알 수 없습니다. 엑셀을 고치거나, 이 열의 매핑을 해제하고 위에서 고른 값으로 넣으세요.`,
+        };
+    }
+
     function buildRecord(row, mapping, landClass1, addrLookup) {
         const get = (key) => cellOf(row, mapping, key);
         const addr = applyAddrLookup(
             buildAddressFields(get('addressPostcode'), get('addressRoad')),
             addrLookup
         );
+        // 열이 매핑되지 않았으면 get()이 빈 문자열 → 창에서 고른 값이 그대로 쓰인다
+        const cls = resolveLandClass1(get('landClass1'), landClass1);
         return {
             ...addr,
+            _landClass1Error: cls.error,
             name: get('name'),
             phoneNumber: get('phoneNumber'),
             lotAddress: get('lotAddress'),
@@ -457,7 +519,7 @@
             note: get('note'),
             businessRegNo: get('businessRegNo'),
             date: get('date'),
-            landClass1,
+            landClass1: cls.value,
         };
     }
 
@@ -531,10 +593,42 @@
             logWarn('[가져오기] computePreview: logs가 배열이 아님 — 중복 검사가 비어 있게 됩니다', o.logs);
         }
         const hasLogs = Array.isArray(o.logs);
-        const existing = hasLogs ? collectExistingNumbers(o.logs, landClass1) : (o.existing || new Set());
-        const existingFill = hasLogs ? collectExistingNumbers(o.logs, landClass1, { fill: true }) : (o.existingFill || new Set());
-        // 수동 번호 중복 판정용 — 표기 그대로, 두 시퀀스 통합
-        const existingLiteral = hasLogs ? collectLiteralNumbers(o.logs, landClass1) : (o.existingLiteral || new Set());
+
+        /**
+         * 경지구분 1차별 채번 상태 (SLS-1-234).
+         *
+         * 🚨 접수번호는 **1차마다 독립 시퀀스**다(soil-script.js:992 addImportedRecord).
+         *    한 배치에 여러 1차가 섞이면 아래 여덟 가지가 전부 1차마다 있어야 한다.
+         *    한 갈래만 공유하면 그 종류의 번호가 조용히 겹치거나 건너뛴다 —
+         *    이 영역은 SLS-1-222(같은 번호 두 건)·SLS-1-223(네임스페이스 위반)에서
+         *    실제로 사고가 났던 자리다.
+         *
+         * ⚠️ 저장은 이미 1차별로 옳게 동작한다. 여기서 어긋나면 **미리보기에 보인 번호가
+         *    실제 저장 번호와 달라진다**(자동부여 행). 수동 번호 행은 더 나쁘다 —
+         *    중복 판정이 1차를 무시하면 자체 5와 대표필지 5를 충돌로 보고 **건너뛴다.**
+         */
+        const stateByClass = new Map();
+        function stateOf(cls) {
+            const key = cls || LAND_CLASS1_DEFAULT;
+            if (stateByClass.has(key)) return stateByClass.get(key);
+            const existing = hasLogs ? collectExistingNumbers(o.logs, key) : (o.existing || new Set());
+            const existingFill = hasLogs ? collectExistingNumbers(o.logs, key, { fill: true }) : (o.existingFill || new Set());
+            // 수동 번호 중복 판정용 — 표기 그대로, 두 시퀀스 통합
+            const existingLiteral = hasLogs ? collectLiteralNumbers(o.logs, key) : (o.existingLiteral || new Set());
+            const st = {
+                existing, existingFill, existingLiteral,
+                // 배치 내 사용 번호 — 두 시퀀스가 독립이므로 집합도 따로 둔다
+                // (일반 5와 성토 F5는 충돌이 아니다)
+                seen: new Set(), seenFill: new Set(), seenLiteral: new Set(),
+                // 커서는 autoAll이 아니어도 반드시 초기화한다 — 접수번호 컬럼은 매핑됐지만
+                // 특정 행의 칸만 빈 경우에도 자동부여로 넘어가기 때문이다.
+                // (초기화를 autoAll로 감싸면 그 행의 번호가 String(null) → 'null'이 된다)
+                nextNum: o.nextNumberByClass?.[key] ?? (o.nextNumber != null ? o.nextNumber : inferNextNumber(existing)),
+                nextFill: o.nextFillNumberByClass?.[key] ?? (o.nextFillNumber != null ? o.nextFillNumber : inferNextNumber(existingFill)),
+            };
+            stateByClass.set(key, st);
+            return st;
+        }
 
         const mappedKeys = Object.keys(mapping);
         // 최소 1개 식별 필드가 매핑돼야 의미 있음
@@ -543,19 +637,6 @@
 
         // 접수번호 컬럼이 매핑되지 않았으면 자동부여가 강제된다
         const autoAll = !!o.autoNumber || mapping.receptionNumber == null;
-
-        // 커서는 autoAll이 아니어도 반드시 초기화한다 — 접수번호 컬럼은 매핑됐지만
-        // 특정 행의 칸만 빈 경우에도 자동부여로 넘어가기 때문이다.
-        // (초기화를 autoAll로 감싸면 그 행의 번호가 String(null) → 'null'이 된다 → SLS-1-222 부수)
-        let nextNum = o.nextNumber != null ? o.nextNumber : inferNextNumber(existing);
-        let nextFill = o.nextFillNumber != null ? o.nextFillNumber : inferNextNumber(existingFill);
-
-        // 배치 내 사용 번호 — 두 시퀀스가 독립이므로 집합도 따로 둔다
-        // (일반 5와 성토 F5는 충돌이 아니다)
-        const seenInBatch = new Set();
-        const seenFillInBatch = new Set();
-        // 수동 번호 중복 판정용 배치 집합 (표기 그대로, 시퀀스 무관)
-        const seenLiteralInBatch = new Set();
 
         const items = [];
         const stats = { total: rows.length, new: 0, dup: 0, err: 0 };
@@ -582,6 +663,16 @@
                 return;
             }
 
+            // 알 수 없는 경지구분 1차 → 오류. 조용히 다른 값으로 바꾸지 않는다.
+            if (rec._landClass1Error) {
+                stats.err++;
+                items.push({ status: 'err', reason: rec._landClass1Error, display: '(경지구분 오류)', rec });
+                return;
+            }
+
+            // 🚨 이 행의 1차 상태를 잡는다. 아래 채번·중복 판정은 전부 이 묶음 안에서만 본다.
+            const st = stateOf(rec.landClass1);
+
             let recNo;
             let useAuto = autoAll;
             if (!useAuto) {
@@ -594,19 +685,19 @@
             // 저장된 성토 레코드는 일반 풀에서 제외돼 카운터가 전진하지 않아
             // 전 행이 같은 번호로 저장된다 (SLS-1-222).
             const isFill = rec.subCategory === '성토';
-            const pool = isFill ? existingFill : existing;
-            const seenPool = isFill ? seenFillInBatch : seenInBatch;
+            const pool = isFill ? st.existingFill : st.existing;
+            const seenPool = isFill ? st.seenFill : st.seen;
 
             if (useAuto) {
                 // 기존·배치 양쪽을 피해 증가시킨다
-                let candidate = isFill ? nextFill : nextNum;
+                let candidate = isFill ? st.nextFill : st.nextNum;
                 while (pool.has(String(candidate)) || seenPool.has(String(candidate))) candidate++;
                 seenPool.add(String(candidate));
                 recNo = isFill ? `F${candidate}` : String(candidate);
                 // 뒤따르는 수동 행이 이 번호와 충돌하는 것을 감지해야 한다
-                seenLiteralInBatch.add(recNo);
-                if (isFill) nextFill = candidate + 1;
-                else nextNum = candidate + 1;
+                st.seenLiteral.add(recNo);
+                if (isFill) st.nextFill = candidate + 1;
+                else st.nextNum = candidate + 1;
                 stats.new++;
                 items.push({ status: 'new', display: recNo, rec: { ...rec, receptionNumber: undefined }, auto: true });
             } else {
@@ -623,9 +714,9 @@
                 // 중복 판정은 **표기 그대로, 시퀀스 무관**이다 (폼 등록 경로와 동일 규칙).
                 // 시퀀스별로 나눠 판정하면 구분='성토' 행의 수동 번호 `5`가 일반 `5`와
                 // 충돌하는 것을 놓쳐 같은 번호가 두 건 저장된다.
-                const isDup = existingLiteral.has(base) || seenLiteralInBatch.has(base);
+                const isDup = st.existingLiteral.has(base) || st.seenLiteral.has(base);
                 const willBeSaved = !(isDup && dupPolicy === 'skip');
-                seenLiteralInBatch.add(base);
+                st.seenLiteral.add(base);
 
                 // 커서는 시퀀스별로 올린다 — 매니저가 그 시퀀스로 채번하기 때문이다.
                 // 성토 시퀀스는 F를 떼고 숫자만 본다 (computeNextNumber와 동일).
@@ -642,8 +733,8 @@
                 if (willBeSaved) {
                     const baseNum = parseInt(key, 10);
                     if (!Number.isNaN(baseNum)) {
-                        if (isFill) { if (baseNum + 1 > nextFill) nextFill = baseNum + 1; }
-                        else if (baseNum + 1 > nextNum) nextNum = baseNum + 1;
+                        if (isFill) { if (baseNum + 1 > st.nextFill) st.nextFill = baseNum + 1; }
+                        else if (baseNum + 1 > st.nextNum) st.nextNum = baseNum + 1;
                     }
                 }
 
@@ -1426,13 +1517,14 @@
         }
 
         _autoMap(silent) {
-            const { headers } = this._parseInput();
+            const { headers, rows } = this._parseInput();
             if (headers.length === 0) {
                 if (!silent) toast('먼저 데이터를 입력/업로드하세요.', 'warning');
                 return;
             }
             // 순수 매핑 로직은 computeAutoMapping()으로 분리(단위 테스트 대상).
-            const mapping = computeAutoMapping(headers);
+            // 헤더만으로 1차·2차를 가릴 수 없는 '경지구분'은 값을 보고 바로잡는다.
+            const mapping = refineMappingByValues(computeAutoMapping(headers), rows);
             this._state.fieldMapping = mapping;
             this._renderMapping();
             this._recompute(); this._renderPreview();
@@ -1518,15 +1610,39 @@
             // 번호 풀은 computePreview가 이 로그에서 직접 도출한다 (하나를 빠뜨릴 수 없게)
             const logs = this._existingLogs();
 
-            const nextNumber = (mgr && typeof mgr.getNextNumberForClass === 'function')
-                ? mgr.getNextNumberForClass(year, landClass1)
-                : null;
-            // 매니저는 'F3' 문자열을 주므로 숫자만 뽑아 커서로 쓴다
-            let nextFillNumber = null;
-            if (mgr && typeof mgr.generateNextFillReceptionNumber === 'function') {
-                const parsed = parseInt(String(mgr.generateNextFillReceptionNumber(landClass1)).replace('F', ''), 10);
-                if (!Number.isNaN(parsed)) nextFillNumber = parsed;
+            /** 1차 하나의 커서 쌍을 매니저에서 받는다 */
+            const cursorsFor = (cls) => {
+                const next = (mgr && typeof mgr.getNextNumberForClass === 'function')
+                    ? mgr.getNextNumberForClass(year, cls)
+                    : null;
+                // 매니저는 'F3' 문자열을 주므로 숫자만 뽑아 커서로 쓴다
+                let fill = null;
+                if (mgr && typeof mgr.generateNextFillReceptionNumber === 'function') {
+                    const parsed = parseInt(String(mgr.generateNextFillReceptionNumber(cls)).replace('F', ''), 10);
+                    if (!Number.isNaN(parsed)) fill = parsed;
+                }
+                return { next, fill };
+            };
+
+            // 🚨 배치에 여러 1차가 섞일 수 있다(SLS-1-234). 커서를 하나만 넘기면
+            //    다른 1차 행들이 남의 시퀀스 커서로 번호를 받아 미리보기가 실제와 어긋난다.
+            //    행에 적힌 1차를 훑어 등장하는 것마다 매니저에서 받아 둔다.
+            const classesInBatch = new Set([landClass1]);
+            const clsCol = this._state.fieldMapping?.landClass1;
+            if (clsCol != null) {
+                for (const row of rows) {
+                    const v = String(row?.[clsCol] ?? '').replace(/\s+/g, ' ').trim();
+                    if (v) classesInBatch.add(v);
+                }
             }
+            const nextNumberByClass = {};
+            const nextFillNumberByClass = {};
+            for (const cls of classesInBatch) {
+                const { next, fill } = cursorsFor(cls);
+                if (next != null) nextNumberByClass[cls] = next;
+                if (fill != null) nextFillNumberByClass[cls] = fill;
+            }
+            const base = cursorsFor(landClass1);
 
             this._state.preview = computePreview({
                 rows,
@@ -1535,8 +1651,11 @@
                 autoNumber: this._state.autoNumber,
                 dupPolicy: this._state.dupPolicy,
                 logs,
-                nextNumber,
-                nextFillNumber,
+                // 열이 매핑되지 않은 기존 경로는 단일 커서만 쓴다 — 지금과 완전히 같게 동작한다
+                nextNumber: base.next,
+                nextFillNumber: base.fill,
+                nextNumberByClass,
+                nextFillNumberByClass,
                 addrLookup: this._state.addrLookup,
             });
         }
@@ -1595,7 +1714,7 @@
                     <td class="addr">${escapeHtml(r.lotAddress ?? '')}</td>
                     <td>${escapeHtml(r.cropsDisplay ?? '')}</td>
                     <td>${escapeHtml(r.area ?? '')}</td>
-                    <td>${escapeHtml(p.landClass1 ?? '')}</td>
+                    <td>${escapeHtml(r.landClass1 ?? p.landClass1 ?? '')}</td>
                     <td>${escapeHtml(r.subCategory ?? '')}</td>
                     <td>${escapeHtml(r.purpose ?? '')}</td>
                     <td>${escapeHtml(r.note ?? '')}</td>
@@ -1637,7 +1756,12 @@
                     // 붉은색은 경고이지 차단이 아니다 — 그대로 가져와도 된다는 걸 분명히 적는다
                     if (failed > 0) addrNote = ` · 주소 확인 필요 ${failed}건(붉은 글자, 그대로 가져와도 됩니다)`;
                 }
-                note.textContent = `총 ${p.stats.total}건 중 ${p.willImport}건이 [${p.landClass1}]으로 등록됩니다${addrNote}`;
+                // 여러 1차가 섞이면 하나만 적으면 거짓말이 된다
+                const classes = [...new Set(p.items
+                    .filter(it => it.status !== 'err')
+                    .map(it => it.rec?.landClass1 || p.landClass1))];
+                const clsText = classes.length > 1 ? `${classes.join(' · ')} (행별)` : (classes[0] || p.landClass1);
+                note.textContent = `총 ${p.stats.total}건 중 ${p.willImport}건이 [${clsText}]으로 등록됩니다${addrNote}`;
             }
         }
 
@@ -1896,7 +2020,7 @@
         // 접수번호 채번 (SLS-1-222) — 성토/일반 시퀀스 분리가 여기서 결정된다
         collectExistingNumbers, collectLiteralNumbers, computePreview,
         // 서식 생성 (SLS-1-225) — DOM·다운로드 부작용 없음
-        detectHeaderRow, isSampleRow,
+        detectHeaderRow, isSampleRow, refineMappingByValues, resolveLandClass1,
         // 주소 조합 (SLS-1-226)
         buildRecord, buildAddressFields, splitPostcodePrefix, toAsciiDigits, applyAddrLookup,
     };

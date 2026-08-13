@@ -50,6 +50,7 @@ import './sheet-name.js';
 import './soil-script.js';
 
 // 흙토람式 가져오기 모달 (soil-script.js 뒤 — window.soilManager 준비 후 버튼 연결)
+import '../shared/soil-template-data.js';  // SLS-1-232: 내장 기본 서식(원본 바이트)
 import './crop-search.js';           // SLS-1-228: 작물 검색 순수 로직
 import './soil-address-lookup.js';   // SLS-1-227: 가져오기 우편번호 자동조회 (importer보다 먼저)
 import './soil-result-importer.js';

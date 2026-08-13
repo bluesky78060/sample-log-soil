@@ -1,0 +1,15 @@
+# 바이너리 자산은 줄바꿈 변환 대상이 아니다 (SLS-1-232).
+#
+# ⚠️ 기본 서식(.xlsx)은 **바이트 그대로** 내려주고, 그 동일성을 sha256으로 검증한다.
+#    Windows에서 core.autocrlf가 켜진 채 체크아웃하면 변환이 일어나 내장본이 원본과
+#    어긋난다. CI가 windows-latest에서 빌드하므로 실제로 닿을 수 있는 경로다.
+#    git이 NUL 바이트로 자동 판별하긴 하지만, 추측에 맡기지 않는다.
+*.xlsx  binary
+*.xls   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.zip   binary
+*.exe   binary

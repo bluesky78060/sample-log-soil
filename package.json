@@ -14,7 +14,7 @@
     "start:dev": "DEV_MODE=1 electron-forge start",
     "package": "npm run build && electron-forge package",
     "make": "npm run build && electron-forge make",
-    "build": "npm run build:css && npm run sync-version && node scripts/extract-whatsnew.js && npx vite build",
+    "build": "npm run build:css && npm run sync-version && node scripts/extract-whatsnew.js && node scripts/embed-soil-template.js && npx vite build",
     "publish": "electron-forge publish",
     "lint": "eslint src",
     "test": "npx playwright test",

@@ -183,32 +183,38 @@ describe('자동조회 결과 반영', () => {
     })
 })
 
-describe('서식', () => {
-    // SLS-1-231에서 시트 구성이 사용자 업무 서식 기준으로 바뀌었다.
-    // 서식↔매핑 계약 전반은 soil-import-template.test.js가 본다.
-    // 여기서는 **우편번호가 라벨을 위해 살아 있는가**만 지킨다.
-    const sheet = (n) => fns.buildTemplateSheets().find((s) => s.name === n)
+// SLS-1-232에서 서식이 **사용자 원본 파일**로 바뀌었다(코드 생성 폐기).
+// 원본에는 우편번호 열이 없다 — 사용자가 "원본 그대로"를 택했으므로 열을 더하지 않는다.
+//
+// 🚨 그래서 남는 사실을 여기 고정한다: **서식으로는 우편번호를 채울 수 없다.**
+//    라벨 우편번호는 데스크톱 앱의 '📮 우편번호 자동조회'(SLS-1-227)로 채워야 하고,
+//    웹에서는 채울 방법이 없다. 조용히 잊히지 않게 테스트로 남긴다.
+describe('원본 서식과 우편번호', () => {
+    const headersOf = async (sheetName) => {
+        await import('../../src/shared/soil-template-data.js')
+        const XLSX = await import('xlsx')
+        const buf = Buffer.from(window.SOIL_TEMPLATE.base64, 'base64')
+        const wb = XLSX.read(buf, { type: 'buffer' })
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '', blankrows: false })
+        return aoa[2].map(String)
+    }
 
-    // 🚨 자동조회(SLS-1-227)는 데스크톱 전용이다. 열이 없으면 웹에서는 우편번호를
-    //    채울 길이 아예 없어지고, 라벨에 우편번호가 빈 채로 인쇄된다.
-    it('8. 개인정보를 다루는 시트에 우편번호 열이 있다', () => {
-        for (const n of ['시료접수대장', '일괄등록양식']) {
-            expect(sheet(n).headers, `${n}에 우편번호가 없다`).toContain('우편번호')
-        }
-    })
-
-    it('9. 자체·대표필지에는 없다 (개인정보 없음 — 라벨 대상 아님)', () => {
-        expect(sheet('자체, 대표필지').headers, '자체·대표필지에 우편번호가 생겼다')
+    it('8. 원본 서식에는 우편번호 열이 없다 (자동조회로 채워야 한다)', async () => {
+        const headers = await headersOf('시료접수대장')
+        expect(headers, '원본에 우편번호 열이 생겼다면 이 테스트와 안내문을 갱신하라')
             .not.toContain('우편번호')
     })
 
-    it('10. 우편번호 열이 addressPostcode에 정확히 붙는다', () => {
-        for (const n of ['시료접수대장', '일괄등록양식']) {
-            const s = sheet(n)
-            const mapping = fns.computeAutoMapping(s.headers)
-            expect(s.headers[mapping.addressPostcode], `${n}: 우편번호가 다른 열에 붙었다`)
-                .toBe('우편번호')
-        }
+    it('9. 농가 주소 열은 있다 — 자동조회의 입력이 된다', async () => {
+        const headers = await headersOf('시료접수대장')
+        const mapping = fns.computeAutoMapping(headers)
+        expect(headers[mapping.addressRoad], '농가 주소가 안 붙으면 자동조회도 못 쓴다')
+            .toBe('농가 주소')
+    })
+
+    // buildAddressFields 규약 자체는 그대로다 — 열이 없을 뿐 기능은 살아 있다
+    it('10. 우편번호가 채워지면 규약대로 조합된다', () => {
+        expect(build('36628', ROAD).address).toBe(`(36628) ${ROAD}`)
     })
 })
 

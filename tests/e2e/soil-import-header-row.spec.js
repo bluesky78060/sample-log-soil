@@ -48,8 +48,10 @@ async function openWithFile(page) {
         mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         buffer: Buffer.from(buf),
     });
+    // ⚠️ headerRow의 disabled로 기다리면 안 된다 — 모달을 열 때 이미 풀려 있어
+    //    파일 로드와 무관하게 즉시 통과한다. 시트가 실제로 읽혔는지를 본다.
     await page.waitForFunction(
-        () => !!document.querySelector('.sri-overlay [data-el="headerRow"]:not([disabled])'),
+        () => (window.SoilResultImporter?._state?.sheetNames || []).length > 0,
         { timeout: 15000 }
     );
 }

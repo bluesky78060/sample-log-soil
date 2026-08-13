@@ -88,8 +88,11 @@ test.describe('기본 서식 다운로드 (SLS-1-232)', () => {
             mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             buffer: readFileSync(await download.path()),
         });
+        // ⚠️ headerRow의 disabled로 기다리면 안 된다 — 모달을 열 때 이미 풀려 있어
+        //    **파일 로드와 무관하게 즉시 통과**한다. 지금까지 통과한 건 파싱이 빨라서였다.
+        //    시트가 실제로 읽혔는지를 본다.
         await page.waitForFunction(
-            () => !!document.querySelector('.sri-overlay [data-el="headerRow"]:not([disabled])'),
+            () => (window.SoilResultImporter?._state?.sheetNames || []).length > 0,
             { timeout: 15000 }
         );
 
@@ -123,8 +126,11 @@ test.describe('기본 서식 다운로드 (SLS-1-232)', () => {
             mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             buffer: readFileSync(await download.path()),
         });
+        // ⚠️ headerRow의 disabled로 기다리면 안 된다 — 모달을 열 때 이미 풀려 있어
+        //    **파일 로드와 무관하게 즉시 통과**한다. 지금까지 통과한 건 파싱이 빨라서였다.
+        //    시트가 실제로 읽혔는지를 본다.
         await page.waitForFunction(
-            () => !!document.querySelector('.sri-overlay [data-el="headerRow"]:not([disabled])'),
+            () => (window.SoilResultImporter?._state?.sheetNames || []).length > 0,
             { timeout: 15000 }
         );
 

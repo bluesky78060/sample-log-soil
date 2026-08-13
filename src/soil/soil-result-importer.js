@@ -66,7 +66,7 @@
           // '농가' 단독은 성명(name)과 의미 충돌하므로 제외, '농가주소' 등 명시 키워드만 사용
           auto: ['농가주소', '농업인주소', '경영체주소', '경작자주소', '거주지주소', '거주지', '도로명주소', '도로명', '주소도로명', '신청인주소', '의뢰인주소', '대표자주소', 'farmeraddr', 'addressroad', 'roadaddr', 'roadaddress'] },
         { key: 'date',            label: '접수일자', optional: true, gongik: true,
-          auto: ['접수일자', '접수일', '접수날짜', '조사일자', '조사일', '분석의뢰일', '의뢰일', '의뢰일자', '신청일', '신청일자', '채취일', '채취일자', '시료채취일', '등록일', '등록일자', '일자', '날짜', 'date', 'regdate', 'recvdate'] },
+          auto: ['접수일자', '접수일', '접수날짜', '조사일자', '조사일', '분석의뢰일', '의뢰일', '의뢰일자', '신청일', '신청일자', '채취일', '채취일자', '시료채취일', '채취년월일', '채취연월일', '시료채취년월일', '등록일', '등록일자', '일자', '날짜', 'date', 'regdate', 'recvdate'] },
     ];
 
     // 자동매핑 동점 처리용: TARGET_FIELDS 정의 순서 (앞 필드 우선)
@@ -161,6 +161,34 @@
             .toLowerCase();
     }
 
+    /**
+     * 어떤 필드에도 자동 매핑하지 않을 헤더 (정규화 후 완전 일치).
+     *
+     * ⚠️ '필지구분'은 본필지/하위필지를 뜻하는데, 우리 모델에서 그건 **접수번호로 판별한다**
+     *    (503 / 503-1). 대응 필드가 없다. 그런데 subCategory 키워드 '구분'에 접미 일치해
+     *    구분(논/밭/과수/시설)으로 들어간다 → 흙토람 내보내기와 성토 판별이 함께 어긋난다.
+     *
+     * ⚠️ 키워드('구분')를 지우는 방식으로 고치지 않는다. 헤더가 그냥 '구분'인 서식이
+     *    잘 동작 중이라 그걸 깨뜨린다. 제외 목록이 영향 범위가 좁다.
+     *
+     * ⚠️ '경지구분'·'경지구분1차'도 막는다. 이 앱에서 **경지구분은 1차**(자체/대표필지/
+     *    농가의뢰/공익직불제)를 뜻하고, 2차(논/밭/과수/시설)는 '구분'이라고 부른다
+     *    (TARGET_FIELDS의 subCategory 라벨). 1차는 모달에서 배치 단위로 고르는 값이라
+     *    가져오기 대상 필드가 아닌데, '구분' 접미 일치로 2차에 들어간다.
+     *    실물 서식에서 subCategory에 '농가의뢰'가 저장되는 것을 확인했다.
+     *    막으면 자동 추정만 사라져 눈에 보이지만, 안 막으면 조용히 틀린 값이 저장된다.
+     *
+     * ⚠️ '경지구분2차'는 **막지 않는다** — 그건 정확히 우리 subCategory다.
+     *
+     * ⚠️ **자동 추정에만** 적용한다. 사용자가 직접 고르는 수동 매핑은 막지 않는다.
+     */
+    const HEADER_DENYLIST = new Set(
+        // ⚠️ 사람이 읽는 표기 그대로 적고 normalizeHeader로 맞춘다.
+        //    정규화를 빼면 '경지구분 1차'가 헤더 '경지구분1차'와 어긋나 새어 나간다.
+        ['필지 구분', '본필지 구분', '필지 유형', '경지 구분', '경지구분 1차', '경지구분 1']
+            .map(normalizeHeader)
+    );
+
     // ── 자동매핑 점수 상수 ───────────────────────────────────────
     // 구간 베이스 간격(≥200)이 가산항(키워드/헤더 길이, 현실상 ≤ ~12)보다 훨씬 커서
     // 길이에 관계없이 EXACT > AFFIX > INCLUDE > RINCLUDE 불변식이 항상 성립한다.
@@ -230,7 +258,7 @@
         const candidates = [];
         for (const f of TARGET_FIELDS) {
             normHeaders.forEach((nh, colIdx) => {
-                if (!nh) return;
+                if (!nh || HEADER_DENYLIST.has(nh)) return;
                 const score = scoreFieldHeader(f._autoNorm, nh);
                 if (score > 0) candidates.push({ fieldKey: f.key, colIdx, score });
             });
@@ -1088,11 +1116,11 @@
             // 시트 / 헤더 행 / 헤더 없음
             this._els.sheetSelect?.addEventListener('change', () => {
                 this._state.activeSheet = this._els.sheetSelect.value;
-                this._refresh();
+                this._remapForNewHeaders();
             });
             this._els.headerRow?.addEventListener('input', () => {
                 const v = parseInt(this._els.headerRow.value, 10);
-                if (!Number.isNaN(v) && v >= 1) { this._state.headerRowIdx = v - 1; this._refresh(); }
+                if (!Number.isNaN(v) && v >= 1) { this._state.headerRowIdx = v - 1; this._remapForNewHeaders(); }
             });
             this._els.noHeader?.addEventListener('change', () => {
                 if (this._els.noHeader.checked) {
@@ -1103,7 +1131,10 @@
                     this._state.headerRowIdx = Number.isNaN(v) ? 0 : Math.max(0, v - 1);
                     if (this._els.headerRow) this._els.headerRow.disabled = false;
                 }
-                this._refresh();
+                // '헤더 없음'도 헤더를 바꾼다 — 실제 헤더 대신 '열 1, 열 2…'가 된다.
+                // _refresh()만 하면 옛 매핑이 남아, 헤더 행이 데이터로 섞여 들어간
+                // 상태에서 '성명'·'지번주소' 같은 글자가 접수 자료로 저장된다.
+                this._remapForNewHeaders();
             });
 
             // 경지구분 1차 / 옵션
@@ -1393,6 +1424,26 @@
         // ----------------------------------------------------------
         // 미리보기 계산
         // ----------------------------------------------------------
+        /**
+         * 헤더가 달라졌으니 매핑을 새로 추정한다 (SLS-1-230).
+         *
+         * ⚠️ _autoMap()은 파일 로드 때 **한 번만** 돌고(:1305) 그때 헤더 행은 항상 1이다.
+         *    시트나 헤더 행을 바꿔도 다시 돌지 않으면, 열 인덱스는 그대로인데 그 열의
+         *    **의미가 달라져** 매핑이 엉뚱한 열을 가리킨다. 화면에는 매핑된 것처럼
+         *    보이므로 조용하다 — 헤더가 몇 행인지 지정해야 하는 서식에서 특히 위험하다.
+         *
+         * ⚠️ 직접 고친 매핑이 지워진다. 그래도 이게 맞다 — 헤더가 바뀌면 그 매핑은
+         *    어차피 다른 열을 가리킨다. 틀린 매핑을 남겨 두는 쪽이 더 나쁘다.
+         */
+        _remapForNewHeaders() {
+            // ⚠️ _refresh() 뒤에 _autoMap()을 부르면 파싱·미리보기 계산이 **두 번** 돈다
+            //    (_autoMap이 이미 _parseInput·_renderMapping·_recompute·_renderPreview를 한다).
+            //    행이 수천 개인 파일에서 헤더 행을 한 칸 바꿀 때마다 두 배가 든다.
+            const { headers } = this._parseInput();
+            this._state.fieldMapping = headers.length ? computeAutoMapping(headers) : {};
+            this._refresh();
+        }
+
         _refresh() {
             this._renderMapping();
             this._recompute();

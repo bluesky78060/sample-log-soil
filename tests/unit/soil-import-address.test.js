@@ -125,6 +125,64 @@ describe('buildRecord 전체 경로', () => {
     })
 })
 
+// SLS-1-227: 자동조회 결과가 rec까지 도달하는가
+//
+// 🚨 _commit()은 it.rec만 복사한다(soil-result-importer.js:1491).
+//    조회 결과를 표시용으로만 들고 있으면 화면에는 보이는데 저장은 안 되는
+//    허깨비 기능이 된다 — codex 계획 리뷰가 잡은 항목이다.
+describe('자동조회 결과 반영', () => {
+    beforeAll(async () => {
+        await import('../../src/soil/soil-address-lookup.js')
+        await import('../../src/soil/reception-number.js')   // computePreview가 쓴다
+    })
+
+    const ROAD2 = '경상북도 봉화군 물야면 오전리 55'
+    const hit = (zip, road) => ({ status: 'ok', zip, road, reason: '' })
+    const mapOf = (road, v) => new Map([[window.SoilAddressLookup.normalizeRoad(road), v]])
+
+    it('조회 성공이면 우편번호가 rec에 채워진다', () => {
+        const rec = fns.buildRecord([ROAD2], { addressRoad: 0 }, '농가의뢰', mapOf(ROAD2, hit('36100', ROAD2)))
+        expect(rec.addressPostcode, 'rec에 반영되지 않아 저장되지 않는다').toBe('36100')
+        expect(rec.address).toBe(`(36100) ${ROAD2}`)
+    })
+
+    it('조회 실패면 아무것도 바꾸지 않는다', () => {
+        for (const st of ['notfound', 'ambiguous', 'error']) {
+            const rec = fns.buildRecord([ROAD2], { addressRoad: 0 }, '농가의뢰',
+                mapOf(ROAD2, { status: st, zip: '99999', road: '엉뚱한 주소', reason: '' }))
+            expect(rec.addressPostcode, `${st}인데 우편번호를 채웠다`).toBe('')
+            expect(rec.addressRoad, `${st}인데 주소를 바꿨다`).toBe(ROAD2)
+        }
+    })
+
+    // 조회는 보조 수단이지 작업자가 적은 값을 덮어쓰는 장치가 아니다
+    it('우편번호 열을 적었으면 조회 결과가 덮어쓰지 않는다', () => {
+        const rec = fns.buildRecord(['11111', ROAD2], { addressPostcode: 0, addressRoad: 1 },
+            '농가의뢰', mapOf(ROAD2, hit('36100', ROAD2)))
+        expect(rec.addressPostcode, '작업자가 적은 값을 덮어썼다').toBe('11111')
+    })
+
+    // 우편번호와 도로명은 짝이다 — 조회한 우편번호에 다른 표기를 붙이면 어긋난 쌍이 된다
+    it('조회로 채울 때는 JUSO 표기의 도로명을 함께 쓴다', () => {
+        const typed = '봉화군  물야면 오전리 55'
+        const rec = fns.buildRecord([typed], { addressRoad: 0 }, '농가의뢰', mapOf(typed, hit('36100', ROAD2)))
+        expect(rec.addressRoad).toBe(ROAD2)
+        expect(rec.address).toBe(`(36100) ${ROAD2}`)
+    })
+
+    it('computePreview를 거쳐도 반영된다 (미리보기 = 저장)', () => {
+        const p = fns.computePreview({
+            rows: [['501', '홍길동', ROAD2]],
+            mapping: { receptionNumber: 0, name: 1, addressRoad: 2 },
+            landClass1: '농가의뢰',
+            logs: [],
+            addrLookup: mapOf(ROAD2, hit('36100', ROAD2)),
+        })
+        expect(p.items[0].rec.addressPostcode, 'computePreview가 맵을 안 흘려보냈다').toBe('36100')
+        expect(p.addrLookup, '렌더가 읽을 맵이 반환에 없다').toBeInstanceOf(Map)
+    })
+})
+
 describe('서식', () => {
     const sheet = (n) => fns.buildTemplateSheets().find((s) => s.name === n)
 

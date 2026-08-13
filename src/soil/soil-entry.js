@@ -50,4 +50,5 @@ import './sheet-name.js';
 import './soil-script.js';
 
 // 흙토람式 가져오기 모달 (soil-script.js 뒤 — window.soilManager 준비 후 버튼 연결)
+import './soil-address-lookup.js';   // SLS-1-227: 가져오기 우편번호 자동조회 (importer보다 먼저)
 import './soil-result-importer.js';

@@ -598,12 +598,40 @@
         <!-- 타임라인 -->
         <div class="timeline">
 
+            <!-- v1.14.5 -->
+            <!-- data-popup 미부착: 엑셀 가져오기를 쓰는 담당자에게만 해당하고,
+                 사용자가 당장 조치할 것이 없다. 매번 뜨면 정작 중요할 때 안 읽는다. -->
+            <div class="version-entry">
+                <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.5</span>
+                                <span class="version-date">2026-08-13</span>
+                            </div>
+                            <div class="version-title">📮 엑셀로 가져온 건도 라벨에 주소·우편번호가 나옵니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>엑셀로 가져온 건을 라벨 인쇄하면 이름만 나오고 주소가 비던 문제를 고쳤습니다.</strong> 이미 가져와 저장하신 자료도 <strong>다시 가져오실 필요 없이</strong> 그대로 나옵니다.</li>
+                        <li><strong>우편번호를 자동으로 찾아 채웁니다.</strong> 가져오기 창에서 농가주소를 매핑하면 <strong>"📮 우편번호 자동조회"</strong> 버튼이 나타납니다. 손으로 우편번호를 찾아 적지 않으셔도 됩니다. (설치형 앱에서만 동작합니다)</li>
+                        <li><strong>찾지 못한 주소는 붉은 글자로 알려드립니다.</strong> 후보가 여럿이라 확실하지 않으면 <strong>일부러 비워 둡니다</strong> — 엉뚱한 우편번호가 라벨에 찍히면 알아채기 어렵기 때문입니다. 붉은 글자는 알림일 뿐이니 <strong>그대로 가져오셔도 됩니다.</strong></li>
+                        <li><strong>가져오기 미리보기에 농가주소·우편번호 칸이 생겼습니다.</strong> 등록 전에 눈으로 확인하실 수 있습니다.</li>
+                        <li><strong>엑셀 기본 서식을 받을 수 있습니다</strong> — 자체·대표필지·농가의뢰·공익직불제 네 가지 시트로 나뉘어 있어, 서식에 맞춰 적으시면 매핑이 저절로 맞습니다.</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- v1.14.4 -->
             <!-- data-popup 미부착: 팝업 기능 자체를 추가한 릴리스라 알릴 내용이 사용자 조치를
                  요구하지 않는다. 또한 이 버전 첫 실행 시점에는 lastSeenVersion 기록이 없어
                  (첫 설치로 취급) 어차피 뜨지 않는다. 수정사항 팝업은 v1.14.5부터 동작한다. -->
             <div class="version-entry">
-                <div class="version-dot latest"></div>
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -612,9 +640,6 @@
                                 <span class="version-date">2026-07-30</span>
                             </div>
                             <div class="version-title">📢 중요 안내와 공지사항을 팝업으로 알려드립니다</div>
-                        </div>
-                        <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

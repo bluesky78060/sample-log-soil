@@ -26,7 +26,7 @@ const DEBUG = (() => {
 /**
  * 앱 버전
  */
-const APP_VERSION = '1.14.4';
+const APP_VERSION = '1.14.5';
 
 /**
  * 페이지네이션 관련 상수

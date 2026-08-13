@@ -385,9 +385,37 @@
         };
     }
 
-    function buildRecord(row, mapping, landClass1) {
+    /**
+     * 자동조회 결과를 주소에 반영한다 (SLS-1-227).
+     *
+     * ⚠️ **결과를 rec에 넣어야 실제로 저장된다.** `_commit()`은 `it.rec`만 복사하므로,
+     *    조회 결과를 미리보기 표시용으로만 들고 있으면 화면에는 보이는데 저장은 안 되는
+     *    허깨비 기능이 된다 (codex 계획 리뷰 지적).
+     *
+     * ⚠️ 우편번호 열을 직접 적었으면 **그 값이 우선**이다. 조회는 보조 수단이지
+     *    작업자가 적은 값을 덮어쓰는 장치가 아니다.
+     *
+     * ⚠️ 조회로 채울 때는 도로명도 JUSO 표기로 함께 바꾼다. 우편번호와 도로명은 짝이라,
+     *    조회한 우편번호에 작업자가 적은 다른 표기를 붙이면 서로 어긋난 쌍이 된다.
+     */
+    function applyAddrLookup(addr, addrLookup) {
+        const L = window.SoilAddressLookup;
+        if (!addrLookup || !L || !addr.addressRoad || addr.addressPostcode) return addr;
+        const hit = addrLookup.get(L.normalizeRoad(addr.addressRoad));
+        if (!hit || hit.status !== 'ok') return addr;
+        return {
+            addressPostcode: hit.zip,
+            addressRoad: hit.road,
+            address: `(${hit.zip}) ${hit.road}`,
+        };
+    }
+
+    function buildRecord(row, mapping, landClass1, addrLookup) {
         const get = (key) => cellOf(row, mapping, key);
-        const addr = buildAddressFields(get('addressPostcode'), get('addressRoad'));
+        const addr = applyAddrLookup(
+            buildAddressFields(get('addressPostcode'), get('addressRoad')),
+            addrLookup
+        );
         return {
             ...addr,
             name: get('name'),
@@ -459,6 +487,10 @@
         const rows = o.rows || [];
         const mapping = o.mapping || {};
         const landClass1 = o.landClass1 || LAND_CLASS1_DEFAULT;
+        // 주소 자동조회 결과 (SLS-1-227). 정규화 주소 → 판정.
+        // ⚠️ preview item이 아니라 **호출자가 소유한 맵**으로 받는다 —
+        //    _recompute()가 preview를 통째로 다시 만들기 때문에 item에 붙이면 사라진다.
+        const addrLookup = o.addrLookup instanceof Map ? o.addrLookup : null;
         const dupPolicy = o.dupPolicy || 'skip';
         // 세 풀은 항상 같은 로그에서 나와야 한다. `logs`를 주면 여기서 도출하므로
         // 호출부가 하나를 빠뜨릴 수 없다 — 빠뜨리면 그 검사가 조용히 사라진다
@@ -501,7 +533,7 @@
 
         rows.forEach((row) => {
             const get = (key) => cellOf(row, mapping, key);
-            const rec = buildRecord(row, mapping, landClass1);
+            const rec = buildRecord(row, mapping, landClass1, addrLookup);
 
             // 식별 정보 없는 빈 행 → 오류
             if (!rec.name && !rec.lotAddress) {
@@ -593,7 +625,7 @@
             it.status === 'new' || (it.status === 'dup' && !it.skip)
         ).length;
 
-        return { items, stats, willImport, landClass1 };
+        return { items, stats, willImport, landClass1, addrLookup };
     }
 
     function escapeHtml(s) {
@@ -723,6 +755,11 @@
 .sri-pv-table tr:last-child td{border-bottom:0}
 .sri-pv-table tr.is-dup td{background:#fffbeb}
 .sri-pv-table tr.is-err td{background:#fef2f2}
+.sri-pv-table td.is-addr-fail{color:#dc2626;font-weight:600}
+.sri-btn-lookup{padding:9px 14px;border-radius:9px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;
+  font-size:.86rem;font-weight:600;cursor:pointer}
+.sri-btn-lookup:disabled{opacity:.5;cursor:not-allowed}
+.sri-btn-lookup-cancel{border-color:#fecaca;background:#fef2f2;color:#b91c1c}
 .sri-pv-table td.addr{white-space:normal;min-width:160px;max-width:240px}
 .sri-status{padding:2px 9px;border-radius:12px;font-size:.72rem;font-weight:600;white-space:nowrap}
 .sri-status.new{background:#dcfce7;color:#166534}
@@ -779,6 +816,9 @@
 [data-theme="dark"] .sri-pv-table td{color:#d6d3d1;border-bottom-color:#332f2c}
 [data-theme="dark"] .sri-pv-table tr.is-dup td{background:rgba(234,179,8,.08)}
 [data-theme="dark"] .sri-pv-table tr.is-err td{background:rgba(239,68,68,.1)}
+[data-theme="dark"] .sri-pv-table td.is-addr-fail{color:#f87171}
+[data-theme="dark"] .sri-btn-lookup{border-color:#1e3a5f;background:#172554;color:#93c5fd}
+[data-theme="dark"] .sri-btn-lookup-cancel{border-color:#7f1d1d;background:#450a0a;color:#fca5a5}
 [data-theme="dark"] .sri-pv-empty{border-color:#44403c;color:#78716c}
 [data-theme="dark"] .sri-footer{background:#231f1d;border-top-color:#44403c}
 [data-theme="dark"] .sri-btn-cancel{background:#292524;color:#d6d3d1;border-color:#57534e}
@@ -904,6 +944,8 @@
   <footer class="sri-footer">
     <span class="sri-footer-note" data-el="footerNote"></span>
     <span class="sri-spacer"></span>
+    <button type="button" class="sri-btn-lookup" data-act="lookupAddr" hidden>📮 우편번호 자동조회</button>
+    <button type="button" class="sri-btn-lookup sri-btn-lookup-cancel" data-act="lookupCancel" hidden>■ 조회 중지</button>
     <button type="button" class="sri-btn-dlerr" data-act="dlErrorCsv" hidden>⚠️ 오류 행 CSV</button>
     <button type="button" class="sri-btn-cancel" data-act="close">취소</button>
     <button type="button" class="sri-btn-import" data-act="import" disabled>📥 가져오기</button>
@@ -958,6 +1000,12 @@
                 autoNumber: true,
                 dupPolicy: 'skip',       // 'skip' | 'overwrite'
                 preview: null,
+                // 주소 자동조회 결과 (SLS-1-227): 정규화 도로명 → { status, zip, road, reason }
+                // ⚠️ preview 밖에 둔다. _recompute()가 preview를 통째로 다시 만들기 때문에
+                //    item에 붙이면 구분·중복정책·매핑을 건드리는 순간 사라진다.
+                //    캐시 역할도 겸한다 — 같은 주소를 두 번 조회하지 않는다.
+                addrLookup: new Map(),
+                addrLookupBusy: false,
             };
         }
 
@@ -989,6 +1037,8 @@
                 else if (act === 'import') this._commit();
                 else if (act === 'automap') this._autoMap();
                 else if (act === 'dlErrorCsv') this._downloadErrorCsv();
+                else if (act === 'lookupAddr') this._lookupAddresses();
+                else if (act === 'lookupCancel') this._state.addrLookupAbort?.abort();
                 else if (act === 'dlTemplate') this._downloadTemplate();
                 else if (act === 'pick') { e.stopPropagation(); this._els.fileInput?.click(); }
             });
@@ -1398,6 +1448,7 @@
                 logs,
                 nextNumber,
                 nextFillNumber,
+                addrLookup: this._state.addrLookup,
             });
         }
 
@@ -1418,6 +1469,9 @@
                 box.innerHTML = '<div class="sri-pv-empty">성명 또는 지번주소 컬럼을 매핑하면 미리보기가 생성됩니다.</div>';
                 if (importBtn) { importBtn.disabled = true; importBtn.textContent = '📥 가져오기'; }
                 if (dlErrBtn) { dlErrBtn.hidden = true; dlErrBtn.textContent = '⚠️ 오류 행 CSV'; }
+                // 미리보기가 없으면 조회 버튼도 감춘다 — 안 그러면 매핑 해제·모드 전환 후에도
+                // 이전 버튼이 남아, 눌러도 아무 일이 없는 것처럼 보인다.
+                this._updateLookupBtn(null);
                 if (note) note.textContent = '';
                 return;
             }
@@ -1429,15 +1483,26 @@
 
             const shown = p.items.slice(0, PREVIEW_ROW_LIMIT);
             const labels = { new: '신규', dup: '중복', err: '오류' };
+            const L = window.SoilAddressLookup;
+            const lookupOf = (road) =>
+                (p.addrLookup && L && road) ? p.addrLookup.get(L.normalizeRoad(road)) : null;
             const trs = shown.map(it => {
                 const r = it.rec || {};
                 const cls = it.status === 'dup' ? 'is-dup' : (it.status === 'err' ? 'is-err' : '');
+                // 주소 자동조회 실패 → 그 셀만 붉게. 행 전체를 칠하지 않는다 —
+                // tr.is-err(배경 붉음)과 뒤섞이면 "이 행은 안 들어간다"로 읽힌다.
+                // 조회 실패는 가져오기를 막지 않는다.
+                const la = lookupOf(r.addressRoad);
+                const addrCls = (la && la.status !== 'ok') ? 'is-addr-fail' : '';
+                const addrTitle = (la && la.status !== 'ok') ? ` title="${escapeHtml(la.reason)}"` : '';
                 const statusBadge = `<span class="sri-status ${it.status}">${labels[it.status]}${it.skip ? ' · 건너뜀' : ''}</span>`;
                 return `<tr class="${cls}">
                     <td>${statusBadge}</td>
                     <td>${escapeHtml(it.display ?? '')}</td>
                     <td>${escapeHtml(r.name ?? '')}</td>
                     <td>${escapeHtml(r.phoneNumber ?? '')}</td>
+                    <td class="addr col-road ${addrCls}"${addrTitle}>${escapeHtml(r.addressRoad ?? '')}</td>
+                    <td class="col-zip ${addrCls}">${escapeHtml(r.addressPostcode ?? '')}</td>
                     <td class="addr">${escapeHtml(r.lotAddress ?? '')}</td>
                     <td>${escapeHtml(r.cropsDisplay ?? '')}</td>
                     <td>${escapeHtml(r.area ?? '')}</td>
@@ -1454,7 +1519,7 @@
 
             box.innerHTML = trs
                 ? `<div class="sri-pv-wrap"><table class="sri-pv-table">
-                    <thead><tr><th>상태</th><th>접수번호</th><th>성명</th><th>연락처</th><th>지번주소</th><th>작물</th><th>면적</th><th>경지구분1차</th><th>구분</th><th>목적</th><th>비고</th></tr></thead>
+                    <thead><tr><th>상태</th><th>접수번호</th><th>성명</th><th>연락처</th><th>농가주소</th><th>우편번호</th><th>지번주소</th><th>작물</th><th>면적</th><th>경지구분1차</th><th>구분</th><th>목적</th><th>비고</th></tr></thead>
                     <tbody>${trs}</tbody></table></div>${overflow}`
                 : '<div class="sri-pv-empty">표시할 행이 없습니다.</div>';
 
@@ -1462,6 +1527,7 @@
                 importBtn.disabled = p.willImport === 0;
                 importBtn.textContent = p.willImport > 0 ? `📥 ${p.willImport}건 가져오기` : '📥 가져오기';
             }
+            this._updateLookupBtn(p);
             if (dlErrBtn) {
                 if (p.stats.err > 0) {
                     dlErrBtn.hidden = false;
@@ -1472,7 +1538,17 @@
                 }
             }
             if (note) {
-                note.textContent = `총 ${p.stats.total}건 중 ${p.willImport}건이 [${p.landClass1}]으로 등록됩니다`;
+                const L2 = window.SoilAddressLookup;
+                let addrNote = '';
+                if (L2 && p.addrLookup?.size) {
+                    const failed = p.items.filter(it => {
+                        const h = it.rec?.addressRoad ? p.addrLookup.get(L2.normalizeRoad(it.rec.addressRoad)) : null;
+                        return h && h.status !== 'ok';
+                    }).length;
+                    // 붉은색은 경고이지 차단이 아니다 — 그대로 가져와도 된다는 걸 분명히 적는다
+                    if (failed > 0) addrNote = ` · 주소 확인 필요 ${failed}건(붉은 글자, 그대로 가져와도 됩니다)`;
+                }
+                note.textContent = `총 ${p.stats.total}건 중 ${p.willImport}건이 [${p.landClass1}]으로 등록됩니다${addrNote}`;
             }
         }
 
@@ -1541,6 +1617,100 @@
         }
 
         // ----------------------------------------------------------
+        // ----------------------------------------------------------
+        // 우편번호 자동조회 (SLS-1-227)
+        // ----------------------------------------------------------
+
+        /** 조회 대상 도로명주소 목록 — 우편번호가 이미 있는 행은 제외한다 */
+        _pendingAddrQueries(p) {
+            const out = [];
+            for (const it of (p?.items || [])) {
+                const road = it.rec?.addressRoad;
+                if (road && !it.rec.addressPostcode) out.push(road);
+            }
+            return out;
+        }
+
+        _updateLookupBtn(p) {
+            const btn = this._els.modal.querySelector('[data-act="lookupAddr"]');
+            const cancelBtn = this._els.modal.querySelector('[data-act="lookupCancel"]');
+            if (!btn) return;
+            const L = window.SoilAddressLookup;
+            const busy = this._state.addrLookupBusy;
+            if (cancelBtn) cancelBtn.hidden = !busy;
+
+            // 농가주소를 매핑하지 않았으면 애초에 할 일이 없다 — 버튼도 숨긴다.
+            const mapped = this._state.fieldMapping?.addressRoad != null;
+            if (!mapped || !L) { btn.hidden = true; return; }
+            btn.hidden = false;
+
+            if (busy) { btn.disabled = true; return; }
+            const blocked = L.unavailableReason();
+            const pending = this._pendingAddrQueries(p).length;
+            btn.disabled = !!blocked || pending === 0;
+            btn.title = blocked || (pending === 0 ? '조회할 주소가 없습니다 (우편번호가 이미 채워져 있습니다).' : '');
+            btn.textContent = pending > 0 ? `📮 우편번호 자동조회 (${pending}건)` : '📮 우편번호 자동조회';
+        }
+
+        async _lookupAddresses() {
+            const L = window.SoilAddressLookup;
+            if (!L || this._state.addrLookupBusy) return;
+
+            const blocked = L.unavailableReason();
+            if (blocked) { toast(blocked, 'error'); return; }
+
+            const queries = this._pendingAddrQueries(this._state.preview);
+            if (queries.length === 0) { toast('조회할 주소가 없습니다.', 'info'); return; }
+
+            const note = this._els.footerNote;
+            const abort = new AbortController();
+            this._state.addrLookupAbort = abort;
+            this._state.addrLookupBusy = true;
+            this._updateLookupBtn(this._state.preview);
+
+            let res;
+            try {
+                res = await L.lookupBatch(queries, {
+                    cache: this._state.addrLookup,
+                    signal: abort.signal,
+                    onProgress: (done, total) => {
+                        if (note) note.textContent = `우편번호 조회 중… ${done}/${total}`;
+                    },
+                });
+            } catch (err) {
+                logErr('[가져오기] 주소 조회 실패:', err);
+                toast('주소 조회 중 오류가 발생했습니다.', 'error');
+                res = null;
+            } finally {
+                this._state.addrLookupBusy = false;
+                this._state.addrLookupAbort = null;
+            }
+
+            // 조회 결과를 rec에 반영하려면 다시 계산해야 한다 (computePreview가 읽는다)
+            this._recompute();
+            this._renderPreview();
+
+            if (!res) return;
+            if (res.fatal) { toast(res.fatal, 'error'); return; }
+
+            // ⚠️ 진행률은 **주소 기준**(중복 제거)이다. 여기서 행을 세면
+            //    "1/1 조회" 뒤에 "5건 채움"이 떠서 숫자가 서로 어긋나 보인다.
+            const cache = this._state.addrLookup;
+            let ok = 0, bad = 0;
+            for (const key of new Set(queries.map((q) => L.normalizeRoad(q)))) {
+                const hit = cache.get(key);
+                if (!hit) continue;
+                if (hit.status === 'ok') ok++; else bad++;
+            }
+            if (res.aborted) {
+                toast(`조회를 중지했습니다. 주소 ${ok}건 채움 · ${bad}건 실패`, 'info');
+            } else if (bad > 0) {
+                toast(`주소 ${ok}건 채움 · ${bad}건은 확인이 필요합니다 (붉은 글자).`, 'warning');
+            } else {
+                toast(`주소 ${ok}건의 우편번호를 채웠습니다.`, 'success');
+            }
+        }
+
         // 오류 행 CSV 다운로드
         // ----------------------------------------------------------
         _downloadErrorCsv() {
@@ -1619,7 +1789,7 @@
         // 서식 생성 (SLS-1-225) — DOM·다운로드 부작용 없음
         buildTemplateSheets, fieldLabel,
         // 주소 조합 (SLS-1-226)
-        buildRecord, buildAddressFields, splitPostcodePrefix, toAsciiDigits,
+        buildRecord, buildAddressFields, splitPostcodePrefix, toAsciiDigits, applyAddrLookup,
     };
 
     // 로드 시 1회: 교차 필드 중복 키워드가 있으면 콘솔 경고(개발 보조)

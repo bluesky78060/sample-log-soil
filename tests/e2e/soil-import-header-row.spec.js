@@ -59,26 +59,30 @@ const mappingOf = (page) =>
     page.evaluate(() => window.SoilResultImporter._state.fieldMapping);
 
 test.describe('헤더 행 변경 (SLS-1-230)', () => {
+    // ⚠️ SLS-1-231이 헤더 행 자동 감지를 넣으면서 이 테스트의 원래 전제
+    //    ("로드 직후엔 1행이 헤더라 쓸 만한 매핑이 안 나온다")가 더 이상 참이 아니다.
+    //    검증하려는 것은 그대로다 — **헤더 행을 바꾸면 매핑이 따라 바뀌는가.**
+    //    이제는 자동 감지가 3행을 잡아 두므로, 1행으로 **되돌려** 확인한다.
     test('헤더 행을 바꾸면 매핑이 새 헤더 기준으로 다시 잡힌다', async ({ page }) => {
         await openWithFile(page);
 
-        // 로드 직후: 1행("토양 시료 접수 서식")이 헤더 → 쓸 만한 매핑이 나올 수 없다
-        const before = await mappingOf(page);
+        // 자동 감지가 3행(진짜 헤더)을 잡았는지 먼저 고정
+        await expect(page.locator('.sri-overlay [data-el="headerRow"]')).toHaveValue('3');
+        const detected = await mappingOf(page);
+        expect(detected.receptionNumber, '자동 감지가 3행을 못 잡았다').toBe(0);
+        expect(detected.name).toBe(1);
+        expect(detected.lotAddress).toBe(2);
+        expect(detected.cropsDisplay).toBe(3);
 
-        await page.locator('.sri-overlay [data-el="headerRow"]').fill('3');
+        // 1행(제목)으로 되돌리면 매핑도 그 행 기준으로 다시 잡혀야 한다
+        await page.locator('.sri-overlay [data-el="headerRow"]').fill('1');
         await expect
-            .poll(async () => Object.keys(await mappingOf(page)).length, { timeout: 5000 })
-            .toBeGreaterThan(2);
+            .poll(async () => JSON.stringify(await mappingOf(page)), { timeout: 5000 })
+            .not.toBe(JSON.stringify(detected));
 
         const after = await mappingOf(page);
-        expect(after, `헤더 행을 바꿔도 매핑이 그대로다 (before=${JSON.stringify(before)})`)
-            .not.toEqual(before);
-
-        // 새 헤더 기준으로 정확히 붙었는가 — 개수만 세면 엉뚱하게 붙어도 통과한다
-        expect(after.receptionNumber, '접수번호가 0열에 안 붙었다').toBe(0);
-        expect(after.name, '성명이 1열에 안 붙었다').toBe(1);
-        expect(after.lotAddress, '지번주소가 2열에 안 붙었다').toBe(2);
-        expect(after.cropsDisplay, '작물이 3열에 안 붙었다').toBe(3);
+        expect(Object.keys(after).length, '제목 행을 헤더로 삼았는데 매핑이 그대로 남았다')
+            .toBeLessThan(Object.keys(detected).length);
     });
 
     // 🚨 codex 코드리뷰 MAJOR — '헤더 없음'도 헤더를 바꾼다(실제 헤더 → '열 1, 열 2…').
@@ -101,6 +105,41 @@ test.describe('헤더 행 변경 (SLS-1-230)', () => {
         await expect
             .poll(async () => (await mappingOf(page)).name, { timeout: 5000 })
             .toBe(1);
+    });
+
+    // 🚨 시트마다 헤더 위치가 다를 수 있다. 앞 시트의 헤더 행을 그대로 들고 가면
+    //    제목이나 데이터 행을 헤더로 읽는다 (SLS-1-231).
+    test('시트를 바꾸면 그 시트 기준으로 헤더 행을 다시 찾는다', async ({ page }) => {
+        page.on('dialog', (d) => d.dismiss().catch(() => {}));
+        const res = await page.goto('/soil/');
+        expect(res && res.status()).toBeLessThan(400);
+        await page.waitForFunction(() => !!window.SoilResultImporter && !!window.XLSX, { timeout: 15000 });
+        await page.evaluate(() => window.SoilResultImporter.open());
+
+        // 시트A: 헤더가 3행 / 시트B: 헤더가 1행
+        const buf = await page.evaluate(() => {
+            const wb = window.XLSX.utils.book_new();
+            window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet([
+                ['제목'], ['안내'], ['접수번호', '성명', '지번주소'], ['', '홍길동', '가나리 1'],
+            ]), 'A');
+            window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.aoa_to_sheet([
+                ['접수번호', '성명', '지번주소'], ['', '김철수', '나다리 2'],
+            ]), 'B');
+            return Array.from(new Uint8Array(window.XLSX.write(wb, { type: 'array', bookType: 'xlsx' })));
+        });
+        await page.locator('.sri-overlay input[type="file"]').first().setInputFiles({
+            name: 'two.xlsx',
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            buffer: Buffer.from(buf),
+        });
+        await expect(page.locator('.sri-overlay [data-el="headerRow"]')).toHaveValue('3');
+
+        await page.locator('.sri-overlay [data-el="sheetSelect"]').selectOption('B');
+        await expect(
+            page.locator('.sri-overlay [data-el="headerRow"]'),
+            '앞 시트의 헤더 행(3)을 그대로 들고 갔다'
+        ).toHaveValue('1');
+        await expect.poll(async () => (await mappingOf(page)).name, { timeout: 5000 }).toBe(1);
     });
 
     test('바뀐 매핑이 미리보기에도 반영된다', async ({ page }) => {

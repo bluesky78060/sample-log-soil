@@ -184,28 +184,30 @@ describe('자동조회 결과 반영', () => {
 })
 
 describe('서식', () => {
+    // SLS-1-231에서 시트 구성이 사용자 업무 서식 기준으로 바뀌었다.
+    // 서식↔매핑 계약 전반은 soil-import-template.test.js가 본다.
+    // 여기서는 **우편번호가 라벨을 위해 살아 있는가**만 지킨다.
     const sheet = (n) => fns.buildTemplateSheets().find((s) => s.name === n)
 
-    it('8. 농가의뢰·공익직불제에 우편번호 열이 있다', () => {
-        for (const n of ['농가의뢰', '공익직불제']) {
+    // 🚨 자동조회(SLS-1-227)는 데스크톱 전용이다. 열이 없으면 웹에서는 우편번호를
+    //    채울 길이 아예 없어지고, 라벨에 우편번호가 빈 채로 인쇄된다.
+    it('8. 개인정보를 다루는 시트에 우편번호 열이 있다', () => {
+        for (const n of ['시료접수대장', '일괄등록양식']) {
             expect(sheet(n).headers, `${n}에 우편번호가 없다`).toContain('우편번호')
         }
     })
 
     it('9. 자체·대표필지에는 없다 (개인정보 없음 — 라벨 대상 아님)', () => {
-        for (const n of ['자체', '대표필지']) {
-            expect(sheet(n).headers, `${n}에 우편번호가 생겼다`).not.toContain('우편번호')
-        }
+        expect(sheet('자체, 대표필지').headers, '자체·대표필지에 우편번호가 생겼다')
+            .not.toContain('우편번호')
     })
 
-    // SLS-1-225 회귀 — 필드를 늘렸으니 매핑이 여전히 전부 맞는지 다시 본다
-    it('10. 서식 헤더가 전부 의도한 필드에 매핑된다', () => {
-        for (const s of fns.buildTemplateSheets()) {
+    it('10. 우편번호 열이 addressPostcode에 정확히 붙는다', () => {
+        for (const n of ['시료접수대장', '일괄등록양식']) {
+            const s = sheet(n)
             const mapping = fns.computeAutoMapping(s.headers)
-            s.fields.forEach((key, i) => {
-                expect(mapping[key], `'${s.name}': '${s.headers[i]}'(열 ${i})가 '${key}'에 안 붙었다`)
-                    .toBe(i)
-            })
+            expect(s.headers[mapping.addressPostcode], `${n}: 우편번호가 다른 열에 붙었다`)
+                .toBe('우편번호')
         }
     })
 })

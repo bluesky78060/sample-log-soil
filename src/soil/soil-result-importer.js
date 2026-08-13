@@ -90,43 +90,139 @@
     //   OR(:345)이고 행 검사도 name||lotAddress(:372)라 지번주소만으로 통과한다.
     //   열이 없으면 실수로 채울 자리도 없다 — 규칙이 아니라 구조로 막는다.
 
-    /** 필드 키 → 서식 헤더. 문자열 리터럴로 적지 말 것(라벨 변경 시 매핑이 조용히 깨진다) */
+    /** 필드 키 → 서식 헤더 라벨. 문자열 리터럴로 적지 말 것(라벨 변경 시 매핑이 조용히 깨진다) */
     const fieldLabel = (key) => TARGET_FIELDS.find((f) => f.key === key)?.label ?? key;
 
-    const TPL_NO_PII = ['receptionNumber', 'lotAddress', 'cropsDisplay', 'area', 'subCategory', 'purpose', 'note'];
-    const TPL_FARMER = ['receptionNumber', 'name', 'phoneNumber', 'addressPostcode', 'addressRoad',
-        'lotAddress', 'cropsDisplay', 'area', 'subCategory', 'purpose', 'note'];
+    /**
+     * 검정 결과 열 — 접수와 무관하다. **어떤 필드에도 매핑되면 안 된다.**
+     * 시료를 분석한 뒤 값을 채워 흙토람에 올리는 용도라 서식에는 자리만 둔다.
+     */
+    const CHEM_COLS = ['점토함량', 'pH', '유기물', '유효인산', '교환성칼륨', '교환성칼슘',
+        '교환성마그네슘', '유효규산', '전기전도도', '석회소요량', '질산태질소',
+        '양이온치환용량', '암모니아태질소'];
+    const chem = () => CHEM_COLS.map((label) => ({ label, key: null, sample: '' }));
 
+    /**
+     * ⚠️ 예시 행의 **식별 필드**에 경고를 심는다.
+     *    식별 검사는 성명·지번주소 중 하나만 있어도 통과하므로(:539), 예시 행을 지우지 않고
+     *    가져오면 그대로 저장된다. 안내를 비고에만 두면 가장 안 보는 칸이라 소용이 없다 —
+     *    미리보기에서 바로 눈에 띄어야 한다.
+     * ⚠️ soil-entry.js는 스타일 없는 xlsx를 import하므로 색·굵게는 불가. 강조는 텍스트로만.
+     */
+    const SAMPLE_MARKER = '⚠예시 – 삭제 후 사용⚠';
+    const SAMPLE_WARN = SAMPLE_MARKER + ' ';
+
+    /**
+     * 가져오기 기본 서식 (SLS-1-231) — 사용자 제공 업무 서식 기준.
+     *
+     * 구조: 1행 제목 / 2행 안내문 / 3행 헤더 / 4행 예시
+     *
+     * ⚠️ **헤더는 반드시 한 줄이다.** 원본은 '경지구분'을 1차/2차로 병합한 2단 헤더였는데,
+     *    그러면 병합 아래 칸이 빈 채로 읽혀 구분(논/밭/과수)을 매번 손으로 지정해야 한다.
+     *    우리가 배포하는 서식이 우리 앱에서 그러면 안 된다.
+     *
+     * ⚠️ `key: null`은 **가져오기 대상이 아닌 열**이라는 뜻이다. 빠뜨린 게 아니다.
+     *    - 필지구분: 본필지/하위필지는 접수번호로 판별한다(503 / 503-1)
+     *    - 경지구분 1차: 모달에서 배치 단위로 고른다
+     *    - 화학성분값·수령 방법·차수·채취자명: 대응 필드가 없다
+     *    테스트가 이 의도를 그대로 검증한다.
+     */
     const TEMPLATE_SHEETS = [
-        { name: '자체', fields: TPL_NO_PII },
-        { name: '대표필지', fields: TPL_NO_PII },
-        { name: '농가의뢰', fields: TPL_FARMER },
-        // 공익직불제 = 농가의뢰 + 경영체등록번호 + 접수일자
-        { name: '공익직불제', fields: [...TPL_FARMER, 'businessRegNo', 'date'] },
+        {
+            name: '자체, 대표필지',
+            title: '자체, 대표필지 기본 서식',
+            guide: [
+                '1. 필지 구분은 본필지와 하위필지로 구분합니다.',
+                '2. 경지구분 1차(자체, 대표필지), 2차(논, 밭, 과수, 시설)',
+                '3. 필지 주소의 "산"은 띄어서 적습니다. 예) OO리 산 123-1',
+                '4. 기타주소(시설: 1동, 2동, 3동 / A동, B동)',
+                '5. 4행(예시)은 지우고 입력하세요.',
+                // ⚠️ 4시트로 나눴던 이유가 여기 있다 — 경지구분은 행 단위로 넣을 열이 없다.
+                //    한 시트에 섞이면 어느 행이 어느 구분인지 가져오기가 알 수 없다.
+                '6. 자체와 대표필지를 함께 적었다면, 가져올 때 경지구분을 하나만 고르므로 한 종류씩 나누어 올리십시오.',
+            ],
+            columns: [
+                { label: '필지구분',        key: null,           sample: '본필지' },
+                { label: '채취년월일',      key: 'date',         sample: '2026-07-07' },
+                { label: '경지구분 1차',    key: null,           sample: '대표필지' },
+                { label: '경지구분 2차',    key: 'subCategory',  sample: '논' },
+                { label: '시료번호',        key: 'receptionNumber', sample: '' },
+                { label: '필지 주소',       key: 'lotAddress',   sample: SAMPLE_WARN + '경상북도 봉화군 봉화읍 문단리 699' },
+                { label: '기타주소',        key: 'note',         sample: '' },
+                { label: '면적(㎡)',        key: 'area',         sample: '1500' },
+                { label: '작물명 또는 작물코드', key: 'cropsDisplay', sample: '벼(일반답)' },
+                { label: '일반적인토양검정-0',  key: null, sample: '' },
+                { label: '토양개량제 규산-1',   key: null, sample: '' },
+                { label: '토양개량제 석회질-2', key: null, sample: '' },
+                { label: '녹비작물-3',         key: null, sample: '' },
+                { label: '전-N',              key: null, sample: '' },
+                ...chem(),
+            ],
+        },
+        {
+            name: '시료접수대장',
+            title: '농가의뢰 입력 서식',
+            guide: [
+                '1. 필지 구분은 본필지와 하위필지로 구분합니다.',
+                '2. 경지구분 1차는 "농가의뢰"로 고정입니다.',
+                '3. 목적(용도) — 일반재배, 무농약, 유기농, GAP, 저탄소',
+                '4. 농가 주소는 정확히 적어 주십시오. 라벨 인쇄와 우편번호 자동조회에 씁니다.',
+                '5. 필지 주소의 "산"은 띄어서 적습니다. 예) OO리 산 123-1',
+                '6. 4행(예시)은 지우고 입력하세요.',
+            ],
+            columns: [
+                { label: '필지구분',      key: null,              sample: '본필지' },
+                { label: '접수번호',      key: 'receptionNumber', sample: '' },
+                { label: '접수일자',      key: 'date',            sample: '2026-08-13' },
+                { label: '경지구분 1차',  key: null,              sample: '농가의뢰' },
+                { label: '경지구분 2차',  key: 'subCategory',     sample: '과수' },
+                { label: '목적(용도)',    key: 'purpose',         sample: '무농약' },
+                { label: '성명',          key: 'name',            sample: '홍길동' },
+                { label: '전화번호',      key: 'phoneNumber',     sample: '010-1234-5678' },
+                // ⚠️ 원본 서식에는 없던 열이다. 라벨 인쇄에 우편번호가 필요한데(SLS-1-226),
+                //    자동조회(SLS-1-227)는 데스크톱 앱에서만 된다 — 웹에서는 채울 길이 없어진다.
+                { label: '우편번호',      key: 'addressPostcode', sample: '36628' },
+                { label: '농가 주소',     key: 'addressRoad',     sample: '경상북도 봉화군 봉화읍 내성리 100' },
+                { label: '필지 주소',     key: 'lotAddress',      sample: SAMPLE_WARN + '경상북도 봉화군 봉화읍 문단리 699' },
+                { label: '작물',          key: 'cropsDisplay',    sample: '사과(1-4년)' },
+                { label: '면적(㎡)',      key: 'area',            sample: '3213' },
+                { label: '수령 방법',     key: null,              sample: '우편' },
+                { label: '비고',          key: 'note',            sample: '이 행은 예시입니다. 지우고 사용하세요.' },
+                ...chem(),
+            ],
+        },
+        {
+            name: '일괄등록양식',
+            title: '공익직불제 기본 서식',
+            guide: [
+                '1. 필지 구분은 본필지와 하위필지로 구분합니다.',
+                '2. 경지구분 1차는 "공익직불제"로 고정, 2차는 논/밭/과수/시설입니다.',
+                '3. 대상지(필지 주소)의 "산"은 띄어서 적습니다. 예) OO리 산 123-1',
+                '4. 경영체등록번호는 숫자만 적습니다.',
+                '5. 4행(예시)은 지우고 입력하세요.',
+            ],
+            columns: [
+                { label: '차수',              key: null,              sample: '1' },
+                { label: '분석의뢰일(접수일자)', key: 'date',          sample: '2026-08-13' },
+                { label: '채취자명',          key: null,              sample: '이제식' },
+                { label: '시료번호',          key: 'receptionNumber', sample: '' },
+                { label: '경영체등록번호',     key: 'businessRegNo',   sample: '1234567890' },
+                { label: '경작자명',          key: 'name',            sample: '홍길동' },
+                // ⚠️ '대상지'만으로는 어디에도 안 붙는다. 키워드에 '대상지'를 넣으면
+                //    '대상지면적'이 접두 점수(503)로 접미(502)를 이겨 **면적 열을 뺏는다.**
+                //    키워드를 건드리지 않고 라벨로 푼다.
+                { label: '대상지(필지 주소)',  key: 'lotAddress',      sample: SAMPLE_WARN + '경상북도 봉화군 봉화읍 문단리 699' },
+                { label: '경지구분 1차',       key: null,              sample: '공익직불제' },
+                { label: '경지구분 2차',       key: 'subCategory',     sample: '밭' },
+                { label: '우편번호',           key: 'addressPostcode', sample: '36628' },
+                { label: '경작자 주소',        key: 'addressRoad',     sample: '경상북도 봉화군 봉화읍 내성리 100' },
+                { label: '신청자 전화번호',    key: 'phoneNumber',     sample: '010-1234-5678' },
+                { label: '대상지면적(㎡)',     key: 'area',            sample: '2846' },
+                { label: '작물명 또는 작물코드', key: 'cropsDisplay',   sample: '들깨(종실용)' },
+                ...chem(),
+            ],
+        },
     ];
-
-    // 예시 행 값. 키가 없는 필드는 빈 칸으로 나간다.
-    //
-    // ⚠️ 지번주소에 경고를 넣는 이유: 예시 행을 지우지 않고 가져오면 식별 검사(:345, :372)를
-    //    그대로 통과해 쓰레기 데이터가 들어간다. 안내를 비고에만 두면 가장 안 보는 칸이라
-    //    소용이 없다. **식별 필드 자체**를 눈에 띄게 해야 미리보기에서 바로 걸린다.
-    // ⚠️ 접수번호는 비운다 — 도구 자신의 권장값이 '(비움 · 자동부여)'(:1151)다.
-    //    예시에 501을 넣으면 그 권장과 모순되고, 수동 번호로 오인된다.
-    // ⚠️ soil-entry.js는 스타일 없는 xlsx를 import하므로 색·굵게는 불가. 강조는 텍스트로만.
-    const TEMPLATE_SAMPLE = {
-        lotAddress: '⚠예시 – 삭제 후 사용⚠ 경상북도 봉화군 봉화읍 문단리 699',
-        cropsDisplay: '고추',
-        area: '1500',
-        subCategory: '밭',
-        purpose: '일반재배',
-        name: '홍길동',
-        phoneNumber: '010-1234-5678',
-        addressPostcode: '36628',
-        addressRoad: '경상북도 봉화군 봉화읍 내성리 100',
-        businessRegNo: '1234567890',
-        date: '2026-08-12',
-        note: '이 행은 예시입니다. 지우고 사용하세요.',
-    };
 
     /**
      * 서식 시트 구성을 만든다 — DOM·다운로드 부작용 없음(단위 테스트용).
@@ -136,17 +232,20 @@
      *    조용히 통과한 사고가 있었다(tests/e2e/soil-export-sheets.spec.js:1-7).
      *    순수 함수로 두면 헤더·예시 행을 직접 검증할 수 있다.
      *
-     * @returns {Array<{name: string, headers: string[], rows: Array<Array<string>>}>}
+     * ⚠️ columns를 그대로 돌려준다 — 테스트가 "열이 **올바른 필드에** 매핑됐는가"와
+     *    "매핑되면 안 되는 열이 안 붙었는가"를 함께 봐야 하기 때문이다.
+     *    인덱스 집합만 보면 엉뚱한 필드에 붙어도 통과한다.
+     *
+     * @returns {Array<{name,title,guide,columns,headers,sample}>}
      */
     function buildTemplateSheets() {
         return TEMPLATE_SHEETS.map((sheet) => ({
             name: sheet.name,
-            // fields를 함께 돌려준다 — 테스트가 "열이 **올바른 필드에** 매핑됐는가"를
-            // 확인하려면 헤더와 필드 키의 대응이 필요하다. 인덱스 집합만 보면
-            // 엉뚱한 필드에 붙어도 통과한다 (codex 리뷰 MINOR-1).
-            fields: [...sheet.fields],
-            headers: sheet.fields.map(fieldLabel),
-            rows: [sheet.fields.map((key) => TEMPLATE_SAMPLE[key] ?? '')],
+            title: sheet.title,
+            guide: [...sheet.guide],
+            columns: sheet.columns.map((c) => ({ ...c })),
+            headers: sheet.columns.map((c) => c.label),
+            sample: sheet.columns.map((c) => c.sample ?? ''),
         }));
     }
 
@@ -253,6 +352,42 @@
      * 모든 (필드 × 컬럼) 쌍을 점수화한 뒤 [점수 ↓ → FIELD_ORDER → colIdx ↑] 순으로
      * 정렬해 필드·컬럼을 각각 1회씩 greedy 할당한다. 전역 최적에 가까운 결정적 매칭.
      */
+    /** 헤더 행 자동 감지: 앞쪽 몇 행까지 후보로 볼지 */
+    const HEADER_DETECT_ROWS = 6;
+
+    /**
+     * 앞 몇 행 중 자동 매핑이 가장 많이 붙는 행을 헤더로 고른다 (SLS-1-231).
+     *
+     * ⚠️ 업로드 직후 헤더 행은 늘 1이었다. 그런데 실제 업무 서식은 위에 제목·안내문이 있어
+     *    헤더가 3행쯤에 있다. **우리가 배포하는 서식조차 곧바로 못 읽는다.**
+     *    사용자에게 "헤더 행을 3으로 바꾸세요"를 떠넘기지 않는다.
+     *
+     * ⚠️ 비교는 `>`다. `>=`면 동점일 때 뒤 행이 이겨, 헤더 아래 데이터 행이 우연히
+     *    더 붙는 순간 헤더가 한 줄 밀린다.
+     *
+     * ⚠️ 2개도 못 알아보면 1행을 그대로 둔다. 아무것도 모르는 상태에서 헤더를 옮기면
+     *    지금 잘 되던 평범한 파일이 이상해진다.
+     */
+    function detectHeaderRow(allRows) {
+        const scoreOf = (row) =>
+            Object.keys(computeAutoMapping((row || []).map((c) => String(c ?? '')))).length;
+
+        // ⚠️ **첫 행이 헤더 같으면 그대로 쓴다** (codex 코드리뷰 MAJOR).
+        //    데이터 행에 '성명'·'주소' 같은 값이 우연히 들어 있으면 헤더보다 많이 매핑돼
+        //    헤더가 한 줄 밀린다. 지금까지 잘 되던 평범한 파일을 조용히 깨뜨리는 쪽이
+        //    제목이 있는 서식을 못 알아보는 쪽보다 나쁘다 — 1행을 우선한다.
+        if (scoreOf(allRows?.[0]) >= 2) return 0;
+
+        let bestIdx = 0;
+        let bestN = -1;
+        const limit = Math.min(HEADER_DETECT_ROWS, (allRows || []).length);
+        for (let i = 0; i < limit; i++) {
+            const n = scoreOf(allRows[i]);
+            if (n > bestN) { bestN = n; bestIdx = i; }
+        }
+        return bestN >= 2 ? bestIdx : 0;
+    }
+
     function computeAutoMapping(headers) {
         const normHeaders = (headers || []).map((h) => normalizeHeader(h));
         const candidates = [];
@@ -438,6 +573,11 @@
         };
     }
 
+    /** 우리 서식의 예시 행인가 — SAMPLE_WARN 마커로 판별한다 */
+    function isTemplateSampleRow(rec) {
+        return String(rec?.lotAddress || '').includes(SAMPLE_MARKER);
+    }
+
     function buildRecord(row, mapping, landClass1, addrLookup) {
         const get = (key) => cellOf(row, mapping, key);
         const addr = applyAddrLookup(
@@ -562,6 +702,21 @@
         rows.forEach((row) => {
             const get = (key) => cellOf(row, mapping, key);
             const rec = buildRecord(row, mapping, landClass1, addrLookup);
+
+            // 🚨 우리 서식의 예시 행 → 오류로 뺀다 (codex 코드리뷰 MAJOR).
+            //    안내에 "4행은 지우고 입력"이라고 적어도 잊는 사람이 있고, 그러면
+            //    '홍길동 / 봉화읍 문단리 699' 같은 가짜 접수가 실제로 저장된다.
+            //    경고 문구만으로는 눈에 띄기만 할 뿐 막지는 못한다.
+            //    마커는 우리가 서식에 심은 문자열이라 실제 자료와 겹칠 일이 없다.
+            if (isTemplateSampleRow(rec)) {
+                stats.err++;
+                items.push({
+                    status: 'err',
+                    reason: '서식의 예시 행입니다. 지우고 다시 올리세요.',
+                    display: '(예시 행)', rec,
+                });
+                return;
+            }
 
             // 식별 정보 없는 빈 행 → 오류
             if (!rec.name && !rec.lotAddress) {
@@ -1116,6 +1271,9 @@
             // 시트 / 헤더 행 / 헤더 없음
             this._els.sheetSelect?.addEventListener('change', () => {
                 this._state.activeSheet = this._els.sheetSelect.value;
+                // 시트마다 헤더 위치가 다를 수 있다 — 앞 시트의 헤더 행을 그대로 들고 가면
+                // 제목이나 데이터 행을 헤더로 읽는다. 매핑만 다시 잡아서는 부족하다.
+                this._applyDetectedHeaderRow();
                 this._remapForNewHeaders();
             });
             this._els.headerRow?.addEventListener('input', () => {
@@ -1328,13 +1486,17 @@
                     this._els.fileInfo.hidden = false;
                 }
                 this._renderSheetSelect();
-                if (this._els.headerRow) { this._els.headerRow.value = '1'; this._els.headerRow.disabled = false; }
+                const detected = this._applyDetectedHeaderRow();
+                if (this._els.headerRow) this._els.headerRow.disabled = false;
                 if (this._els.noHeader) this._els.noHeader.checked = false;
                 if (this._els.fileOpts) this._els.fileOpts.hidden = false;
 
                 this._refresh();
                 // 자동 매핑 시도 (헤더가 있을 때 편의)
                 this._autoMap(true);
+                if (detected > 0) {
+                    toast(`머리글을 ${detected + 1}행으로 인식했습니다. 다르면 직접 바꾸세요.`, 'info');
+                }
                 toast(`✅ ${file.name} 로드 완료 (시트 ${sheetNames.length}개)`, 'success');
             } catch (err) {
                 logErr('엑셀 파일 파싱 실패:', err);
@@ -1427,14 +1589,33 @@
         /**
          * 헤더가 달라졌으니 매핑을 새로 추정한다 (SLS-1-230).
          *
-         * ⚠️ _autoMap()은 파일 로드 때 **한 번만** 돌고(:1305) 그때 헤더 행은 항상 1이다.
-         *    시트나 헤더 행을 바꿔도 다시 돌지 않으면, 열 인덱스는 그대로인데 그 열의
+         * ⚠️ _autoMap()은 파일 로드 때만 돈다. 시트나 헤더 행을 바꿔도 다시 돌지 않으면
+         *    열 인덱스는 그대로인데 그 열의
          *    **의미가 달라져** 매핑이 엉뚱한 열을 가리킨다. 화면에는 매핑된 것처럼
          *    보이므로 조용하다 — 헤더가 몇 행인지 지정해야 하는 서식에서 특히 위험하다.
          *
          * ⚠️ 직접 고친 매핑이 지워진다. 그래도 이게 맞다 — 헤더가 바뀌면 그 매핑은
          *    어차피 다른 열을 가리킨다. 틀린 매핑을 남겨 두는 쪽이 더 나쁘다.
          */
+        /**
+         * 현재 시트의 헤더 행을 자동으로 찾아 적용한다 (SLS-1-231).
+         *
+         * ⚠️ 실제 업무 서식은 위에 제목·안내문이 있어 헤더가 3행쯤이다. 늘 1행으로 두면
+         *    제목이 헤더가 되고 진짜 헤더·예시가 데이터로 들어간다.
+         *
+         * ⚠️ sheets[name]은 `{ rows, maxCol }` 객체다. 통째로 넘기면 length가 undefined라
+         *    루프가 아예 안 돌고 조용히 0을 돌려준다 — 감지가 없는 것과 구분되지 않는다.
+         *    (구현 중 실제로 이렇게 틀렸고, 순수 함수 유닛 테스트는 통과했다. E2E만 잡았다.)
+         */
+        _applyDetectedHeaderRow() {
+            const rows = this._state.sheets[this._state.activeSheet]?.rows || [];
+            const detected = detectHeaderRow(rows);
+            this._state.headerRowIdx = detected;
+            if (this._els.headerRow) this._els.headerRow.value = String(detected + 1);
+            if (this._els.noHeader) this._els.noHeader.checked = false;
+            return detected;
+        }
+
         _remapForNewHeaders() {
             // ⚠️ _refresh() 뒤에 _autoMap()을 부르면 파싱·미리보기 계산이 **두 번** 돈다
             //    (_autoMap이 이미 _parseInput·_renderMapping·_recompute·_renderPreview를 한다).
@@ -1652,10 +1833,24 @@
                 for (const sheet of buildTemplateSheets()) {
                     // sanitizeExcelAoa: 수식 인젝션 방지. 셀이 전부 하드코딩 상수라 실제
                     // 위험은 낮지만 다른 내보내기 경로와 일관되게 둔다(구 구현도 동일).
-                    const aoa = window.sanitizeExcelAoa
-                        ? window.sanitizeExcelAoa([sheet.headers, ...sheet.rows])
-                        : [sheet.headers, ...sheet.rows];
+                    // 1행 제목 / 2행 안내문 / 3행 헤더 / 4행 예시
+                    const rows = [
+                        [sheet.title],
+                        [sheet.guide.join('\n')],
+                        sheet.headers,
+                        sheet.sample,
+                    ];
+                    // sanitizeExcelAoa: 수식 인젝션 방지. 셀이 전부 하드코딩 상수라 실제
+                    // 위험은 낮지만 다른 내보내기 경로와 일관되게 둔다(구 구현도 동일).
+                    const aoa = window.sanitizeExcelAoa ? window.sanitizeExcelAoa(rows) : rows;
                     const ws = XLSX.utils.aoa_to_sheet(aoa);
+                    const lastCol = Math.max(0, sheet.headers.length - 1);
+                    // 제목·안내문을 헤더 폭만큼 가로 병합 (xlsx는 !merges를 지원한다)
+                    ws['!merges'] = [
+                        { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } },
+                        { s: { r: 1, c: 0 }, e: { r: 1, c: lastCol } },
+                    ];
+                    ws['!rows'] = [{ hpt: 22 }, { hpt: 96 }];
                     ws['!cols'] = sheet.headers.map((h) => ({ wch: Math.max(12, h.length * 2 + 4) }));
                     XLSX.utils.book_append_sheet(wb, ws, sheet.name);
                 }
@@ -1838,7 +2033,7 @@
         // 접수번호 채번 (SLS-1-222) — 성토/일반 시퀀스 분리가 여기서 결정된다
         collectExistingNumbers, collectLiteralNumbers, computePreview,
         // 서식 생성 (SLS-1-225) — DOM·다운로드 부작용 없음
-        buildTemplateSheets, fieldLabel,
+        buildTemplateSheets, fieldLabel, detectHeaderRow, isTemplateSampleRow,
         // 주소 조합 (SLS-1-226)
         buildRecord, buildAddressFields, splitPostcodePrefix, toAsciiDigits, applyAddrLookup,
     };

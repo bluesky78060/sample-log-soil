@@ -4247,6 +4247,24 @@ input[type="number"] {
     background: var(--gray-50);
 }
 
+/* 작물 검색 모달 — 조회 전용 행 (SLS-1-228) */
+.crop-row-name { flex: 1; font-weight: 600; }
+.crop-row-cat {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    background: var(--gray-100);
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.crop-row-code {
+    font-size: 0.8rem;
+    color: var(--gray-400);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.crop-copy-hint { font-size: 0.8rem; color: var(--gray-500); }
+
 .crop-list li.selected {
     background: var(--primary-light);
 }

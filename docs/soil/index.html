@@ -39,9 +39,9 @@
             color: #86efac !important;
         }
     </style>
-  <script type="module" crossorigin src="../assets/soil-Bd4MgCcy.js"></script>
+  <script type="module" crossorigin src="../assets/soil-C3KxYobv.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
-  <link rel="modulepreload" crossorigin href="../assets/address-parser-CvdRYMNU.js">
+  <link rel="modulepreload" crossorigin href="../assets/address-parser-CmyjiF0X.js">
   <link rel="modulepreload" crossorigin href="../assets/xlsx-DqDnpwVQ.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-D6gMnemd.js">
   <link rel="modulepreload" crossorigin href="../assets/logger-Bx3YsiDi.js">
@@ -52,7 +52,7 @@
   <link rel="modulepreload" crossorigin href="../assets/index.esm-k5uDoaEq.js">
   <link rel="modulepreload" crossorigin href="../assets/storage-manager-NkZUqJOM.js">
   <link rel="modulepreload" crossorigin href="../assets/reception-number-DijspQb1.js">
-  <link rel="stylesheet" crossorigin href="../assets/address-parser-BtD7VV2X.css">
+  <link rel="stylesheet" crossorigin href="../assets/address-parser-DvQxJU6h.css">
   <link rel="stylesheet" crossorigin href="../assets/soil-BXX_AUaj.css">
   <link rel="stylesheet" crossorigin href="../assets/tailwind-output-uplGniQ-.css">
 </head>
@@ -124,6 +124,9 @@
                 <span class="util-btn-label">불러오기</span>
                 <input type="file" id="loadJsonInput" accept=".json" hidden>
             </label>
+            <button type="button" id="cropSearchBtn" class="util-btn" title="작물 검색 — 엑셀에 적을 작물명 찾기">
+                <span class="material-icons-outlined">grass</span><span class="util-btn-label">작물</span>
+            </button>
             <button type="button" id="soilImportBtn" class="util-btn" title="엑셀 가져오기">
                 <span class="material-icons-outlined">upload</span>
                 <span class="util-btn-label">가져오기</span>
@@ -482,23 +485,16 @@
                 </div>
                 <div class="results-info">
                     <span id="cropResultCount">0개 작물</span>
-                    <button type="button" id="clearCropSelection" class="btn-text-danger">선택 초기화</button>
+                    <span class="crop-copy-hint">행을 클릭하면 작물명이 복사됩니다</span>
                 </div>
                 <div class="crop-list-wrapper">
                     <ul id="cropList" class="crop-list">
                         <!-- 작물 목록 -->
                     </ul>
                 </div>
-                <div class="selected-section">
-                    <h4>선택된 작물 <span id="selectedCropCount">0</span>개</h4>
-                    <div id="selectedCropTags" class="tag-container">
-                        <span class="no-selection">선택된 작물이 없습니다</span>
-                    </div>
-                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" id="cancelCropSelection" class="btn-cancel">취소</button>
-                <button type="button" id="confirmCropSelection" class="btn-confirm">선택 완료</button>
+                <button type="button" id="cancelCropSelection" class="btn-cancel">닫기</button>
             </div>
         </div>
     </div>

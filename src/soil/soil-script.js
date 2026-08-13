@@ -4827,33 +4827,147 @@ class SoilSampleManager extends window.BaseSampleManager {
             });
         }
 
-        // 기존 작물 모달 (숨김 처리)
-        const openCropModalBtn = document.getElementById('openCropModalBtn');
-        if (openCropModalBtn) openCropModalBtn.style.display = 'none';
-        const cropModal = document.getElementById('cropModal');
-        const closeCropModalBtn = document.getElementById('closeCropModal');
-        const cancelCropBtn = document.getElementById('cancelCropSelection');
-        const closeModal = () => { if (cropModal) cropModal.classList.add('hidden'); };
-        if (closeCropModalBtn) closeCropModalBtn.addEventListener('click', closeModal);
-        if (cancelCropBtn) cancelCropBtn.addEventListener('click', closeModal);
-        if (cropModal) {
-            const overlay = cropModal.querySelector('.modal-overlay');
-            if (overlay) overlay.addEventListener('click', closeModal);
+        // ⚠️ 작물 검색 모달 배선은 통째로 try/catch 안에 둔다 (SLS-1-228).
+        //    여기서 예외가 나면 뒤따르는 _bindExportImportAndIO / _bindViewerAndResultModals /
+        //    _bindNavAndPagination(:4159-4162)이 **하나도 실행되지 않는다.**
+        //    접수 등록 버튼은 그 마지막 그룹에서 배선되므로(:4997), 조회 기능 하나 때문에
+        //    접수 자체가 막힌다. 게다가 BaseSampleManager.init()의 전체 try/catch가
+        //    예외를 삼켜 **아무 소리 없이** 그렇게 된다.
+        try {
+            this._bindCropSearchModal();
+        } catch (err) {
+            (window.logger?.error || console.error)('[작물검색] 배선 실패 — 기능만 비활성화합니다.', err);
+            // 눌러도 안 되는 버튼을 남기지 않는다
+            const btn = document.getElementById('cropSearchBtn');
+            if (btn) btn.style.display = 'none';
         }
+    }
 
-        // 카테고리 필터 초기화
-        const cropCategoryFilter = document.getElementById('cropCategoryFilter');
-        if (typeof CROP_CATEGORIES !== 'undefined' && cropCategoryFilter) {
-            CROP_CATEGORIES.forEach(cat => {
-                if (cat !== '전체') {
-                    const option = document.createElement('option');
-                    option.value = cat;
-                    option.textContent = cat;
-                    cropCategoryFilter.appendChild(option);
-                }
+    /**
+     * 작물 검색 모달 (SLS-1-228) — **조회 전용**.
+     *
+     * 엑셀 서식에 작물명을 적을 때 정확한 이름을 찾아 복사하는 창구다.
+     * 폼 입력 흐름(.crop-direct-input 자동완성, :1513-1556)은 건드리지 않는다.
+     */
+    _bindCropSearchModal() {
+        const openBtn = document.getElementById('cropSearchBtn');
+        const modal = document.getElementById('cropModal');
+        const input = document.getElementById('cropSearchInput');
+        const filter = document.getElementById('cropCategoryFilter');
+        const listEl = document.getElementById('cropList');
+        const countEl = document.getElementById('cropResultCount');
+        if (!modal || !listEl) return;
+
+        // ⚠️ ESC 핸들러는 **열 때 등록하고 닫을 때 해제**한다.
+        //    전역에 남겨 두면 모달이 닫힌 뒤에도 ESC가 다른 화면에서 반응한다.
+        //    (soil-result-importer.js:1127-1164와 같은 방식)
+        const escHandler = (e) => { if (e.key === 'Escape') closeModal(); };
+
+        const closeModal = () => {
+            modal.classList.add('hidden');
+            document.removeEventListener('keydown', escHandler);
+        };
+
+        const render = () => {
+            const CS = window.CropSearch;
+            // ⚠️ 열 때마다 window에서 다시 읽는다. 작물 데이터는 3계층으로 런타임에
+            //    교체된다(crop-data-loader.js:175-180) — 캡처하면 갱신이 반영되지 않는다.
+            const crops = Array.isArray(window.CROP_DATA) ? window.CROP_DATA : [];
+            if (!CS) return;
+
+            const r = CS.filterCrops(crops, {
+                keyword: input ? input.value : '',
+                category: filter ? filter.value : '전체',
             });
-        }
 
+            listEl.innerHTML = '';
+            for (const c of r.items) {
+                const li = document.createElement('li');
+                li.className = 'crop-row';
+                li.dataset.name = c.name || '';
+                li.title = '클릭하여 작물명 복사';
+                // ⚠️ textContent만 쓴다. CROP_DATA는 사용자가 올린 .xlsx에서도 온다(SLS-1-179).
+                const nameEl = document.createElement('span');
+                nameEl.className = 'crop-row-name';
+                nameEl.textContent = c.name || '';
+                const catEl = document.createElement('span');
+                catEl.className = 'crop-row-cat';
+                catEl.textContent = c.category || '';
+                const codeEl = document.createElement('span');
+                codeEl.className = 'crop-row-code';
+                codeEl.textContent = c.code || '';
+                li.append(nameEl, catEl, codeEl);
+                listEl.appendChild(li);
+            }
+
+            if (countEl) {
+                // 자른 수만 적으면 "전체가 200개"로 읽혀 자기 작물이 없다고 오해한다
+                countEl.textContent = r.truncated
+                    ? `${r.items.length}개 표시 / 전체 ${r.total}개 — 검색으로 좁혀 주세요`
+                    : `${r.total}개 작물`;
+            }
+        };
+
+        /** 분류 옵션 재구성 — 로더가 CROP_CATEGORIES를 나중에 교체하므로 열 때마다 다시 만든다 */
+        const rebuildCategories = () => {
+            if (!filter) return;
+            const CS = window.CropSearch;
+            const prev = filter.value || '전체';
+            const cats = CS
+                ? CS.categoriesOf(window.CROP_DATA, window.CROP_CATEGORIES)
+                : (Array.isArray(window.CROP_CATEGORIES) ? window.CROP_CATEGORIES : []);
+            filter.innerHTML = '';
+            const all = document.createElement('option');
+            all.value = '전체';
+            all.textContent = '전체 카테고리';
+            filter.appendChild(all);
+            for (const cat of cats) {
+                if (cat === '전체') continue;
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                filter.appendChild(opt);
+            }
+            // 고르고 있던 분류는 유지한다 (다시 열었다고 초기화되면 성가시다)
+            filter.value = cats.includes(prev) ? prev : '전체';
+        };
+
+        const openModal = () => {
+            rebuildCategories();
+            if (input) input.value = '';
+            render();
+            modal.classList.remove('hidden');
+            document.addEventListener('keydown', escHandler);
+            input?.focus();
+        };
+
+        if (openBtn) openBtn.addEventListener('click', openModal);
+        input?.addEventListener('input', render);
+        filter?.addEventListener('change', render);
+
+        // 행 클릭 → 작물명 복사 (대상이 앱 밖의 엑셀이라 폼 채우기가 아니라 복사다)
+        listEl.addEventListener('click', (e) => {
+            const li = e.target.closest('li.crop-row');
+            if (!li) return;
+            const name = li.dataset.name || '';
+            if (!name) return;
+            // ⚠️ clipboard가 없는 환경에서는 writeText 호출 **자체가 동기 예외**라
+            //    아래 .catch()가 돌지 않는다 — 아무 안내 없이 조용히 실패한다.
+            //    복사가 전부인 기능이므로 먼저 막고 사유를 알린다.
+            if (!navigator.clipboard?.writeText) {
+                this.showToast('이 환경에서는 작물명 복사를 쓸 수 없습니다. 이름을 직접 옮겨 적어 주세요.', 'error');
+                return;
+            }
+            navigator.clipboard.writeText(name).then(() => {
+                this.showToast(`'${name}' 복사됨 — 엑셀에 붙여넣으세요.`, 'success');
+            }).catch(() => {
+                this.showToast('작물명 복사에 실패했습니다.', 'error');
+            });
+        });
+
+        document.getElementById('closeCropModal')?.addEventListener('click', closeModal);
+        document.getElementById('cancelCropSelection')?.addEventListener('click', closeModal);
+        modal.querySelector('.modal-overlay')?.addEventListener('click', closeModal);
     }
 
     _bindExportImportAndIO() {

@@ -232,7 +232,61 @@
      * 모든 (필드 × 컬럼) 쌍을 점수화한 뒤 [점수 ↓ → FIELD_ORDER → colIdx ↑] 순으로
      * 정렬해 필드·컬럼을 각각 1회씩 greedy 할당한다. 전역 최적에 가까운 결정적 매칭.
      */
-    /** 헤더 행 자동 감지: 앞쪽 몇 행까지 후보로 볼지 */
+    /**
+     * 병합된 2단 머리글을 한 줄로 합친다 (SLS-1-237).
+     *
+     *   3행 │ … │  경지구분  │        │ 시료번호      ← 가로 병합이라 오른쪽이 빈다
+     *   4행 │ … │    1차    │  2차   │
+     *    →  │ … │ 경지구분 1차 │ 경지구분 2차 │ 시료번호
+     *
+     * ⚠️ 부모 채우기는 **빈 칸에만** 한다. 값이 있는 칸을 덮으면 원래 이름이 사라진다.
+     * ⚠️ 부모는 **왼쪽으로만** 전파된다 — 값이 있는 칸에서 부모가 바뀌므로
+     *    '시료번호'가 '경지구분 시료번호'가 되지 않는다.
+     * ⚠️ 아래 칸이 비면 부모를 그대로 쓴다 (A3:A4 같은 세로 병합).
+     */
+    function mergeHeaderRows(rowA, rowB) {
+        const a = (rowA || []).map((v) => String(v ?? '').trim());
+        const b = (rowB || []).map((v) => String(v ?? '').trim());
+        const n = Math.max(a.length, b.length);
+        const out = [];
+        let parent = '';
+        for (let i = 0; i < n; i++) {
+            if (a[i]) parent = a[i];
+            const child = b[i] || '';
+            out.push(child ? `${parent} ${child}`.trim() : parent);
+        }
+        return out;
+    }
+
+    /**
+     * 머리글이 2단인가 — **합쳐서 자동 매핑이 늘어날 때만** 그렇다고 본다.
+     *
+     * 🚨 이 조건이 방어의 전부다. 데이터 행을 머리글로 오인해 합치면 엉뚱한 이름이
+     *    생기는데, 그러면 매핑이 늘지 않아 채택되지 않는다. 자기검증적이다.
+     *
+     * ⚠️ 상태로 들고 다니지 않는다. 파일에서 2단으로 잡은 뒤 붙여넣기로 전환하거나
+     *    머리글 행을 바꾸면 그 상태가 남아 **첫 데이터 행이 사라진다.**
+     *    쓰는 자리에서 매번 판정하면 잔존 상태가 생기지 않는다.
+     */
+    function isTwoRowHeader(rowA, rowB) {
+        if (!rowB || rowB.every((v) => String(v ?? '').trim() === '')) return false;
+
+        const singleMapping = computeAutoMapping((rowA || []).map((v) => String(v ?? '')));
+
+        // 🚨 **그 줄을 데이터로 읽어 접수 레코드가 되면 데이터다.**
+        //    아래 줄이 실제 첫 데이터 행인데 그 값이 머리글 낱말과 겹치면
+        //    (예: 성명 아래 '홍길동', 빈 칸 아래 '주소') 합쳐서 매핑이 늘어나
+        //    2단으로 오인하고 **첫 데이터 행을 통째로 삼킨다.** 조용한 유실이다.
+        //    하위 머리글은 그 자체로 성명·주소가 될 수 없다 — 이 차이가 판별의 근거다.
+        const asData = buildRecord(rowB, singleMapping, LAND_CLASS1_DEFAULT);
+        if (asData.name || asData.lotAddress) return false;
+
+        // 합쳐서 알아보는 항목이 늘어날 때만 채택한다
+        const merged = Object.keys(computeAutoMapping(mergeHeaderRows(rowA, rowB))).length;
+        return merged > Object.keys(singleMapping).length;
+    }
+
+    /** 머리글 행 자동 감지: 앞쪽 몇 행까지 후보로 볼지 */
     const HEADER_DETECT_ROWS = 6;
 
     /**
@@ -249,6 +303,10 @@
      *    지금 잘 되던 평범한 파일이 이상해진다.
      */
     function detectHeaderRow(allRows) {
+        // ⚠️ **단일 행 점수만** 본다. 합친 점수를 쓰면 1행(제목)에 2행(안내문)이 붙어
+        //    안내문 속 '필지 주소'·'작물' 같은 낱말이 걸리면서 제목 행이 머리글로 뽑힌다.
+        //    (실제로 그렇게 회귀가 났다.) 2단 판정은 _parseFile에서만 한다 —
+        //    머리글 행이 정해진 뒤라야 아래 줄이 그 연장인지 물을 수 있다.
         const scoreOf = (row) =>
             Object.keys(computeAutoMapping((row || []).map((c) => String(c ?? '')))).length;
 
@@ -1354,8 +1412,15 @@
             const hIdx = this._state.headerRowIdx;
             let headers, rows;
             if (hIdx >= 0 && hIdx < allRows.length) {
-                headers = (allRows[hIdx] || []).slice();
-                rows = allRows.slice(hIdx + 1);
+                // 🚨 2단 머리글이면 아래 줄까지 합치고 데이터는 그 다음부터다.
+                //    데이터 시작을 같이 안 옮기면 '1차'·'2차' 줄이 데이터로 섞여 들어간다.
+                //    두 값을 여기 한 곳에서 함께 정한다.
+                // ⚠️ '머리글 없음'(hIdx < 0)은 이 분기에 들어오지 않는다 — 병합하면 안 된다.
+                const twoRow = isTwoRowHeader(allRows[hIdx], allRows[hIdx + 1]);
+                headers = twoRow
+                    ? mergeHeaderRows(allRows[hIdx], allRows[hIdx + 1])
+                    : (allRows[hIdx] || []).slice();
+                rows = allRows.slice(hIdx + (twoRow ? 2 : 1));
             } else {
                 headers = Array.from({ length: maxCol }, (_, i) => `열 ${i + 1}`);
                 rows = allRows;
@@ -1565,12 +1630,18 @@
             return detected;
         }
 
+        /**
+         * ⚠️ _autoMap()과 **같은 보정**을 거쳐야 한다. 한쪽만 refineMappingByValues를
+         *    하면 같은 파일이 경로(로드 직후 / 머리글 행 변경)에 따라 다르게 매핑된다.
+         */
         _remapForNewHeaders() {
             // ⚠️ _refresh() 뒤에 _autoMap()을 부르면 파싱·미리보기 계산이 **두 번** 돈다
             //    (_autoMap이 이미 _parseInput·_renderMapping·_recompute·_renderPreview를 한다).
             //    행이 수천 개인 파일에서 헤더 행을 한 칸 바꿀 때마다 두 배가 든다.
-            const { headers } = this._parseInput();
-            this._state.fieldMapping = headers.length ? computeAutoMapping(headers) : {};
+            const { headers, rows } = this._parseInput();
+            this._state.fieldMapping = headers.length
+                ? refineMappingByValues(computeAutoMapping(headers), rows)
+                : {};
             this._refresh();
         }
 
@@ -2020,7 +2091,7 @@
         // 접수번호 채번 (SLS-1-222) — 성토/일반 시퀀스 분리가 여기서 결정된다
         collectExistingNumbers, collectLiteralNumbers, computePreview,
         // 서식 생성 (SLS-1-225) — DOM·다운로드 부작용 없음
-        detectHeaderRow, isSampleRow, refineMappingByValues, resolveLandClass1,
+        detectHeaderRow, isSampleRow, mergeHeaderRows, isTwoRowHeader, refineMappingByValues, resolveLandClass1,
         // 주소 조합 (SLS-1-226)
         buildRecord, buildAddressFields, splitPostcodePrefix, toAsciiDigits, applyAddrLookup,
     };

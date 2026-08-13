@@ -99,15 +99,19 @@ describe('가져오기와의 왕복 (실제 원본 파일로 확인)', () => {
         }
     })
 
-    // ⚠️ 원본은 2단 병합 헤더다. '경지구분'이 1차/2차로 병합돼 있어 2차 칸이 빈 채로 읽힌다
-    //    → **구분(논/밭/과수)은 수동 매핑이 필요하다.**
-    //    결함이 아니라 "원본 그대로"를 택한 대가다. 조용히 두지 않고 여기 고정한다.
-    it('8. 구분(2차)은 자동으로 붙지 않는다 — 원본 그대로의 대가', () => {
-        const headers = aoaOf('농가의뢰')[2].map(String)
+    // ⚠️ SLS-1-237에서 계약이 바뀌었다. 원본은 2단 병합 머리글이라 3행만 읽으면
+    //    2차 칸이 비어 **구분을 수동 매핑해야 했는데**, 이제 두 줄을 합쳐 읽어 자동으로 붙는다.
+    //    (직전까지는 "원본 그대로의 대가"로 고정돼 있던 테스트다.)
+    it('8. 두 줄을 합쳐 읽어 구분(2차)까지 자동으로 붙는다', () => {
+        const aoa = aoaOf('농가의뢰')
+        expect(fns.isTwoRowHeader(aoa[2], aoa[3]), '2단 머리글로 인식하지 못했다').toBe(true)
+
+        const headers = fns.mergeHeaderRows(aoa[2], aoa[3])
         const mapping = fns.computeAutoMapping(headers)
 
-        expect(mapping.subCategory, '2단 헤더가 풀렸다면 이 테스트를 갱신하라').toBeUndefined()
-        // 나머지는 제대로 붙는다 — "다 안 된다"와 구분한다
+        expect(headers[mapping.subCategory], '구분이 2차 열에 안 붙었다').toBe('경지구분 2차')
+        expect(headers[mapping.landClass1], '1차가 뒤바뀌었다').toBe('경지구분 1차')
+        // 나머지도 그대로 붙는다 — 합치면서 망가진 게 없는지 본다
         expect(headers[mapping.name]).toBe('성명')
         expect(headers[mapping.lotAddress]).toBe('필지 주소')
         expect(headers[mapping.area]).toBe('면적(m²)')

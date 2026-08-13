@@ -108,6 +108,45 @@ test.describe('기본 서식 다운로드 (SLS-1-232)', () => {
         expect(state.headers[state.mapping.area]).toBe('면적(㎡)');
     });
 
+    // 🚨 머리글이 2단이라 데이터는 5행부터다. `_parseFile`이 데이터 시작을 같이 안 옮기면
+    //    '1차'·'2차' 줄이 데이터로 섞여 들어간다.
+    //    ⚠️ 순수 함수 유닛으로는 못 잡는다 — 테스트가 slice를 직접 계산하기 때문이다.
+    //    끊기는 것은 **_parseFile의 배선**이다.
+    test('두 줄 머리글을 합쳐 읽어 구분까지 자동 연결되고, 머리글 줄이 데이터로 안 섞인다', async ({ page }) => {
+        await openImportModal(page);
+        const [download] = await Promise.all([
+            page.waitForEvent('download', { timeout: 15000 }),
+            page.click('[data-act="dlTemplate"]'),
+        ]);
+        await page.locator('.sri-overlay input[type="file"]').first().setInputFiles({
+            name: '토양_기본서식.xlsx',
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            buffer: readFileSync(await download.path()),
+        });
+        await page.waitForFunction(
+            () => !!document.querySelector('.sri-overlay [data-el="headerRow"]:not([disabled])'),
+            { timeout: 15000 }
+        );
+
+        const state = await page.evaluate(() => ({
+            mapping: window.SoilResultImporter._state.fieldMapping,
+            headers: window.SoilResultImporter._parseInput().headers,
+            rowCount: window.SoilResultImporter._parseInput().rows.length,
+            firstRow: window.SoilResultImporter._parseInput().rows[0],
+        }));
+
+        // 합쳐서 읽혔는가
+        expect(state.headers, '머리글을 합쳐 읽지 않았다').toContain('경지구분 2차');
+        expect(state.headers[state.mapping.subCategory], '구분이 자동 연결되지 않았다')
+            .toBe('경지구분 2차');
+        expect(state.headers[state.mapping.landClass1]).toBe('경지구분 1차');
+
+        // 🚨 데이터가 5행부터인가 — 머리글 아래 줄이 섞였으면 행이 하나 더 있다
+        expect(state.rowCount, "'1차/2차' 줄이 데이터로 섞여 들어갔다").toBe(1);
+        expect(String(state.firstRow?.[0]), '첫 데이터가 예시 행이 아니다').toMatch(/^예\)/);
+        expect(state.firstRow.map(String), "'1차'가 데이터에 있다").not.toContain('1차');
+    });
+
     // 🚨 안내문에 "지우고 입력"이라 적혀 있어도 잊는 사람이 있다.
     //    막지 않으면 '홍길동 / 경기도 시흥시 포동 389'가 정상 접수로 저장된다.
     test('예시 행을 지우지 않고 올려도 저장 대상이 되지 않는다', async ({ page }) => {

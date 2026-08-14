@@ -17,9 +17,12 @@ const INDEX_HTML = readFileSync(resolve(process.cwd(), 'src/index.html'), 'utf8'
 
 async function loadModule() {
     vi.resetModules()
-    // 날짜 유틸을 먼저 올린다 — 실제 main-entry.js도 이 순서다(notice-date → notice-popup).
-    // 안 올리면 window.isNoticeExpired가 undefined여서 만료 필터가 던진다.
+    // 의존 모듈을 먼저 올린다 — 실제 main-entry.js도 이 순서다
+    // (notice-date → notice-seen → notice-popup).
+    // 날짜 유틸이 없으면 window.isNoticeExpired가 undefined여서 만료 필터가 던지고,
+    // seen 저장소가 없으면 본 공지 기록이 통째로 동작하지 않는다 (SLS-1-243).
     await import('../../src/shared/notice-date.js')
+    await import('../../src/shared/notice-seen.js')
     await import('../../src/notice-popup.js')
     return window.__noticePopup
 }

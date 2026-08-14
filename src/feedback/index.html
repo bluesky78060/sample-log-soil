@@ -140,26 +140,132 @@
             text-align: center;
         }
 
-        /* 공지 항목 */
-        .notice-item {
-            padding: 1rem;
-            border: 1px solid #E8E4DF;
-            border-radius: 10px;
-            margin-bottom: 0.75rem;
-            background: #FAFAF9;
+        /* 게시판 탭 (SLS-1-243) */
+        .board-tabs {
+            display: flex;
+            gap: 0.25rem;
+            border-bottom: 2px solid #E8E4DF;
+            margin-bottom: 1.25rem;
         }
 
-        .notice-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
+        .board-tab {
+            appearance: none;
+            border: 0;
+            background: transparent;
+            font: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 0.65rem 1rem;
+            border-radius: 10px 10px 0 0;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
         }
+
+        .board-tab:hover { color: #6B6460; background: #FAFAF9; }
+        .board-tab[aria-selected="true"] { color: #5C7A63; border-bottom-color: #7C9082; }
+        .board-tab:focus-visible { outline: 2px solid #7C9082; outline-offset: -2px; }
+        .board-tab .icon { font-size: 1.05rem; }
+
+        .tab-badge {
+            background: #7C9082;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 0.05rem 0.4rem;
+        }
+        .board-tab[aria-selected="false"] .tab-badge { background: #A8A29E; }
+
+        .board-subhead {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #3C3530;
+            margin: 2rem 0 0.75rem;
+        }
+
+        /* 공지 항목 — 제목만 보이고 누르면 펼친다 */
+        .notice-item {
+            border: 1px solid #E8E4DF;
+            border-radius: 10px;
+            margin-bottom: 0.5rem;
+            background: #FAFAF9;
+            overflow: hidden;
+        }
+
+        /* 헤더는 <button>이다 — 키보드로 열리고 포커스 링이 생긴다 */
+        .notice-head {
+            width: 100%;
+            appearance: none;
+            border: 0;
+            background: transparent;
+            font: inherit;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+            display: grid;
+            grid-template-columns: 1rem 1fr auto;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.85rem 1rem;
+            transition: background 0.12s;
+        }
+
+        .notice-head:hover { background: #F3F1ED; }
+        .notice-head:focus-visible { outline: 2px solid #7C9082; outline-offset: -2px; }
+
+        .notice-chev {
+            color: #A8A29E;
+            font-size: 0.7rem;
+            transition: transform 0.18s;
+            justify-self: center;
+        }
+        .notice-item.open .notice-chev { transform: rotate(90deg); }
 
         .notice-title { font-weight: 600; color: #3C3530; }
         .notice-date { font-size: 0.75rem; color: #94a3b8; white-space: nowrap; }
-        .notice-body { font-size: 0.875rem; color: #6B6460; line-height: 1.6; }
+
+        /* 아직 안 본 공지 */
+        .notice-new {
+            display: inline-grid;
+            place-items: center;
+            width: 1rem;
+            height: 1rem;
+            margin-left: 0.35rem;
+            vertical-align: 1px;
+            background: #C4694A;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 0.62rem;
+            font-weight: 800;
+        }
+
+        /*
+         * 🚨 접기는 CSS로 한다. hidden 속성은 setInnerHTML의 새니타이저가 지운다
+         *    (sanitize.js의 ALLOWED_ATTR에 hidden이 없다). 속성으로 접으면
+         *    본문이 그대로 펼쳐진 채 나온다 — 이 티켓이 고치려던 증상 그대로다.
+         */
+        .notice-body {
+            display: none;
+            font-size: 0.875rem;
+            color: #6B6460;
+            line-height: 1.6;
+            padding: 0 1rem 0.9rem 2.6rem;
+            white-space: pre-line;
+        }
+        .notice-item.open .notice-body { display: block; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .notice-head, .notice-chev, .board-tab { transition: none; }
+        }
 
         /* 문의 항목 */
         .inquiry-item {
@@ -261,6 +367,14 @@
         [data-theme="dark"] .notice-title,
         [data-theme="dark"] .inquiry-title { color: #E7E5E4; }
 
+        [data-theme="dark"] .board-tabs { border-bottom-color: #57534E; }
+        [data-theme="dark"] .board-tab { color: #A8A29E; }
+        [data-theme="dark"] .board-tab:hover { color: #E7E5E4; background: #292524; }
+        [data-theme="dark"] .board-tab[aria-selected="true"] { color: #A8B5A2; border-bottom-color: #7C9082; }
+        [data-theme="dark"] .board-subhead { color: #E7E5E4; }
+        [data-theme="dark"] .notice-head:hover { background: #34302D; }
+        [data-theme="dark"] .notice-chev { color: #78716C; }
+
         [data-theme="dark"] .notice-body,
         [data-theme="dark"] .inquiry-body { color: #A8A29E; }
 
@@ -325,23 +439,29 @@
             💬 문의 / 건의
         </h1>
 
-        <!-- 공지 (읽기 전용) -->
+        <!-- 공지 / 문의를 탭으로 나눈다 (SLS-1-243).
+             전에는 카드 3개가 세로로 놓여, 공지가 길어질수록 문의 작성이 아래로 밀렸다. -->
         <div class="feedback-card">
-            <h2>
-                <span class="icon">📢</span>
-                공지사항
-            </h2>
-            <div id="noticeList">
-                <div class="empty-hint">공지를 불러오는 중...</div>
+            <div class="board-tabs" role="tablist" aria-label="게시판">
+                <button type="button" class="board-tab" role="tab" id="tabNotice"
+                        aria-selected="false" aria-controls="panelNotice" data-tab="notice">
+                    <span class="icon">📢</span>공지사항<span class="tab-badge" id="noticeBadge" hidden></span>
+                </button>
+                <button type="button" class="board-tab" role="tab" id="tabInquiry"
+                        aria-selected="true" aria-controls="panelInquiry" data-tab="inquiry">
+                    <span class="icon">✏️</span>문의 / 건의
+                </button>
             </div>
-        </div>
 
-        <!-- 문의 작성 -->
-        <div class="feedback-card">
-            <h2>
-                <span class="icon">✏️</span>
-                문의 / 건의 남기기
-            </h2>
+            <!-- 공지 탭 -->
+            <div id="panelNotice" role="tabpanel" aria-labelledby="tabNotice" hidden>
+                <div id="noticeList">
+                    <div class="empty-hint">공지를 불러오는 중...</div>
+                </div>
+            </div>
+
+            <!-- 문의 탭: 작성 폼 + 내 문의 목록 -->
+            <div id="panelInquiry" role="tabpanel" aria-labelledby="tabInquiry">
 
             <div class="alert alert-info" id="storageHint" style="display: none;">
                 <strong>안내:</strong> 현재 게시판 클라우드에 연결되어 있지 않아 작성한 문의는
@@ -384,18 +504,16 @@
                     등록한 문의는 아래 목록에서 확인할 수 있으며, 답변이 등록되면 함께 표시됩니다.
                 </p>
             </form>
-        </div>
 
-        <!-- 문의 목록 -->
-        <div class="feedback-card">
-            <h2>
-                <span class="icon">🗂️</span>
-                내 문의 목록
-            </h2>
-            <div id="inquiryList">
-                <div class="empty-hint">문의를 불러오는 중...</div>
-            </div>
-        </div>
+                <h3 class="board-subhead">
+                    <span class="icon">🗂️</span>
+                    내 문의 목록
+                </h3>
+                <div id="inquiryList">
+                    <div class="empty-hint">문의를 불러오는 중...</div>
+                </div>
+            </div><!-- /panelInquiry -->
+        </div><!-- /feedback-card -->
 
         <div style="text-align: center; margin-top: 1rem;">
             <a href="../feedback-admin/index.html" style="font-size: 0.75rem; color: #b8b2ab; text-decoration: none;">관리자</a>

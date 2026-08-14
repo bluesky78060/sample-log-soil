@@ -13,7 +13,10 @@
 // ⚠️ 앱 시작 경로다. 모든 실패는 콘솔 로그만 남기고 넘어간다.
 //    공지 때문에 앱이 안 켜지거나 느려지면 본말이 전도된다.
 
-const SEEN_KEY = 'seenNoticeIds';
+// 본 공지 기록은 src/shared/notice-seen.js에 모았다 (SLS-1-243) — 문의게시판도
+// 같은 기록을 읽고 쓴다. 여기서 따로 구현하면 두 화면이 어긋난다.
+const seenStore = () => window.noticeSeen;
+
 const FETCH_LIMIT = 50;
 const INIT_TIMEOUT_MS = 5000;
 
@@ -21,35 +24,9 @@ const INIT_TIMEOUT_MS = 5000;
 // UTC로 계산해 로컬 기준인 이 팝업과 하루 어긋났다(코드리뷰 MAJOR). 같은 함수를 쓴다.
 const todayStr = () => window.noticeTodayStr();
 
-function readSeen() {
-    try {
-        const raw = localStorage.getItem(SEEN_KEY);
-        const list = raw ? JSON.parse(raw) : [];
-        return Array.isArray(list) ? list : [];
-    } catch {
-        return [];   // 손상된 값은 빈 목록으로 — 공지가 한 번 더 뜨는 정도의 열화
-    }
-}
+const readSeen = () => seenStore().readSeen();
+const writeSeen = (ids, existingIds) => seenStore().writeSeen(ids, existingIds);
 
-/**
- * 본 공지 id를 저장한다.
- *
- * ⚠️ FIFO로 N개만 남기지 않는다. until이 없는(무기한) 공지는 만료 필터에 걸리지 않으므로,
- *    캡에서 밀려나면 다시 "본 적 없음"이 되어 재출현한다.
- *    → 조회 결과에 **존재하는 id만** 남긴다. 삭제된 공지는 어차피 다시 뜰 수 없다.
- */
-function writeSeen(ids, existingIds) {
-    const alive = new Set(existingIds);
-    const next = [...new Set(ids)].filter((id) => alive.has(id));
-    try {
-        localStorage.setItem(SEEN_KEY, JSON.stringify(next));
-    } catch (e) {
-        // 용량 초과 등. 공지가 다시 뜨는 것은 감수한다 (SLS-1-198 참조).
-        (window.logger?.warn || console.warn)('[notice] 공지 기록 실패:', e?.message || e);
-    }
-}
-
-/** 팝업으로 띄울 공지를 고른다 */
 function pickNotices(all, seenIds, today) {
     const seen = new Set(seenIds);
     return (all || [])
@@ -164,4 +141,7 @@ void (async () => {
 })();
 
 // 테스트용 노출 (프로덕션 동작에는 쓰이지 않는다)
-window.__noticePopup = { pickNotices, readSeen, writeSeen, todayStr, initWithTimeout, run, SEEN_KEY };
+// ⚠️ SEEN_KEY는 공유 모듈을 거치지 않고 고정값으로 둔다. getter가 seenStore()를
+//    타면 모듈이 없을 때(테스트 정리·로드 순서 변경) 접근만으로 예외가 난다.
+window.__noticePopup = { pickNotices, readSeen, writeSeen, todayStr, initWithTimeout, run,
+    SEEN_KEY: 'seenNoticeIds' };

@@ -8,6 +8,7 @@ import '../shared/logger.js';
 import '../shared/constants.js';
 import '../shared/sanitize.js';
 import '../shared/toast.js';
+import '../shared/notice-seen.js';
 import '../shared/theme.js';
 
 // 게시판 전용 Firebase 연결 (named app — 시료용 firebase-config와 독립)

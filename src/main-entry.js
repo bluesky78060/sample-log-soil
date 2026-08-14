@@ -20,6 +20,7 @@ import './whatsnew.js';
 // firebase SDK는 위 firebase-config/firestore-db가 이미 번들에 넣었다(용량 증가 없음).
 // feedback-store.js는 클래스 정의와 전역 노출만 하고 즉시 실행 부작용이 없다.
 import './shared/notice-date.js';
+import './shared/notice-seen.js';
 import './feedback/feedback-firebase.js';
 import './feedback/feedback-store.js';
 import './notice-popup.js';

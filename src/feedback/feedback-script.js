@@ -44,25 +44,97 @@ function populateTypeOptions() {
     });
 }
 
-/** 공지 목록 렌더링 */
+/**
+ * 탭 전환 (SLS-1-243)
+ * @param {'notice'|'inquiry'} name
+ */
+function activateTab(name) {
+    document.querySelectorAll('.board-tab').forEach((btn) => {
+        btn.setAttribute('aria-selected', String(btn.dataset.tab === name));
+    });
+    const panelNotice = $('panelNotice');
+    const panelInquiry = $('panelInquiry');
+    if (panelNotice) panelNotice.hidden = name !== 'notice';
+    if (panelInquiry) panelInquiry.hidden = name !== 'inquiry';
+}
+
+/** 안 본 공지 건수를 탭 배지에 반영 (0이면 감춘다) */
+function updateNoticeBadge(count) {
+    const badge = $('noticeBadge');
+    if (!badge) return;
+    badge.textContent = String(count);
+    badge.hidden = count <= 0;
+}
+
+/**
+ * 공지 목록 렌더링 — 제목만 보이고 누르면 펼친다.
+ *
+ * ⚠️ 접기는 CSS 클래스(.open)로 한다. hidden 속성은 setInnerHTML의 새니타이저가
+ *    지우므로(sanitize.js의 ALLOWED_ATTR에 없다) 본문이 그대로 펼쳐진다.
+ *
+ * @returns {Promise<number>} 아직 안 본 공지 건수
+ */
 async function renderNotices() {
     const wrap = $('noticeList');
-    if (!wrap) return;
+    if (!wrap) return 0;
     const notices = await store.listNotices();
     if (notices.length === 0) {
         window.setInnerHTML(wrap, '<div class="empty-hint">등록된 공지가 없습니다.</div>');
-        return;
+        updateNoticeBadge(0);
+        return 0;
     }
-    const html = notices.map((n) => `
-        <div class="notice-item">
-            <div class="notice-head">
-                <span class="notice-title">${window.escapeHTML(n.title)}</span>
+
+    // 본 공지 기록은 팝업(notice-popup.js)과 공유한다 — src/shared/notice-seen.js.
+    // 모듈이 없어도 게시판은 동작해야 하므로 전부 안 본 것으로 취급한다.
+    const seenApi = window.noticeSeen;
+    const seen = new Set(seenApi?.readSeen?.() || []);
+
+    const html = notices.map((n, i) => {
+        const isNew = !seen.has(n.id);
+        // 본문 id는 인덱스로 만든다 — 공지 id를 그대로 쓰면 따옴표·공백이 든 값에서
+        // 선택자가 깨진다(이스케이프해도 CSS 식별자로는 부적합).
+        const bodyId = `noticeBody-${i}`;
+        return `
+        <div class="notice-item${isNew ? ' unread' : ''}" data-id="${window.escapeHTML(n.id)}">
+            <button type="button" class="notice-head" aria-expanded="false" aria-controls="${bodyId}">
+                <span class="notice-chev" aria-hidden="true">▶</span>
+                <span class="notice-title">${window.escapeHTML(n.title)}${isNew ? '<span class="notice-new" title="아직 읽지 않은 공지">N</span>' : ''}</span>
                 <span class="notice-date">${window.escapeHTML(formatDate(n.createdAt))}</span>
-            </div>
-            <div class="notice-body">${window.escapeHTML(n.body).replace(/\n/g, '<br>')}</div>
-        </div>
-    `).join('');
+            </button>
+            <div class="notice-body" id="${bodyId}">${window.escapeHTML(n.body).replace(/\n/g, '<br>')}</div>
+        </div>`;
+    }).join('');
     window.setInnerHTML(wrap, html);
+
+    const unread = notices.filter((n) => !seen.has(n.id)).length;
+    updateNoticeBadge(unread);
+
+    wrap.querySelectorAll('.notice-item').forEach((item) => {
+        const head = item.querySelector('.notice-head');
+        head?.addEventListener('click', () => onToggleNotice(item, head));
+    });
+    return unread;
+}
+
+/** 공지 펼치기/접기 — 처음 펼칠 때 '봤다'고 기록한다 */
+function onToggleNotice(item, head) {
+    const open = item.classList.toggle('open');
+    head.setAttribute('aria-expanded', String(open));
+    if (!open || !item.classList.contains('unread')) return;
+
+    // 🚨 markSeen은 **추가만** 한다. writeSeen을 쓰면 팝업의 50건 조회 상한에 걸려
+    //    그 밖의 공지 기록이 잘려 나간다 (notice-seen.js 주석 참조).
+    //
+    // ⚠️ 저장에 실패하면 화면도 그대로 둔다. 여기서 N을 떼면 새로고침 때 다시
+    //    안 읽음이 되어 "읽었다고 표시됐는데 또 안 읽음"이 된다.
+    if (!window.noticeSeen?.markSeen?.(item.dataset.id)) return;
+    item.classList.remove('unread');
+    item.querySelector('.notice-new')?.remove();
+
+    const badge = $('noticeBadge');
+    if (badge && !badge.hidden) {
+        updateNoticeBadge(Math.max(0, parseInt(badge.textContent, 10) - 1));
+    }
 }
 
 /** 문의 목록 렌더링 */
@@ -198,7 +270,15 @@ async function init() {
     store = window.createFeedbackStore();
     renderStorageHint();
 
-    await renderNotices();
+    document.querySelectorAll('.board-tab').forEach((btn) => {
+        btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+    });
+
+    // 🚨 초기 탭은 공지를 그린 **뒤에** 정한다 — 그래야 안 본 건수를 안다.
+    //    평소엔 문의 탭(이 화면에 오는 주된 이유)이지만, 알릴 것이 있으면 공지가 먼저다.
+    const unread = await renderNotices();
+    activateTab(unread > 0 ? 'notice' : 'inquiry');
+
     await renderInquiries();
 }
 

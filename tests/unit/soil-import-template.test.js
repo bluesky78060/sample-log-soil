@@ -183,6 +183,23 @@ describe('가져오기와의 왕복 (실제 원본 파일로 확인)', () => {
         }
     )
 
+    // 🚨 SLS-1-242 — 공익직불제 시트의 **3행 첫 열**이 '차수'다.
+    //    서식과 코드가 갈라지면 사용자가 우리 서식을 못 쓴다 (SLS-1-239가 그 사고였다).
+    it('9-f. 공익직불제 시트의 차수 열과 예시 행을 인식한다', () => {
+        const aoa = aoaOf('공익직불제')
+        const headers = fns.mergeHeaderRows(aoa[2], aoa[3])
+        const m = fns.computeAutoMapping(headers)
+
+        expect(headers[0], "3행 첫 열이 '차수'가 아니다 — 서식이 바뀌었는가").toBe('차수')
+        expect(m.gongikOrder, '차수 열을 못 찾았다').toBe(0)
+
+        // ⚠️ 5행 첫 칸은 '예) 1'이다 — 차수 값이 아니라 **예시 행 마커**다.
+        //    resolveGongikOrder에 넣으면 오류가 나는 것이 정상이고, 그 전에
+        //    예시 행으로 걸러진다. 그 순서를 고정한다.
+        expect(String(aoa[4]?.[0] ?? ''), '5행 첫 칸이 예시 마커가 아니다').toMatch(/^예\)/)
+        expect(fns.isSampleRow(aoa[4]), '예시 행으로 안 걸러진다').toBe(true)
+    })
+
     // 🚨 왕복의 반대쪽 — 표준값으로 저장한 것이 흙토람에서 서식 표기로 되돌아오는가.
     //    한쪽만 바뀌면 왕복이 조용히 깨진다.
     it("9-d. 공익직불제 시트의 예시값이 '저장 → 흙토람'을 거쳐 원래 표기로 돌아온다", () => {

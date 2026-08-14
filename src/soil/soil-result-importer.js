@@ -31,6 +31,9 @@
     const LAND_CLASS1_OPTIONS = ['개량제', '전략', '직불', '자체', '기타', '친환경', '유기농', '무농약', 'GAP', '농가의뢰', '대표필지', '공익직불제'];
     const LAND_CLASS1_DEFAULT = '농가의뢰';
 
+    /** 공익직불제 차수 기본값 (SLS-1-242). 저장값은 '1'/'2' 두 가지뿐이다. */
+    const GONGIK_ORDER_DEFAULT = '1';
+
     /**
      * 경지구분 1차 별칭 — 흙토람 양식 표기를 앱 표준값으로 되돌린다 (SLS-1-239).
      *
@@ -108,6 +111,12 @@
         // 공익직불제용 (선택) — gongik:true 인 항목은 경지구분1차='공익직불제'일 때 강조
         { key: 'businessRegNo',   label: '경영체등록번호', optional: true, gongik: true,
           auto: ['경영체등록번호', '농업경영체등록번호', '농업경영체', '경영체', '경영체번호', '경영체등록', '등록번호', '경영등록번호', 'businessregno', 'bizregno', 'bizno', 'businessno', 'farmbizno'] },
+        // 공익직불제 차수 (SLS-1-242) — 행마다 다를 수 있다. 내장 서식 공익직불제 시트의
+        // **3행 첫 열**이 '차수'다.
+        // ⚠️ 영문 'order'는 넣지 않는다 — 3자 이상이라 접두/접미가 걸려
+        //    'orderNo'·'sortOrder' 같은 무관한 헤더를 잡는다. 한글만으로 충분하다.
+        { key: 'gongikOrder',     label: '차수', optional: true, gongik: true,
+          auto: ['차수', '공익차수', '점검차수', '이행점검차수'] },
         { key: 'addressPostcode', label: '우편번호', optional: true,
           // ⚠️ '번호'·'등록번호' 같은 짧은 키워드는 넣지 않는다 — 접수번호·경영체등록번호와 겹친다.
           //    로드 시 auditDuplicateKeywords()가 교차 중복을 경고한다.
@@ -622,6 +631,31 @@
         };
     }
 
+    /**
+     * 행의 공익직불제 차수를 정한다 (SLS-1-242).
+     *
+     * 저장값은 '1'/'2' 두 가지뿐이다 — 목록 편집 셀·일괄 적용 바가 모두 select이고,
+     * 공익직불제 내보내기가 그 값을 그대로 쓴다(heuktoram-script.js dataRow[C+0]).
+     *
+     * ⚠️ 알 수 없는 값을 **조용히 기본값으로 바꾸지 않는다.** 사용자가 적은 '3차'가
+     *    잘못된 1차로 제출 서류에 나가는 것이 가장 나쁘다. 오류 행으로 보여 준다.
+     *
+     * ⚠️ 빈 칸은 오류가 아니다 — 공익직불제가 아닌 시료에는 이 열 자체가 없다.
+     *
+     * ⚠️ 표기를 넓게 받지 않는다. '제1차'처럼 변형을 계속 더하면 뜻 모를 값까지 삼킨다.
+     *    전각 숫자만 toAsciiDigits로 흡수한다(이미 있는 함수).
+     */
+    function resolveGongikOrder(raw, fallback) {
+        const v = toAsciiDigits(String(raw ?? '')).replace(/\s+/g, ' ').trim();
+        if (!v) return { value: fallback, error: '' };
+        const m = v.match(/^([12])\s*차?$/);
+        if (m) return { value: m[1], error: '' };
+        return {
+            value: fallback,
+            error: `차수 '${v}'를 알 수 없습니다. 1 또는 2(1차/2차)로 적어 주세요.`,
+        };
+    }
+
     function buildRecord(row, mapping, landClass1, addrLookup) {
         const get = (key) => cellOf(row, mapping, key);
         const addr = applyAddrLookup(
@@ -630,9 +664,11 @@
         );
         // 열이 매핑되지 않았으면 get()이 빈 문자열 → 창에서 고른 값이 그대로 쓰인다
         const cls = resolveLandClass1(get('landClass1'), landClass1);
+        const ord = resolveGongikOrder(get('gongikOrder'), GONGIK_ORDER_DEFAULT);
         return {
             ...addr,
             _landClass1Error: cls.error,
+            _gongikOrderError: ord.error,
             name: get('name'),
             phoneNumber: get('phoneNumber'),
             lotAddress: get('lotAddress'),
@@ -644,6 +680,7 @@
             businessRegNo: get('businessRegNo'),
             date: get('date'),
             landClass1: cls.value,
+            gongikOrder: ord.value,
         };
     }
 
@@ -791,6 +828,19 @@
             if (rec._landClass1Error) {
                 stats.err++;
                 items.push({ status: 'err', reason: rec._landClass1Error, display: '(경지구분 오류)', rec });
+                return;
+            }
+
+            // 알 수 없는 차수 → 오류 (SLS-1-242). 같은 이유다 —
+            // 조용히 1차로 바꾸면 공익직불제 제출 서류의 차수가 틀린 채 나간다.
+            //
+            // 🚨 단, **공익직불제 행일 때만** 막는다. 차수는 공익직불제 내보내기에서만
+            //    쓰이므로(heuktoram-script.js dataRow[C+0]), 일반 시료 파일에 우연히
+            //    '차수' 열이 있다고 해서 무관한 행의 가져오기를 막으면 안 된다.
+            //    1차는 행마다 다를 수 있으므로 배치 전체가 아니라 **이 행**을 본다.
+            if (rec.landClass1 === '공익직불제' && rec._gongikOrderError) {
+                stats.err++;
+                items.push({ status: 'err', reason: rec._gongikOrderError, display: '(차수 오류)', rec });
                 return;
             }
 
@@ -2161,6 +2211,7 @@
         // 서식 생성 (SLS-1-225) — DOM·다운로드 부작용 없음
         detectHeaderRow, isSampleRow, mergeHeaderRows, isTwoRowHeader, refineMappingByValues,
         resolveLandClass1, canonLandClass1, LAND_CLASS1_OPTIONS, LAND_CLASS1_ALIASES,
+        resolveGongikOrder,
         TARGET_FIELDS,
         // 주소 조합 (SLS-1-226)
         buildRecord, buildAddressFields, splitPostcodePrefix, toAsciiDigits, applyAddrLookup,

@@ -33,12 +33,27 @@
         }
         .card h2 { font-size: 1.2rem; font-weight: 600; font-family: 'Fraunces', 'Noto Sans KR', serif; color: #3C3530; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
         label { display: block; font-size: 0.85rem; font-weight: 500; color: #6B6460; margin-bottom: 0.4rem; }
-        input, textarea, select {
-            width: 100%; padding: 0.7rem 0.9rem; border: 1.5px solid #E8E4DF; border-radius: 8px;
+        /*
+         * 🚨 `.card`를 앞에 붙여 구체성을 올린다 (SLS-1-246).
+         *
+         *    소스에서는 위 <link>(tailwind)가 이 <style>보다 앞이라 문제가 없어 보인다.
+         *    그런데 **vite가 빌드하면서 CSS <link>를 </head> 근처로 옮긴다** —
+         *    즉 배포본에서는 tailwind가 이 style **뒤**에 온다. 그러면 preflight의
+         *        button,input,optgroup,select,textarea { margin:0; padding:0 }
+         *    이 같은 구체성(요소 셀렉터)이면서 나중이라 그냥 `input`으로 쓰면
+         *    **padding·margin이 통째로 덮인다.**
+         *
+         *    실제로 배포본에서 글자가 테두리에 붙고 입력란 간격이 사라져 있었다.
+         *    개발 서버에서는 멀쩡해 보이므로 **빌드 산출물로 확인해야 하는 종류**다.
+         */
+        .card input, .card textarea, .card select {
+            width: 100%; padding: 0.8rem 1.1rem; border: 1.5px solid #E8E4DF; border-radius: 8px;
             font-size: 0.875rem; font-family: inherit; background: #FAFAF9; margin-bottom: 0.9rem;
         }
-        textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
-        input:focus, textarea:focus, select:focus { outline: none; border-color: #7C9082; box-shadow: 0 0 0 3px rgba(124,144,130,0.12); }
+        .card textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
+        /* 체크박스는 위 규칙(width:100%)을 쓰면 안 된다 — 인라인 style로 이미 제외돼 있다 */
+        .card input[type="checkbox"] { width: auto; margin-bottom: 0; padding: 0; }
+        .card input:focus, .card textarea:focus, .card select:focus { outline: none; border-color: #7C9082; box-shadow: 0 0 0 3px rgba(124,144,130,0.12); }
         .btn-primary { background: #7C9082; color: #fff; border: none; border-radius: 8px; padding: 0.6rem 1.2rem; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
         .btn-primary:hover { background: #6B7D72; }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -61,7 +76,7 @@
         [data-theme="dark"] .card { background: rgba(41,37,36,0.95); border-color: #57534E; }
         [data-theme="dark"] h1, [data-theme="dark"] .card h2, [data-theme="dark"] .item .title { color: #E7E5E4; }
         [data-theme="dark"] label { color: #A8A29E; }
-        [data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select { background: #1C1917; border-color: #57534E; color: #E7E5E4; }
+        [data-theme="dark"] .card input, [data-theme="dark"] .card textarea, [data-theme="dark"] .card select { background: #1C1917; border-color: #57534E; color: #E7E5E4; }
         [data-theme="dark"] .item { background: #292524; border-color: #57534E; }
         [data-theme="dark"] .item .body { color: #A8A29E; }
 

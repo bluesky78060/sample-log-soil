@@ -31,6 +31,47 @@
     const LAND_CLASS1_OPTIONS = ['개량제', '전략', '직불', '자체', '기타', '친환경', '유기농', '무농약', 'GAP', '농가의뢰', '대표필지', '공익직불제'];
     const LAND_CLASS1_DEFAULT = '농가의뢰';
 
+    /**
+     * 경지구분 1차 별칭 — 흙토람 양식 표기를 앱 표준값으로 되돌린다 (SLS-1-239).
+     *
+     * 우리가 나눠 준 서식의 공익직불제 시트에 1차가 '직불(일반)'로 적혀 있다.
+     * 그게 흙토람 양식의 표기이기 때문인데, 가져올 때 되돌리지 않아 **전 행이 오류**가 났다.
+     *
+     * ⚠️ 내보낼 때는 반대로 바꾼다(heuktoram-script.js getGongikLandClass1).
+     *    그쪽만 있고 이쪽이 없어서 왕복이 끊겨 있었다.
+     *
+     * ⚠️ LAND_CLASS1_OPTIONS에 넣지 말 것. 넣으면 저장값이 '직불(일반)'이 되어
+     *    통계·필터·**접수번호 채번**(1차별 독립 시퀀스)에서 '공익직불제'와 갈라진다.
+     *    같은 사업인데 번호가 둘로 나뉜다.
+     *
+     * ⚠️ '직불'은 목록의 **별개 항목**이다. 여기에 넣으면 서로 다른 분류가 뭉친다.
+     *
+     * 📌 저장·로드 경로에는 이 변환을 걸지 않는다 (코드리뷰에서 제기됐던 사안).
+     *    '직불(일반)'이 저장된 레코드는 **존재할 수 없다** — 넣을 수 있는 경로가 없었다:
+     *      폼      → select가 LAND_CLASS1_OPTIONS로 만들어져 고를 수 없다
+     *      가져오기 → 이 티켓 전에는 오류로 **막혔다**(저장된 게 아니라 거부됐다)
+     *      JSON·자동저장·Firestore → 전부 이 앱이 내보낸 값
+     *    없는 데이터를 위해 매 로드마다 전 레코드를 훑어 값을 바꾸는 것은,
+     *    migrateCompletedField가 loadYearData마다 무의미한 필드를 주입해 Firestore까지
+     *    오염시켰던 것과 같은 모양이다. 실제로 그런 데이터가 발견되면 그때 넣는다.
+     */
+    const LAND_CLASS1_ALIASES = { '직불(일반)': '공익직불제' };
+
+    /**
+     * 1차 값을 표준값으로 맞춘다. 별칭을 아는 곳이 하나여야 세 경로가 어긋나지 않는다:
+     *   resolveLandClass1        — 안 쓰면 오류 행이 된다
+     *   _recompute(classesInBatch) — 안 쓰면 별칭 이름으로 커서를 받아 **미리보기 번호가 저장과 달라진다**
+     *   refineMappingByValues    — 안 쓰면 "1차 값이 없다"고 보고 열을 2차로 옮길 수 있다
+     */
+    function canonLandClass1(raw) {
+        const v = String(raw ?? '').replace(/\s+/g, ' ').trim();
+        // ⚠️ 별칭 조회에만 공백을 **전부** 없앤다 ('직불 (일반)'처럼 손으로 친 표기).
+        //    표준 목록 검사는 기존 그대로 둔다 — 거기까지 느슨하게 하면
+        //    지금 오류로 걸러지던 값들이 조용히 통과한다.
+        //    별칭 대상이 하나뿐이라 이 느슨함이 다른 분류를 삼키지 않는다.
+        return LAND_CLASS1_ALIASES[v.replace(/\s+/g, '')] || v;
+    }
+
     // 매핑 대상 접수 필드 (순서 = 매핑 UI 표시 순서)
     // key: record 필드명, label: UI 표시명, auto: 자동 매핑용 헤더 키워드(정규화)
     //   - 각 기술센터마다 컬럼명이 제각각이므로 동의어를 폭넓게 등록한다.
@@ -215,8 +256,10 @@
     function refineMappingByValues(mapping, rows) {
         const col = mapping?.landClass1;
         if (col == null || mapping.subCategory != null) return mapping;
+        // ⚠️ 별칭('직불(일반)')을 표준값으로 맞춰서 본다. 안 맞추면 그 열이
+        //    "1차 값이 하나도 없다"로 보여 2차로 옮겨질 수 있다 (SLS-1-239).
         const values = (rows || []).slice(0, 30)
-            .map((r) => String(r?.[col] ?? '').replace(/\s+/g, ' ').trim())
+            .map((r) => canonLandClass1(r?.[col]))
             .filter(Boolean);
         if (values.length === 0) return mapping;
         if (values.some((v) => LAND_CLASS1_OPTIONS.includes(v))) return mapping;
@@ -547,7 +590,8 @@
      *    그때는 창에서 고른 값을 쓰는 것이 자연스럽다.
      */
     function resolveLandClass1(raw, fallback) {
-        const v = String(raw ?? '').replace(/\s+/g, ' ').trim();
+        // 흙토람 표기('직불(일반)')는 표준값으로 되돌려 받는다 (SLS-1-239)
+        const v = canonLandClass1(raw);
         if (!v) return { value: fallback, error: '' };
         if (LAND_CLASS1_OPTIONS.includes(v)) return { value: v, error: '' };
         return {
@@ -1702,7 +1746,9 @@
             const clsCol = this._state.fieldMapping?.landClass1;
             if (clsCol != null) {
                 for (const row of rows) {
-                    const v = String(row?.[clsCol] ?? '').replace(/\s+/g, ' ').trim();
+                    // ⚠️ 별칭을 표준값으로 맞춰서 담는다 — buildRecord가 표준값으로 저장하므로,
+                    //    별칭 이름으로 커서를 받으면 **미리보기 번호가 저장 번호와 달라진다** (SLS-1-239).
+                    const v = canonLandClass1(row?.[clsCol]);
                     if (v) classesInBatch.add(v);
                 }
             }
@@ -2091,7 +2137,8 @@
         // 접수번호 채번 (SLS-1-222) — 성토/일반 시퀀스 분리가 여기서 결정된다
         collectExistingNumbers, collectLiteralNumbers, computePreview,
         // 서식 생성 (SLS-1-225) — DOM·다운로드 부작용 없음
-        detectHeaderRow, isSampleRow, mergeHeaderRows, isTwoRowHeader, refineMappingByValues, resolveLandClass1,
+        detectHeaderRow, isSampleRow, mergeHeaderRows, isTwoRowHeader, refineMappingByValues,
+        resolveLandClass1, canonLandClass1, LAND_CLASS1_OPTIONS, LAND_CLASS1_ALIASES,
         // 주소 조합 (SLS-1-226)
         buildRecord, buildAddressFields, splitPostcodePrefix, toAsciiDigits, applyAddrLookup,
     };

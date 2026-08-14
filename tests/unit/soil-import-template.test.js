@@ -16,6 +16,25 @@ import { createHash } from 'node:crypto'
 const SRC_XLSX = resolve(process.cwd(), 'src/assets/soil-import-template.xlsx')
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex')
 
+/**
+ * heuktoram-script.js의 getGongikLandClass1을 **실제 소스에서 꺼내** 쓴다 (SLS-1-239).
+ * 변환을 테스트에 다시 적으면 그쪽이 바뀌어도 통과해 왕복이 조용히 깨진다.
+ * export가 없는 파일이라 본문을 텍스트로 읽는다 (heuktoram-soil-form.test.js와 같은 방식).
+ */
+const gongikOf = (() => {
+    let fn
+    return (v) => {
+        if (!fn) {
+            const src = readFileSync(resolve(process.cwd(), 'src/heuktoram/heuktoram-script.js'), 'utf8')
+            const m = src.match(/getGongikLandClass1\(landClass1\)\s*\{([\s\S]*?)\n {4}\}/)
+            if (!m) throw new Error('getGongikLandClass1을 못 찾았다 — 흙토람 소스 구조가 바뀌었다')
+            // eslint-disable-next-line no-new-func
+            fn = new Function('landClass1', m[1])
+        }
+        return fn(v)
+    }
+})()
+
 let tpl
 beforeAll(async () => {
     await import('../../src/shared/soil-template-data.js')
@@ -134,6 +153,71 @@ describe('가져오기와의 왕복 (실제 원본 파일로 확인)', () => {
         const m = fns.computeAutoMapping(headers)
         expect(headers[m.landClass1]?.trim(), '1차 열을 못 찾았다 — 서식 헤더가 바뀌었는가')
             .toMatch(/경지구분/)
+    })
+
+    // ══════════════════════════════════════════════════════════════
+    // SLS-1-239 — 우리가 나눠 준 서식이 우리 가져오기를 통과하는가
+    //
+    // 🚨 공익직불제 시트의 1차 예시값은 **흙토람 표기 '직불(일반)'**이다.
+    //    가져오기가 그걸 못 읽어 사용자가 오류를 봤다. 서식 파일과 가져오기가
+    //    갈라지면 또 같은 일이 생기므로 **실물 파일의 값으로** 고정한다.
+    // ══════════════════════════════════════════════════════════════
+    // ⚠️ `continue`로 조용히 건너뛰면 **검사가 비어도 통과한다.** 시트를 명시하고
+    //    각 시트에서 값을 실제로 뽑았는지까지 단언한다 (codex 코드리뷰 MINOR).
+    it.each(['자제, 대표필지', '농가의뢰', '공익직불제'])(
+        "9-c. '%s' 시트의 1차 예시값을 가져오기가 읽는다",
+        (name) => {
+            expect(sheetNames(), `'${name}' 시트가 서식에서 사라졌다`).toContain(name)
+            const aoa = aoaOf(name)
+            const m = fns.computeAutoMapping(fns.mergeHeaderRows(aoa[2], aoa[3]))
+            expect(m.landClass1, `'${name}': 1차 열을 못 찾았다`).not.toBeNull()
+            expect(m.landClass1, `'${name}': 1차 열을 못 찾았다`).not.toBeUndefined()
+
+            const raw = String(aoa[4]?.[m.landClass1] ?? '').trim()
+            expect(raw, `'${name}': 1차 예시값이 비었다 — 검사할 게 없다`).toBeTruthy()
+
+            expect(
+                fns.resolveLandClass1(raw, '농가의뢰').error,
+                `'${name}' 시트의 예시값 '${raw}'를 못 읽는다 — 서식과 코드가 갈라졌다`
+            ).toBe('')
+        }
+    )
+
+    // 🚨 왕복의 반대쪽 — 표준값으로 저장한 것이 흙토람에서 서식 표기로 되돌아오는가.
+    //    한쪽만 바뀌면 왕복이 조용히 깨진다.
+    it("9-d. 공익직불제 시트의 예시값이 '저장 → 흙토람'을 거쳐 원래 표기로 돌아온다", () => {
+        const aoa = aoaOf('공익직불제')
+        const m = fns.computeAutoMapping(fns.mergeHeaderRows(aoa[2], aoa[3]))
+        const raw = String(aoa[4]?.[m.landClass1] ?? '').trim()
+        expect(raw, '공익직불제 시트의 1차 예시값이 비었다').toBeTruthy()
+
+        const stored = fns.resolveLandClass1(raw, '농가의뢰').value
+        expect(stored, '표준값으로 저장되지 않는다').toBe('공익직불제')
+
+        // ⚠️ 변환을 여기서 다시 적으면 흙토람 쪽이 바뀌어도 통과한다.
+        //    **실제 소스의 함수 본문**을 꺼내 쓴다 (export가 없는 파일이라 텍스트로 읽는다).
+        expect(gongikOf(stored), '왕복이 원래 표기로 안 돌아온다').toBe(raw)
+    })
+
+    // 🚨 흙토람에는 양식이 둘이고 **기대값이 다르다.** 한쪽만 보면 다른 쪽이 바뀌어도 모른다.
+    //
+    // ⚠️ 소스 문자열만 보면 "변환을 안 탄다"는 사실만 알 뿐 **값**은 모른다.
+    //    변환 함수 자체가 공익직불제 외의 값도 건드리게 바뀌면 두 양식이 함께 흔들린다.
+    //    그래서 함수의 동작값도 같이 고정한다 (codex 코드리뷰 MINOR).
+    it('9-e-1. 변환 함수는 공익직불제만 바꾸고 나머지는 원문을 돌려준다', () => {
+        expect(gongikOf('공익직불제'), '공익직불제 양식 표기가 바뀌었다').toBe('직불(일반)')
+        for (const v of ['자체', '대표필지', '농가의뢰', '직불', 'GAP', '']) {
+            expect(gongikOf(v), `'${v}'까지 변환했다 — 일반 양식 값이 함께 흔들린다`).toBe(v)
+        }
+    })
+
+    it('9-e. 일반 흙토람 양식은 변환 없이 표준값을 그대로 쓴다', () => {
+        // heuktoram-script.js의 dataRow[3]은 getGongikLandClass1을 거치지 않는다
+        const m = readFileSync(resolve(process.cwd(), 'src/heuktoram/heuktoram-script.js'), 'utf8')
+            .match(/dataRow\[3\]\s*=\s*([^;]+);/)
+        expect(m, 'dataRow[3] 대입을 못 찾았다 — 흙토람 소스 구조가 바뀌었다').toBeTruthy()
+        expect(m[1], '일반 양식이 공익직불제 변환을 타게 됐다 — 기대값을 다시 정해야 한다')
+            .not.toContain('getGongikLandClass1')
     })
 
     // 🚨 이걸 안 막으면 '홍길동 / 경기도 시흥시 포동 389'가 정상 접수로 들어간다.

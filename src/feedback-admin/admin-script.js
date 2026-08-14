@@ -41,7 +41,13 @@ async function onLogin(e) {
 
 /** 로그아웃 */
 async function onLogout() {
-    await window.feedbackFirebase.signOutAdmin();
+    try {
+        await window.feedbackFirebase.signOutAdmin();
+    } finally {
+        // 편집 중이던 상태가 남으면, 다시 로그인했을 때 남의 문서에 set 할 수 있다.
+        // 로그아웃이 실패해도 상태는 비워야 한다 — 그래서 finally다.
+        resetNoticeForm();
+    }
     showLogin();
     window.showToast?.('로그아웃되었습니다.', 'success');
 }
@@ -156,6 +162,16 @@ async function loadNotices() {
             ${badges.length ? `<div>${badges.join(' ')}</div>` : ''}
             <div class="body">${esc(n.body).replace(/\n/g, '<br>')}</div>
         `);
+        // ⚠️ 버튼은 createElement로 만든다 — innerHTML에 넣으면 새니타이저를 거치며
+        //    이벤트를 다시 붙여야 한다. 기존 삭제 버튼이 이미 이 방식이다.
+        const edit = document.createElement('button');
+        edit.className = 'btn-secondary';
+        edit.textContent = '수정';
+        edit.style.marginTop = '0.6rem';
+        edit.style.marginRight = '0.4rem';
+        edit.addEventListener('click', () => startEditNotice(n));
+        card.appendChild(edit);
+
         const del = document.createElement('button');
         del.className = 'btn-danger';
         del.textContent = '삭제';
@@ -165,7 +181,73 @@ async function loadNotices() {
     });
 }
 
-/** 공지 등록 */
+// ── 공지 편집 (SLS-1-245) ─────────────────────────────────────────────
+// 지금까지는 등록·삭제만 있어, 오타 하나를 고치려면 지우고 다시 써야 했다.
+// 그러면 createdAt이 새로 찍혀 목록 맨 위로 올라가 사용자에게 새 공지처럼 보인다.
+// ⚠️ 원본 문서를 여기 들고 있지 않는다. 저장 직전에 **다시 읽어** 쓴다 —
+//    편집하는 동안 삭제되거나 다른 관리자가 고쳤을 수 있기 때문이다(addNotice 참조).
+let editingId = null;      // null이면 등록 모드
+
+/**
+ * 저장할 공지 문서를 만든다. (순수 함수 — 테스트 대상)
+ *
+ * 🚨 수정은 `update()`가 아니라 **`set()`으로 문서를 교체**한다.
+ *    `until`을 지우려면 `FieldValue.delete()` sentinel이 필요한데,
+ *    `firebase` 전역이 없다(window.feedbackFirebase는 getDb 등만 노출).
+ *    set이면 그 키를 안 넣는 것만으로 삭제가 된다.
+ *
+ * 🚨 그래서 **원본 필드를 함께 넘겨야 한다**(original 스프레드).
+ *    빠뜨리면 조용히 사라진다 — 지금은 createdAt이 그 대상이고,
+ *    나중에 필드가 늘어도 이 구조면 살아남는다.
+ *
+ * @param {{title:string, body:string, popup:boolean, until:string}} form
+ * @param {object|null} original 수정 시 원본 문서(id 포함), 등록이면 null
+ */
+function buildNoticePayload(form, original) {
+    const title = String(form.title ?? '').trim();
+    const body = String(form.body ?? '').trim();
+    // popup은 항상 boolean — notice-popup.js가 `=== true`로 엄격 비교한다
+    const popup = form.popup === true;
+    const until = String(form.until ?? '').trim();
+
+    if (!original) {
+        return { title, body, createdAt: new Date().toISOString(), popup, ...(until ? { until } : {}) };
+    }
+    // id는 문서 필드가 아니고, until은 아래에서 조건부로 다시 넣는다
+    const { id: _id, until: _until, ...rest } = original;
+    return { ...rest, title, body, popup, ...(until ? { until } : {}) };
+}
+
+/** 폼을 등록 모드로 되돌린다 */
+function resetNoticeForm() {
+    editingId = null;
+    $('noticeTitle').value = '';
+    $('noticeBody').value = '';
+    if ($('noticePopup')) $('noticePopup').checked = false;
+    if ($('noticeUntil')) $('noticeUntil').value = '';
+    if ($('noticeFormTitle')) $('noticeFormTitle').textContent = '공지 작성';
+    if ($('noticeSubmitBtn')) $('noticeSubmitBtn').textContent = '공지 등록';
+    if ($('noticeCancelBtn')) $('noticeCancelBtn').hidden = true;
+    if ($('noticeEditHint')) $('noticeEditHint').hidden = true;
+}
+
+/** 공지를 폼에 불러와 편집 모드로 (SLS-1-245) */
+function startEditNotice(n) {
+    editingId = n.id;
+    $('noticeTitle').value = n.title || '';
+    $('noticeBody').value = n.body || '';
+    if ($('noticePopup')) $('noticePopup').checked = n.popup === true;
+    if ($('noticeUntil')) $('noticeUntil').value = n.until || '';
+    if ($('noticeFormTitle')) $('noticeFormTitle').textContent = '공지 수정';
+    if ($('noticeSubmitBtn')) $('noticeSubmitBtn').textContent = '수정 저장';
+    if ($('noticeCancelBtn')) $('noticeCancelBtn').hidden = false;
+    if ($('noticeEditHint')) $('noticeEditHint').hidden = false;
+    // 목록이 길면 폼이 화면 밖이다
+    $('noticeForm')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('noticeTitle')?.focus();
+}
+
+/** 공지 등록 / 수정 */
 async function addNotice(e) {
     e.preventDefault();
     const title = $('noticeTitle').value.trim();
@@ -174,25 +256,36 @@ async function addNotice(e) {
     // 팝업 알림 / 표시 종료일 (SLS-1-219)
     const popup = $('noticePopup')?.checked === true;
     const until = ($('noticeUntil')?.value || '').trim();
+    const editing = editingId;
+    const form = { title, body, popup, until };
     try {
-        await db().collection(NOTICE_COL).add({
-            title,
-            body,
-            createdAt: new Date().toISOString(),
-            // popup은 항상 boolean으로 저장한다. notice-popup.js가 `=== true`로 엄격
-            // 비교하므로, 이 필드가 없는 기존 공지는 팝업에 나오지 않는다(의도).
-            popup,
-            ...(until ? { until } : {}),
-        });
-        $('noticeTitle').value = '';
-        $('noticeBody').value = '';
-        if ($('noticePopup')) $('noticePopup').checked = false;
-        if ($('noticeUntil')) $('noticeUntil').value = '';
-        window.showToast?.('공지가 등록되었습니다.', 'success');
+        if (editing) {
+            // 🚨 저장 직전에 **다시 읽는다.** set()은 없는 문서를 새로 만들기 때문에,
+            //    편집하는 동안 그 공지가 지워졌다면 그대로 **되살아난다.**
+            //    (update()라면 실패하지만 sentinel을 못 써서 set을 쓴다 — 계획 리뷰 참조)
+            //
+            //    다시 읽은 값을 원본으로 삼으므로, 그 사이 다른 관리자가 고친 필드도
+            //    편집 시작 시점의 낡은 값으로 덮이지 않는다.
+            const ref = db().collection(NOTICE_COL).doc(editing);
+            const snap = await ref.get();
+            if (!snap.exists) {
+                window.showToast?.('이미 삭제된 공지입니다.', 'warning');
+                resetNoticeForm();
+                await loadNotices();
+                return;
+            }
+            await ref.set(buildNoticePayload(form, { id: snap.id, ...snap.data() }));
+        } else {
+            await db().collection(NOTICE_COL).add(buildNoticePayload(form, null));
+        }
+        resetNoticeForm();
+        window.showToast?.(editing ? '공지가 수정되었습니다.' : '공지가 등록되었습니다.', 'success');
         await loadNotices();
     } catch (e2) {
-        (window.logger?.error || console.error)('[admin] 공지 등록 실패:', e2);
-        window.showToast?.('등록 실패 — 관리자 권한을 확인하세요.', 'error');
+        (window.logger?.error || console.error)('[admin] 공지 저장 실패:', e2);
+        window.showToast?.(
+            editing ? '수정 실패 — 관리자 권한을 확인하세요.' : '등록 실패 — 관리자 권한을 확인하세요.',
+            'error');
     }
 }
 
@@ -201,6 +294,8 @@ async function deleteNotice(id) {
     if (!window.confirm('이 공지를 삭제하시겠습니까?')) return;
     try {
         await db().collection(NOTICE_COL).doc(id).delete();
+        // 편집 중이던 공지가 사라졌으면 폼도 등록 모드로 (안 그러면 없는 문서에 set 한다)
+        if (editingId === id) resetNoticeForm();
         window.showToast?.('삭제되었습니다.', 'success');
         await loadNotices();
     } catch (e) {
@@ -211,6 +306,7 @@ async function deleteNotice(id) {
 function init() {
     $('loginForm')?.addEventListener('submit', onLogin);
     $('noticeForm')?.addEventListener('submit', addNotice);
+    $('noticeCancelBtn')?.addEventListener('click', resetNoticeForm);
     $('logoutBtn')?.addEventListener('click', onLogout);
     $('refreshBtn')?.addEventListener('click', () => Promise.all([loadInquiries(), loadNotices()]));
     // 웹(데스크톱 아님)에서는 게시판 설정이 없어 로그인 불가 — 안내 노출
@@ -221,3 +317,7 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// 테스트용 노출 (프로덕션 동작에는 쓰이지 않는다) — window.__noticePopup과 같은 방식.
+// admin-script.js에는 export가 없어 순수 함수를 이렇게 잡는다.
+window.__adminNotice = { buildNoticePayload, addNotice, resetNoticeForm, startEditNotice };

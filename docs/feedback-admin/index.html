@@ -86,7 +86,7 @@
         .toast.success { background: #16a34a; } .toast.error { background: #dc2626; } .toast.warning { background: #f59e0b; color: #1c1917; } .toast.info { background: #2563eb; }
         .toast-icon { font-size: 1.2rem; } .toast-message { flex: 1; font-size: 0.875rem; font-weight: 500; }
     </style>
-  <script type="module" crossorigin src="../assets/feedbackAdmin-CzwZRkYj.js"></script>
+  <script type="module" crossorigin src="../assets/feedbackAdmin-WTPoljC9.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-D6gMnemd.js">
   <link rel="modulepreload" crossorigin href="../assets/logger-Bx3YsiDi.js">
@@ -130,7 +130,7 @@
 
             <!-- 공지 관리 -->
             <div class="card">
-                <h2><span>📢</span> 공지 작성</h2>
+                <h2><span>📢</span> <span id="noticeFormTitle">공지 작성</span></h2>
                 <form id="noticeForm">
                     <label for="noticeTitle">제목</label>
                     <input type="text" id="noticeTitle" placeholder="공지 제목" maxlength="200">
@@ -154,7 +154,16 @@
                         <strong>팝업에만</strong> 적용됩니다 — 게시판 목록에는 계속 남습니다. 비워두면 팝업이 계속 뜹니다.
                     </small>
 
-                    <button type="submit" class="btn-primary">공지 등록</button>
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <button type="submit" class="btn-primary" id="noticeSubmitBtn">공지 등록</button>
+                        <button type="button" class="btn-secondary" id="noticeCancelBtn" hidden>편집 취소</button>
+                    </div>
+                    <!-- 수정해도 재팝업되지 않는 이유를 관리자가 알아야 판단할 수 있다 (SLS-1-245) -->
+                    <small id="noticeEditHint" hidden
+                           style="display: block; color: #94a3b8; margin-top: 0.5rem;">
+                        수정해도 <strong>이미 읽으신 분께 다시 뜨지는 않습니다.</strong>
+                        다시 알리려면 삭제 후 새로 등록하세요.
+                    </small>
                 </form>
                 <div id="noticeList" style="margin-top: 1rem;"></div>
             </div>

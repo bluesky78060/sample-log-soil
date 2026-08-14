@@ -1047,7 +1047,14 @@ class SoilSampleManager extends window.BaseSampleManager {
                     : [],
                 category: src.subCategory || '',
                 purpose: src.purpose || '',
-                note: src.note || ''
+                // 🚨 여기에 src.note를 넣지 않는다 (SLS-1-241). parcel.note는 **주소 필드**이고
+                //    레코드의 '비고'와는 다른 것이다. 복사하면 비고 문구가
+                //    흙토람에 제출하는 파일의 주소 칸까지 흘러간다:
+                //      화면       폼 '기타주소' 입력란 · 목록 '기타주소' 열 · 상세 모달
+                //      흙토람     dataRow[16] '기타주소'    (heuktoram-script.js)
+                //      공익직불제  dataRow[C+17] '상세주소'
+                //    레코드 수준 note(위)가 비고의 자리다.
+                note: ''
             }],
             lotAddress,
             area: (parseFloat(area) || 0).toString(),

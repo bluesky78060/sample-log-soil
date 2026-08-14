@@ -4219,7 +4219,15 @@ input[type="number"] {
 .crop-list-wrapper {
     border: 1px solid var(--gray-200);
     border-radius: var(--radius-md);
-    max-height: 300px;
+    /*
+     * 🚨 max-height가 아니라 height다 (SLS-1-244). max-height만 두면 결과 수만큼만
+     *    높이를 차지해, 검색어를 칠 때마다 모달이 커졌다 작아졌다 한다. 결과가
+     *    많든 적든 같은 크기를 유지하고 넘치는 것은 아래 overflow로 스크롤한다.
+     *
+     * ⚠️ 작은 화면에서는 부모(.modal-body)가 flex:1 + overflow-y:auto이므로
+     *    모달이 화면을 넘치지 않는다.
+     */
+    height: 300px;
     overflow-y: auto;
     margin-bottom: 1rem;
     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);

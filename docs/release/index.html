@@ -601,8 +601,36 @@
             <!-- v1.14.5 -->
             <!-- data-popup 미부착: 엑셀 가져오기를 쓰는 담당자에게만 해당하고,
                  사용자가 당장 조치할 것이 없다. 매번 뜨면 정작 중요할 때 안 읽는다. -->
+            <!-- v1.14.6 -->
+            <!-- data-popup: '비고가 기타주소에 함께 저장되던' 항목에만 붙인다.
+                 이미 저장된 자료를 사용자가 직접 확인해야 하고, 그 값이 흙토람·공익직불제
+                 제출 파일의 주소 칸으로 나가기 때문이다. 나머지는 개선이라 붙이지 않는다. -->
             <div class="version-entry">
                 <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.6</span>
+                                <span class="version-date">2026-08-14</span>
+                            </div>
+                            <div class="version-title">📥 엑셀 가져오기가 서식을 더 잘 읽습니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li data-popup><strong>비고에 적으신 내용이 '기타주소'에도 함께 저장되던 문제를 고쳤습니다.</strong> 비고와 기타주소는 다른 항목인데 같은 값이 들어가고 있었습니다. 이 값은 <strong>흙토람·공익직불제 제출 파일의 주소 칸으로 나갑니다.</strong> 앞으로 가져오시는 자료부터 분리되며, <strong>이미 가져오신 자료는 자동으로 바꾸지 않으니 목록에서 기타주소 칸을 한 번 확인해 주십시오.</strong></li>
+                        <li><strong>공익직불제 서식을 그대로 올리실 수 있습니다.</strong> 경지구분에 적힌 <strong>'직불(일반)'</strong>을 알아보지 못해 전체가 오류로 표시되던 문제를 고쳤습니다. 저장은 '공익직불제'로 되고, 흙토람으로 내보내면 다시 '직불(일반)'으로 나갑니다.</li>
+                        <li><strong>'차수'를 엑셀에서 읽어옵니다.</strong> 그동안은 가져온 건이 모두 1차로 들어가 목록에서 하나씩 고치셔야 했습니다. 이제 <strong>1·2·1차·2차</strong> 어느 쪽으로 적으셔도 됩니다. 알아볼 수 없는 값은 조용히 1차로 바꾸지 않고 <strong>오류로 알려드립니다</strong> — 잘못된 차수가 제출 파일에 나가지 않도록 하기 위해서입니다.</li>
+                        <li><strong>'대상지'라고 적힌 열을 지번주소로 읽습니다.</strong> 흙토람에서 쓰는 표기입니다. <strong>'대상지면적'</strong>은 그대로 면적으로 들어가고, 시도·시군구처럼 <strong>나뉘어 있는 주소 칸은 지번주소로 잘못 들어가지 않습니다.</strong></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="version-entry">
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -611,9 +639,6 @@
                                 <span class="version-date">2026-08-13</span>
                             </div>
                             <div class="version-title">📮 엑셀로 가져온 건도 라벨에 주소·우편번호가 나옵니다</div>
-                        </div>
-                        <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

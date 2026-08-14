@@ -3781,7 +3781,27 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         const addressFull = [row.addressRoad || row.address, row.addressDetail].filter(Boolean).join(' ') || '';
         const zipMatch = addressFull.match(/^\((\d{5})\)\s*/);
-        const zipcode = zipMatch ? zipMatch[1] : '';
+        //
+        // 🚨 우편번호는 **필드가 먼저**다 (SLS-1-247). 예전에는 주소 문자열 앞의
+        //    `(12345)` 접두에서만 뽑았는데, addressRoad에는 그 접두가 없어서
+        //    (buildAddressFields는 address에만 붙인다) **제대로 채운 건도 목록에서
+        //    빈칸으로 보였다.**
+        //
+        // ⚠️ `address`에서도 따로 찾는다. addressFull은 `addressRoad || address`라
+        //    addressRoad가 있으면 address를 아예 안 본다 — addressRoad는 있고
+        //    address에만 우편번호가 있는 레거시 레코드가 그 틈으로 샌다.
+        //
+        // ⚠️ String()으로 감싼다. 숫자형 우편번호가 들어와도 죽지 않게.
+        //
+        // 🚨 **5자리인 것만** 우선한다. 그냥 "비어 있지 않으면 우선"으로 두면
+        //    깨진 값('1234' 등)이 멀쩡한 폴백을 막고 **경고까지 꺼버린다** —
+        //    고쳐야 할 건이 정상으로 보이는 쪽이 가장 나쁘다.
+        //    정상 경로는 5자리를 보장하지만 레거시·수동 수정 데이터가 있다.
+        const zipFieldRaw = String(row.addressPostcode ?? '').trim();
+        const zipField = /^\d{5}$/.test(zipFieldRaw) ? zipFieldRaw : '';
+        const zipInRoad = zipMatch ? zipMatch[1] : '';
+        const zipInAddr = (String(row.address ?? '').match(/^\((\d{5})\)/) || [])[1] || '';
+        const zipcode = zipField || zipInRoad || zipInAddr;
         const addressOnly = zipMatch ? addressFull.replace(zipMatch[0], '') : addressFull;
         const displayAddress = addressOnly && addressOnly !== '-' && typeof SIDO_PATTERN !== 'undefined' && SIDO_PATTERN.test(addressOnly)
             ? addressOnly.replace(SIDO_PATTERN, '') : (addressOnly || '-');
@@ -3914,6 +3934,19 @@ class SoilSampleManager extends window.BaseSampleManager {
                     this.showToast('주소 복사에 실패했습니다.', 'error');
                 });
             });
+        }
+        // 농가의뢰만 결과를 농가로 발송한다. 주소가 있는데 우편번호가 없으면
+        // 반송될 수 있어 목록에서 바로 눈에 띄게 한다 (SLS-1-247).
+        //
+        // ⚠️ 세 조건이 모두 필요하다.
+        //    농가의뢰 아님 → 발송 대상이 아니라 우편번호가 없는 것이 정상이다
+        //    주소 없음     → 빈 칸은 이미 보인다. 칠하면 정작 고칠 대상이 묻힌다
+        //    우편번호 있음 → 경고할 이유가 없다
+        if (row.landClass1 === '농가의뢰' && addressOnly && addressOnly !== '-' && !zipcode) {
+            tdAddress.classList.add('postcode-missing');
+            // 주소 복사 안내를 덮지 않고 합친다
+            tdAddress.title = ['우편번호가 없습니다 — 발송 전 주소를 확인해 주세요', tdAddress.title]
+                .filter(Boolean).join(' · ');
         }
         tr.appendChild(tdAddress);
 

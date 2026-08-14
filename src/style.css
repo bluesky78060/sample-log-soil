@@ -3661,6 +3661,24 @@ input[type="number"] {
     font-weight: 500;
 }
 
+/*
+ * 농가주소에 우편번호가 없음 (SLS-1-247) — 농가의뢰에만 붙는다.
+ * 지번주소의 .address-invalid와 **뜻이 다르다**(그쪽은 VWORLD 검증 불일치).
+ */
+.data-table td.postcode-missing {
+    color: #dc2626;
+    font-weight: 500;
+}
+
+@media print {
+    /* 종이에는 붉은 글자를 내보내지 않는다.
+       ⚠️ 지금 앱에 목록 인쇄 버튼은 없다 — 브라우저 인쇄 대비. */
+    .data-table td.postcode-missing,
+    .data-table td.address-invalid {
+        color: #000;
+    }
+}
+
 /* 주소 검증 상태 (등록 결과 모달) */
 .address-verify-status {
     padding: 10px 16px;
@@ -6156,7 +6174,8 @@ select {
     background: rgba(74, 222, 128, 0.2);
 }
 
-[data-theme="dark"] .data-table td.address-invalid {
+[data-theme="dark"] .data-table td.address-invalid,
+[data-theme="dark"] .data-table td.postcode-missing {
     color: #f87171;
 }
 [data-theme="dark"] .address-verify-status {

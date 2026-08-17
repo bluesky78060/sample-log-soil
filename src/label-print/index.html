@@ -1096,7 +1096,8 @@
                     <div class="form-group">
                         <label for="labelTemplate">라벨 템플릿 선택</label>
                         <select id="labelTemplate" name="labelTemplate" autocomplete="off" aria-label="라벨 템플릿 선택">
-                            <option value="2x9">A4 - 2열 9행 (18개, 100×30mm)</option>
+                            <option value="2x9">A4 - 2열 9행 (18개, 100×30mm) · 프린텍 V3260</option>
+                            <option value="2x8">A4 - 2열 8행 (16개, 99×33.85mm) · 프린텍 V3240</option>
                             <option disabled>(추후 추가 예정)</option>
                         </select>
                     </div>
@@ -1105,27 +1106,9 @@
                         <label for="labelStartPosition">시작 위치 (라벨지 절약)</label>
                         <div class="start-position-wrapper">
                             <div class="label-position-container">
-                                <!-- 라벨 위치 미니 프리뷰 -->
-                                <div class="label-grid-preview" id="labelGridPreview">
-                                    <div class="label-cell" data-pos="1">1</div>
-                                    <div class="label-cell" data-pos="2">2</div>
-                                    <div class="label-cell" data-pos="3">3</div>
-                                    <div class="label-cell" data-pos="4">4</div>
-                                    <div class="label-cell" data-pos="5">5</div>
-                                    <div class="label-cell" data-pos="6">6</div>
-                                    <div class="label-cell" data-pos="7">7</div>
-                                    <div class="label-cell" data-pos="8">8</div>
-                                    <div class="label-cell" data-pos="9">9</div>
-                                    <div class="label-cell" data-pos="10">10</div>
-                                    <div class="label-cell" data-pos="11">11</div>
-                                    <div class="label-cell" data-pos="12">12</div>
-                                    <div class="label-cell" data-pos="13">13</div>
-                                    <div class="label-cell" data-pos="14">14</div>
-                                    <div class="label-cell" data-pos="15">15</div>
-                                    <div class="label-cell" data-pos="16">16</div>
-                                    <div class="label-cell" data-pos="17">17</div>
-                                    <div class="label-cell" data-pos="18">18</div>
-                                </div>
+                                <!-- 라벨 위치 미니 프리뷰 — 칸은 label-app.js가 템플릿에 맞춰 그린다 (SLS-1-248).
+                                     규격마다 칸 수·열 수가 달라 여기에 박아 두면 16칸에서 17·18이 남는다. -->
+                                <div class="label-grid-preview" id="labelGridPreview"></div>
                                 <div class="label-position-info">
                                     <div class="position-legend">
                                         <span class="legend-item"><span class="legend-box used"></span> 사용됨 (건너뜀)</span>

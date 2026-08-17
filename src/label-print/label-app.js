@@ -528,16 +528,11 @@
       return;
     }
 
-    const template = document.getElementById('labelTemplate')?.value || '2x9';
-    const templateMap = {
-      '2x9': { perSheet: 18, sheetClass: 'label-sheet-2x9' },
-      '3x7': { perSheet: 21, sheetClass: 'label-sheet-3x7' },
-      '4x6': { perSheet: 24, sheetClass: 'label-sheet-4x6' },
-    };
-    const { perSheet, sheetClass } = templateMap[template] || templateMap['2x9'];
+    const template = currentTemplateKey();
+    const { perSheet, sheetClass } = specOf(template);
 
-    // 시작 위치 가져오기 (1-18)
-    const startPosition = parseInt(document.getElementById('labelStartPosition')?.value || '1', 10);
+    // 시작 위치 — 규격 범위로 정규화한다 (NaN·0·범위 초과 방어)
+    const startPosition = normalizeStartPosition(perSheet);
     const skipCount = Math.max(0, startPosition - 1); // 건너뛸 빈 칸 수
 
     const labelSheetContainer = document.getElementById('labelModalSheet');
@@ -683,6 +678,65 @@
 
     updateProgressCard({ progress: 0, steps: cloneProgressSteps() }, '처리 중...');
     lastLabelStatus = null;
+
+    // 시작 위치도 되돌린다 (SLS-1-248) — 안 그러면 이전 선택이 남아,
+    // 칸 수가 더 적은 규격으로 바꿨을 때 범위 밖 값이 된다.
+    rebuildLabelGridPreview(currentTemplateKey());
+  }
+
+  /**
+   * 라벨 규격 (SLS-1-248)
+   *
+   * 🚨 한 곳에서만 정의한다. 생성(generateLabels)과 시작위치 프리뷰가 같은 값을 봐야
+   *    "18칸 프리뷰인데 16칸으로 인쇄" 같은 어긋남이 안 생긴다.
+   *
+   * ⚠️ 새 규격을 추가하면 label-print.css의 **@media print 축소 해제 목록에도** 넣을 것.
+   *    빠뜨리면 scale(0.6) 상태로 인쇄되어 라벨지가 버려진다.
+   */
+  const TEMPLATE_SPECS = {
+    '2x9': { perSheet: 18, cols: 2, sheetClass: 'label-sheet-2x9' },
+    '2x8': { perSheet: 16, cols: 2, sheetClass: 'label-sheet-2x8' },
+    '3x7': { perSheet: 21, cols: 3, sheetClass: 'label-sheet-3x7' },
+    '4x6': { perSheet: 24, cols: 4, sheetClass: 'label-sheet-4x6' },
+  };
+  const specOf = (key) => TEMPLATE_SPECS[key] || TEMPLATE_SPECS['2x9'];
+  const currentTemplateKey = () => document.getElementById('labelTemplate')?.value || '2x9';
+
+  /**
+   * 시작 위치를 1..perSheet 범위로 정규화한다.
+   *
+   * 🚨 UI에서 리셋하는 것만으로는 부족하다. generateLabels가 hidden 값을 그대로 읽으므로
+   *    NaN·0·음수·범위 초과가 들어오면 firstPageSlots/sheetCount가 깨져
+   *    빈 페이지가 생기거나 장수가 어긋난다.
+   */
+  function normalizeStartPosition(perSheet) {
+    const el = document.getElementById('labelStartPosition');
+    const raw = Number.parseInt(el?.value, 10);
+    const pos = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), perSheet) : 1;
+    if (el && String(pos) !== el.value) el.value = String(pos);   // 화면과 출력을 일치시킨다
+    return pos;
+  }
+
+  /** 템플릿에 맞춰 시작위치 프리뷰를 다시 그린다 (칸 수·열 수가 규격마다 다르다) */
+  function rebuildLabelGridPreview(templateKey) {
+    const grid = document.getElementById('labelGridPreview');
+    if (!grid) return;
+    const spec = specOf(templateKey);
+    grid.style.gridTemplateColumns = `repeat(${spec.cols}, 1fr)`;
+    const frag = document.createDocumentFragment();
+    for (let i = 1; i <= spec.perSheet; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'label-cell';
+      cell.dataset.pos = String(i);
+      cell.textContent = String(i);
+      frag.appendChild(cell);
+    }
+    grid.innerHTML = '';
+    grid.appendChild(frag);
+    // 칸 수가 줄면 이전 선택이 범위 밖일 수 있다 — 1로 되돌린다
+    const hidden = document.getElementById('labelStartPosition');
+    if (hidden) hidden.value = '1';
+    updateLabelGridPreview(1);
   }
 
   // 라벨 위치 그리드 초기화 및 이벤트 바인딩
@@ -690,20 +744,24 @@
     const grid = document.getElementById('labelGridPreview');
     if (!grid) return;
 
-    const cells = grid.querySelectorAll('.label-cell');
-    cells.forEach(cell => {
-      cell.addEventListener('click', () => {
-        const pos = parseInt(cell.dataset.pos, 10);
-        const hiddenInput = document.getElementById('labelStartPosition');
-        if (hiddenInput) {
-          hiddenInput.value = pos;
-        }
-        updateLabelGridPreview(pos);
-      });
+    // ⚠️ 셀마다 리스너를 붙이면 안 된다 — 템플릿을 바꿀 때 innerHTML로 다시 그리므로
+    //    리스너가 통째로 사라진다. 그리드에 한 번만 위임한다.
+    grid.addEventListener('click', (e) => {
+      const cell = e.target.closest('.label-cell');
+      if (!cell || !grid.contains(cell)) return;
+      const pos = parseInt(cell.dataset.pos, 10);
+      if (!Number.isFinite(pos)) return;
+      const hiddenInput = document.getElementById('labelStartPosition');
+      if (hiddenInput) hiddenInput.value = String(pos);
+      updateLabelGridPreview(pos);
     });
 
-    // 초기 상태 (1번 시작)
-    updateLabelGridPreview(1);
+    // 템플릿을 바꾸면 칸 수·열 수가 달라진다 (SLS-1-248)
+    document.getElementById('labelTemplate')
+      ?.addEventListener('change', (e) => rebuildLabelGridPreview(e.target.value));
+
+    // 초기 상태 — 현재 선택된 템플릿 기준으로 그린다
+    rebuildLabelGridPreview(currentTemplateKey());
   }
 
   // 라벨 그리드 프리뷰 업데이트

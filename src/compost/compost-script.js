@@ -278,16 +278,27 @@ class CompostSampleManager extends window.BaseSampleManager {
             ? fullAddress.replace(SIDO_PATTERN, '')
             : fullAddress;
 
-        // XSS 방지: 사용자 입력 데이터 이스케이프
-        const safeFarmName = escapeHTML(logItem.farmName || logItem.companyName || '-');
-        const safeName = escapeHTML(logItem.name || '-');
-        const safeDisplayAddress = escapeHTML(displayAddress);
-        const safeFarmAddress = escapeHTML(logItem.farmAddress || '-');
+        // 🚨 여기서 escapeHTML을 쓰지 않는다 (SLS-1-249 적대적 검증에서 잡힘).
+        //    아래 여섯 값은 전부 textContent · title · dataset.tooltip 으로만 나간다.
+        //    그 셋은 **HTML을 파싱하지 않는 텍스트 싱크**라 이스케이프가 필요 없고,
+        //    미리 이스케이프하면 엔티티가 **글자 그대로** 보인다:
+        //
+        //        홍길동 & 김철수  →  홍길동 &amp; 김철수
+        //        가격<중요>       →  가격&lt;중요&gt;
+        //
+        //    이건 예전부터 있던 결함이다(escapeHTML이 &·<·>는 원래 바꿨으므로).
+        //    escapeHTML이 따옴표까지 처리하게 되면서 `홍"길동 → 홍&quot;길동`이 추가로
+        //    깨질 참이었다. 원본을 그대로 넣는 것이 옳다 — 텍스트 싱크가 알아서 안전하다.
+        //    ⚠️ 이 변수들을 innerHTML 쪽으로 옮길 일이 생기면 그때는 반드시 escapeHTML을 씌운다.
+        const safeFarmName = logItem.farmName || logItem.companyName || '-';
+        const safeName = logItem.name || '-';
+        const safeDisplayAddress = displayAddress;
+        const safeFarmAddress = logItem.farmAddress || '-';
         const displayPhone = logItem.phoneNumber && window.SampleUtils?.formatPhoneNumber
             ? (window.SampleUtils.formatPhoneNumber(logItem.phoneNumber) || logItem.phoneNumber)
             : (logItem.phoneNumber || '-');
-        const safePhone = escapeHTML(displayPhone);
-        const safeNote = escapeHTML(logItem.note || '-');
+        const safePhone = displayPhone;
+        const safeNote = logItem.note || '-';
 
         // 법인여부 및 생년월일/법인번호
         const applicantType = logItem.applicantType || '개인';

@@ -57,14 +57,35 @@ function sanitizeHTML(html) {
 
 /**
  * 텍스트를 HTML 엔티티로 이스케이프
+ *
+ * 🚨 따옴표까지 반드시 이스케이프한다 (SLS-1-249).
+ *    예전 구현은 `div.textContent = x; return div.innerHTML`이었는데, HTML 텍스트 노드
+ *    직렬화는 규격상 `&`·`<`·`>`만 바꾸고 **따옴표는 그대로 내보낸다.** 텍스트 문맥에서는
+ *    맞지만, 이 함수의 결과는 `value="..."`·`title="..."` 같은 **속성 문맥**으로도 들어간다.
+ *    그러면 `"`가 속성을 닫아버려 뒤가 통째로 잘렸다:
+ *
+ *        입력  1"동 옆 창고   →  value="1"동 옆 창고"  →  화면 '1'
+ *
+ *    저장은 됐는데 **다시 열 때** 잘려 보이고, 그 상태로 저장하면 원본이 덮였다.
+ *    (스크립트 실행은 DOMPurify의 속성 화이트리스트와 CSP가 막았다 — 피해는 데이터 유실이었다)
+ *
+ * ⚠️ `&`를 **맨 먼저** 치환해야 한다. 순서를 바꾸면 `&lt;`가 다시 `&amp;lt;`가 된다.
+ *
+ * DOM 대신 문자열로 처리하는 이유: 미리보기 표가 13열 × 최대 200행이라 호출이 수천 번이고,
+ * `soil-result-importer.js`·`heuktoram-result-importer.js`의 로컬 폴백이 이미 이 구현이라
+ * 세 곳의 동작이 하나로 맞는다.
+ *
  * @param {string|null|undefined} text - 이스케이프할 텍스트
  * @returns {string} 이스케이프된 텍스트
  */
 function escapeHTML(text) {
     if (text === null || text === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 /**
@@ -107,7 +128,13 @@ function safeTemplate(template, data) {
     let result = template;
     for (const [key, value] of Object.entries(data)) {
         const safeValue = escapeHTML(value);
-        result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), safeValue);
+        // ⚠️ key를 정규식에 그대로 넣지 않는다 (SLS-1-249 코드리뷰).
+        //    '가격($)' 같은 키가 오면 메타문자로 해석되어 엉뚱한 자리를 치환하거나 던진다.
+        const safeKey = String(key).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // ⚠️ 치환자는 **함수로** 넘긴다 (SLS-1-249 계획 리뷰).
+        //    문자열로 넘기면 String.replace가 `$&`·`` $` ``·`$'`·`$1`·`$$`를 특수 해석해,
+        //    값에 `$&`가 들어오면 매치된 `{{key}}` 자체로 바뀐다. 함수 치환자에는 그 해석이 없다.
+        result = result.replace(new RegExp(`\\{\\{${safeKey}\\}\\}`, 'g'), () => safeValue);
     }
     return result;
 }

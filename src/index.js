@@ -444,7 +444,13 @@ app.whenReady().then(() => {
           "script-src 'self' file:; " +
           "style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; " +
           "font-src 'self' file: https://fonts.gstatic.com; " +
-          "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr https://api.telegram.org https://api.emailjs.com; " +
+          // 🚨 페이지 meta CSP의 connect-src와 **함께** 만족해야 요청이 통과한다 (SLS-1-251).
+          //    관리자 페이지 meta에만 api.github.com을 넣었더니 웹에서는 되는데
+          //    Electron에서 "Failed to fetch"가 났다 — 관리자 페이지는 문의 페이지의
+          //    <a href="../feedback-admin/index.html">관리자</a> 링크로 앱 창 안에서 열린다.
+          //    ⚠️ 새 외부 오리진을 페이지 meta에 넣으면 **여기에도** 넣어야 한다.
+          //       tests/unit/csp-consistency.test.js가 어긋나면 실패시킨다.
+          "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr https://api.telegram.org https://api.emailjs.com https://api.github.com; " +
           "img-src 'self' file: data:; " +
           "frame-src 'self'; " +  // SLS-1-20: Kakao 우편번호 iframe 도메인 제거
           "object-src 'none'; " +  // Flash, Java 등 플러그인 차단

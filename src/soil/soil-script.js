@@ -3099,7 +3099,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                 <div class="stat-bar-item">
                     <span class="stat-bar-label">${value.label}</span>
                     <div class="stat-bar-wrapper">
-                        <div class="stat-bar ${value.class}" style="width: ${percent}%"></div>
+                        <div class="stat-bar ${value.class}" data-width-pct="${percent}"></div>
                         ${showInside ? `<span class="stat-bar-count">${value.count}건</span>` : ''}
                     </div>
                     ${!showInside ? `<span style="font-size: 0.75rem; color: #6b7280; min-width: 40px;">${value.count}건</span>` : ''}
@@ -3183,7 +3183,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                             </div>
                             <div class="quarterly-completion">
                                 <div class="completion-bar">
-                                    <div class="completion-fill" style="width: ${completionRate}%"></div>
+                                    <div class="completion-fill" data-width-pct="${completionRate}"></div>
                                 </div>
                                 <span class="completion-text">완료율 ${completionRate}%</span>
                             </div>
@@ -3192,6 +3192,9 @@ class SoilSampleManager extends window.BaseSampleManager {
                 }).join('')}
             </div>
         `);
+        // 🚨 새니타이저가 인라인 style을 지운다 — 폭은 삽입 **뒤에** 준다 (SLS-1-253).
+        //    안 그러면 완료율 0%인 분기도 막대가 꽉 차 보인다(실측 확인).
+        window.applyDataWidths(container);
     }
 
     // ========================================

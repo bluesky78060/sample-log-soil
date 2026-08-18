@@ -36,6 +36,12 @@ function sanitizeHTML(html) {
                 'header', 'footer', 'nav', 'main', 'section', 'article', 'aside',
                 'figure', 'figcaption', 'details', 'summary'
             ],
+            // 🚨 여기에 **없는 속성은 조용히 지워진다.** 두 번 사고가 났다:
+            //    · SLS-1-243 `hidden`  — 공지가 접히지 않고 전부 펼쳐졌다
+            //    · SLS-1-253 `style`   — 막대 그래프 폭이 사라져 전부 같은 길이가 됐다
+            //    둘 다 "마크업에 넣었는데 화면에서 사라진" 형태라 원인을 찾기 어렵다.
+            //    ⚠️ sanitizeHTML을 거치는 곳에서는 **속성으로 표현을 실어 보내지 않는다.**
+            //       값은 data-*로 넘기고, 스타일·상태는 삽입 **뒤에** DOM 프로퍼티로 준다.
             ALLOWED_ATTR: [
                 'class', 'id', 'title', 'alt', 'src', 'href', 'target', 'rel',
                 'type', 'name', 'value', 'placeholder', 'disabled', 'readonly', 'checked', 'selected',
@@ -97,6 +103,27 @@ function setInnerHTML(element, html) {
     if (element) {
         element.innerHTML = sanitizeHTML(html);
     }
+}
+
+/**
+ * `data-width-pct`를 실제 폭으로 바꾼다 (SLS-1-253).
+ *
+ * 🚨 `sanitizeHTML`은 `style` 속성을 **지운다**(ALLOWED_ATTR에 없다).
+ *    그래서 막대 그래프 폭을 마크업에 인라인으로 넣으면 사라지고,
+ *    폭 없는 막대는 부모를 100% 채워 **값과 무관하게 전부 같은 길이**가 된다.
+ *    실제로 두 곳에서 그렇게 됐다 — 관리자 릴리스 현황, 토양 분기별 완료율.
+ *
+ *    값은 `data-width-pct`(data-*는 허용됨)로 넘기고, 삽입 **뒤에** 이 함수를 부른다.
+ *    DOM 프로퍼티 대입이라 새니타이저를 거치지 않는다.
+ *
+ * @param {ParentNode|null} root - 검색 기준 요소
+ */
+function applyDataWidths(root) {
+    root?.querySelectorAll('[data-width-pct]').forEach((el) => {
+        // Number로 숫자만 통과시킨다 — 문자열이 CSS로 흘러들지 않게
+        const pct = Number(el.dataset.widthPct);
+        el.style.width = `${Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0}%`;
+    });
 }
 
 /**
@@ -179,6 +206,7 @@ function sanitizeExcelAoa(aoa) {
 window.sanitizeHTML = sanitizeHTML;
 window.escapeHTML = escapeHTML;
 window.setInnerHTML = setInnerHTML;
+window.applyDataWidths = applyDataWidths;
 window.clearElement = clearElement;
 window.safeText = safeText;
 window.safeTemplate = safeTemplate;

@@ -173,6 +173,79 @@ test.describe('릴리스 배포 현황 (SLS-1-250)', () => {
         await expect(page.locator('#releaseStats')).toContainText('릴리스가 없습니다');
     });
 
+    // ══════════════════════════════════════════════════════════════
+    // 🚨 막대 **폭**을 잰다 (SLS-1-253).
+    //
+    //    기존 테스트는 라벨과 숫자만 봤다. 그래서 폭이 전부 100%가 되는 결함이
+    //    그대로 배포됐다 — 값이 20이든 2든 막대가 같은 길이였고, 그래프가
+    //    아무 정보도 주지 못했다. 원인은 인라인 style을 DOMPurify가 지운 것.
+    //
+    //    "막대가 그려졌다"가 아니라 **"막대가 값을 나타낸다"**를 지킨다.
+    // ══════════════════════════════════════════════════════════════
+    const barWidths = (page) => page.evaluate(() =>
+        [...document.querySelectorAll('#releaseStats .stat-bar')].map((b) => ({
+            lab: b.querySelector('.lab').textContent,
+            num: Number(b.querySelector('.num').textContent),
+            w: b.querySelector('.fill').getBoundingClientRect().width,
+            track: b.querySelector('.track').getBoundingClientRect().width,
+        })));
+
+    test('막대 폭이 값에 따라 달라진다', async ({ page }) => {
+        await openStats(page, ok(FIXTURE));
+        const bars = (await barWidths(page)).filter((b) => b.lab.startsWith('v'));
+        expect(bars.length).toBeGreaterThan(2);
+
+        const widths = bars.map((b) => Math.round(b.w));
+        expect(new Set(widths).size,
+            `막대가 전부 같은 길이다 (${widths.join('/')}) — 값을 나타내지 못한다`)
+            .toBeGreaterThan(1);
+        // 값이 큰 쪽이 더 길어야 한다
+        for (let i = 1; i < bars.length; i++) {
+            if (bars[i - 1].num > bars[i].num) {
+                expect(bars[i - 1].w, `${bars[i-1].lab}(${bars[i-1].num}) vs ${bars[i].lab}(${bars[i].num})`)
+                    .toBeGreaterThan(bars[i].w);
+            }
+        }
+    });
+
+    test('최댓값 막대가 트랙을 거의 채운다', async ({ page }) => {
+        await openStats(page, ok(FIXTURE));
+        const bars = (await barWidths(page)).filter((b) => b.lab.startsWith('v'));
+        const top = bars[0];
+        expect(top.w / top.track, '최댓값인데 트랙을 안 채운다').toBeGreaterThan(0.95);
+    });
+
+    // 🚨 비율이 맞아야 한다 — 폭이 다르기만 하면 되는 게 아니다
+    test('폭의 비율이 값의 비율과 맞는다', async ({ page }) => {
+        await openStats(page, ok([
+            rel('v2.0.0', '2026-08-01T00:00:00Z', 20),
+            rel('v1.0.0', '2026-05-01T00:00:00Z', 10),   // 정확히 절반
+        ]));
+        const bars = (await barWidths(page)).filter((b) => b.lab.startsWith('v'));
+        expect(bars.map((b) => b.num)).toEqual([20, 10]);
+        expect(bars[1].w / bars[0].w, '10은 20의 절반 길이여야 한다').toBeCloseTo(0.5, 1);
+    });
+
+    // 🚨 data-pct가 새니타이저를 통과해 살아남는가 —
+    //    이 티켓의 교훈이 "새니타이저가 조용히 지운다"이므로 믿지 않고 확인한다
+    test('data-width-pct가 새니타이저에 지워지지 않는다', async ({ page }) => {
+        await openStats(page, ok(FIXTURE));
+        const pcts = await page.evaluate(() =>
+            [...document.querySelectorAll('#releaseStats .fill')].map((el) => el.dataset.widthPct));
+        expect(pcts.every((p) => p !== undefined && p !== ''),
+            'data-width-pct가 사라졌다 — 폭을 계산할 근거가 없다').toBe(true);
+        expect(pcts).toContain('100');
+    });
+
+    test('다운로드가 전부 0이어도 죽지 않는다', async ({ page }) => {
+        await openStats(page, ok([rel('v1.0.0', '2026-05-01T00:00:00Z', 0)]));
+        // 버전 막대는 0건이라 안 그리고, 월별 막대는 0으로 그린다 — 0 나누기가 없어야 한다
+        const bars = await barWidths(page);
+        for (const b of bars) {
+            expect(Number.isFinite(b.w), '폭이 숫자가 아니다 — 0으로 나눴다').toBe(true);
+        }
+    });
+
     // 🚨 태그명은 GitHub에서 오는 외부 문자열이다
     test('태그명이 실제 요소로 파싱되지 않는다', async ({ page }) => {
         await openStats(page, ok([rel('<img src=x onerror=alert(1)>', '2026-07-30T00:00:00Z', 5)]));

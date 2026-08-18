@@ -533,7 +533,20 @@ async function loadReleaseStats(opts) {
     return _statsInFlight;
 }
 
-/** 막대 목록 마크업 */
+/**
+ * 막대 목록 마크업.
+ *
+ * 🚨 폭을 인라인 `style`로 넣지 않는다 (SLS-1-253).
+ *    sanitize.js의 ALLOWED_ATTR에 `style`이 없어 DOMPurify가 **속성을 통째로 지운다.**
+ *    폭이 사라진 .fill은 display:block이라 track을 100% 채워, 값이 20이든 2든
+ *    **막대가 전부 같은 길이**가 됐다. 그래프가 아무 정보도 주지 못했다.
+ *
+ *    `data-*`는 허용 목록에 있으므로 값만 실어 보내고, 폭은 삽입 **뒤에** JS로 준다
+ *    (`window.applyDataWidths`). 프로퍼티 대입이라 새니타이저를 거치지 않는다.
+ *
+ *    ⚠️ 같은 함정을 이미 겪었다 — SLS-1-243에서 `hidden`이 지워져 공지가 안 접혔다.
+ *       sanitizeHTML을 거치는 곳에서는 **속성으로 표현을 실어 보내지 않는다.**
+ */
 function statBars(rows, labelKey) {
     const max = rows.reduce((m, r) => Math.max(m, r.count), 0);
     const esc = window.escapeHTML;
@@ -542,7 +555,7 @@ function statBars(rows, labelKey) {
         const pct = max > 0 ? Math.round((r.count / max) * 100) : 0;
         return `<div class="stat-bar">
             <span class="lab">${esc(r[labelKey])}</span>
-            <span class="track"><span class="fill" style="width:${pct}%"></span></span>
+            <span class="track"><span class="fill" data-width-pct="${pct}"></span></span>
             <span class="num">${esc(String(r.count))}</span>
         </div>`;
     }).join('');
@@ -578,6 +591,8 @@ function renderReleaseStats(s) {
                 <li><b>누가 안 받았는지는 나오지 않습니다.</b></li>
             </ul>
         </div>`);
+    // 🚨 setInnerHTML **뒤에** 준다 — 마크업에 넣으면 새니타이저가 지운다
+    window.applyDataWidths(box);
 }
 
 // ========================================

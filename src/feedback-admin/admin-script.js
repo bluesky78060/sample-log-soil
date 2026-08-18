@@ -22,6 +22,18 @@ function fmtDate(iso) {
 function showAdmin() { $('loginSection').style.display = 'none'; $('adminSection').style.display = 'block'; }
 function showLogin() { $('adminSection').style.display = 'none'; $('loginSection').style.display = 'block'; }
 
+/**
+ * 로그인 직후 불러오는 것들.
+ *
+ * 🚨 여기에 loadReleaseStats를 **넣지 않는다** (SLS-1-252).
+ *    현황 탭을 처음 열 때만 부른다 — 안 보는 사람의 GitHub 한도(IP당 60회/시간)를
+ *    쓰지 않기 위해서다. 함수로 뺀 이유는 E2E가 **이 경로를 실제로 실행해** 검증하기
+ *    위해서다(로그인은 Firebase가 필요해 E2E로 못 탄다).
+ */
+async function loadAdminData() {
+    await Promise.all([loadInquiries(), loadNotices()]);
+}
+
 /** 로그인 */
 async function onLogin(e) {
     e.preventDefault();
@@ -36,7 +48,7 @@ async function onLogin(e) {
     $('adminPassword').value = '';
     showAdmin();
     window.showToast?.('로그인되었습니다.', 'success');
-    await Promise.all([loadInquiries(), loadNotices(), loadReleaseStats()]);
+    await loadAdminData();
 }
 
 /** 로그아웃 */
@@ -50,8 +62,12 @@ async function onLogout() {
         // 통계 캐시도 비운다 (SLS-1-250 코드리뷰). 안 비우면 다시 로그인했을 때
         // 60초 캐시가 살아 있어 낡은 수치를 보여주고 새로 조회하지 않는다.
         clearReleaseStatsCache();
+        _statsTabOpened = false;
+        activateAdminTab('inquiry');   // 다음 로그인은 기본 탭에서 시작한다
     }
     showLogin();
+    // 포커스가 숨겨진 관리자 영역에 남으면 키보드 사용자가 길을 잃는다 (코드리뷰 MINOR)
+    $('adminEmail')?.focus();
     window.showToast?.('로그아웃되었습니다.', 'success');
 }
 
@@ -66,11 +82,19 @@ async function loadInquiries() {
     } catch (e) {
         (window.logger?.error || console.error)('[admin] 문의 조회 실패:', e);
         window.setInnerHTML(wrap, '<div class="hint">조회 실패 — 보안 규칙의 ADMIN_UID가 이 계정 UID로 설정됐는지 확인하세요.</div>');
-        $('inquiryCount').textContent = '0';
+        // 🚨 실패를 '0'으로 쓰지 않는다 (SLS-1-252 계획 리뷰).
+        //    탭 뱃지로 옮기면서 '0'이 **"문의 없음"으로 읽힌다** — 답할 게 없다고 오해한다.
+        //    카드 제목에 있을 때보다 위험해졌으므로 모름(—)으로 구분한다.
+        $('inquiryCount').textContent = '—';
+        $('inquiryCount').title = '문의를 불러오지 못했습니다';
+        // title만으로는 스크린리더에 '—'의 뜻이 전달되지 않는다 (코드리뷰 MINOR)
+        $('inquiryCount').setAttribute('aria-label', '문의 조회 실패');
         return;
     }
     docs.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     $('inquiryCount').textContent = String(docs.length);
+    $('inquiryCount').title = '';
+    $('inquiryCount').setAttribute('aria-label', `문의 ${docs.length}건`);
     if (!docs.length) { window.setInnerHTML(wrap, '<div class="hint">등록된 문의가 없습니다.</div>'); return; }
 
     const esc = window.escapeHTML;
@@ -422,7 +446,15 @@ let _statsCache = null;   // { at:number, stats:object }
 let _statsGen = 0;        // 세대 토큰 — 뒤늦게 도착한 이전 요청의 결과를 버린다
 
 /** 로그아웃 시 호출 — 재로그인에서 낡은 수치가 재사용되지 않게 한다 */
-function clearReleaseStatsCache() { _statsCache = null; _statsGen += 1; }
+function clearReleaseStatsCache() {
+    _statsCache = null;
+    _statsGen += 1;
+    // 🚨 진행 중 요청 슬롯도 비운다 (SLS-1-252 코드리뷰 MAJOR).
+    //    안 비우면 로그아웃 → 곧바로 재로그인 → 현황 탭에서, 폐기된 옛 요청의 약속을
+    //    그대로 돌려받는다. 그 결과는 세대 검사로 버려지므로 화면이 '불러오는 중…'에
+    //    멈춘 채 재시도도 하지 않는다.
+    _statsInFlight = null;
+}
 
 /**
  * 릴리스 전체를 페이지네이션으로 받아온다.
@@ -493,7 +525,9 @@ async function loadReleaseStats(opts) {
                 : (e?.message || '조회 실패 — 네트워크를 확인하세요.');
             window.setInnerHTML(box, `<div class="stats-fail">⚠️ ${window.escapeHTML(msg)}</div>`);
         } finally {
-            _statsInFlight = null;
+            // ⚠️ 내 세대일 때만 슬롯을 비운다. 그냥 null로 두면 로그아웃 뒤 시작된
+            //    **새 요청의 슬롯**을 옛 요청이 지워, 그 다음 호출이 중복 요청을 낸다.
+            if (gen === _statsGen) _statsInFlight = null;
         }
     })();
     return _statsInFlight;
@@ -546,13 +580,55 @@ function renderReleaseStats(s) {
         </div>`);
 }
 
+// ========================================
+// 탭 전환 (SLS-1-252)
+// ========================================
+
+/** 현황 탭을 한 번이라도 열었나 — 첫 열람에만 조회한다 */
+let _statsTabOpened = false;
+
+/**
+ * 탭 전환.
+ *
+ * ⚠️ 통계는 **현황 탭을 처음 열 때만** 부른다.
+ *    로그인마다 부르면 안 보는 사람도 GitHub API를 쓴다 — 한도가 **IP당 60회/시간**이다.
+ *
+ * @param {'notice'|'inquiry'|'stats'} name
+ */
+function activateAdminTab(name) {
+    document.querySelectorAll('.board-tab').forEach((btn) => {
+        btn.setAttribute('aria-selected', String(btn.dataset.tab === name));
+    });
+    const panels = {
+        notice: $('panelNoticeAdmin'),
+        inquiry: $('panelInquiryAdmin'),
+        stats: $('panelStatsAdmin'),
+    };
+    for (const [key, el] of Object.entries(panels)) {
+        if (el) el.hidden = key !== name;
+    }
+    if (name === 'stats' && !_statsTabOpened) {
+        _statsTabOpened = true;
+        loadReleaseStats();
+    }
+}
+
 function init() {
     $('loginForm')?.addEventListener('submit', onLogin);
+    document.querySelectorAll('.board-tab').forEach((btn) => {
+        btn.addEventListener('click', () => activateAdminTab(btn.dataset.tab));
+    });
     $('noticeForm')?.addEventListener('submit', addNotice);
     $('noticeCancelBtn')?.addEventListener('click', resetNoticeForm);
     $('logoutBtn')?.addEventListener('click', onLogout);
     // 새로고침은 캐시를 건너뛴다 — 눌렀는데 안 바뀌면 고장으로 보인다
-    $('refreshBtn')?.addEventListener('click', () => Promise.all([loadInquiries(), loadNotices(), loadReleaseStats({ force: true })]));
+    // 새로고침은 캐시를 건너뛴다 — 눌렀는데 안 바뀌면 고장으로 보인다.
+    // 단, 현황 탭을 연 적이 없으면 통계는 건드리지 않는다 (안 보는 화면을 새로 받을 이유가 없다).
+    $('refreshBtn')?.addEventListener('click', () => Promise.all([
+        loadInquiries(),
+        loadNotices(),
+        _statsTabOpened ? loadReleaseStats({ force: true }) : Promise.resolve(),
+    ]));
     // 웹(데스크톱 아님)에서는 게시판 설정이 없어 로그인 불가 — 안내 노출
     if (!window.electronAPI?.isElectron) {
         const w = $('webWarn');
@@ -565,6 +641,7 @@ document.addEventListener('DOMContentLoaded', init);
 // 테스트용 노출 (프로덕션 동작에는 쓰이지 않는다) — window.__noticePopup과 같은 방식.
 // admin-script.js에는 export가 없어 순수 함수를 이렇게 잡는다.
 window.__adminNotice = { buildNoticePayload, addNotice, resetNoticeForm, startEditNotice };
+window.__adminTabs = { activateAdminTab, loadAdminData };
 window.__adminStats = {
     computeReleaseStats, parseNextLink, describeGhFailure, loadReleaseStats, clearReleaseStatsCache
 };

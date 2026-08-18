@@ -49,8 +49,14 @@ async function openStats(page, route) {
     await page.evaluate(() => {
         document.getElementById('loginSection').style.display = 'none';
         document.getElementById('adminSection').style.display = 'block';
+        // ⚠️ SLS-1-252에서 패널이 탭 뒤로 들어갔다. 드러내지 않으면 hidden이라
+        //    toBeVisible() 단언이 전부 실패한다.
+        //    🚨 activateAdminTab('stats')를 쓰지 않는다 — 그건 첫 열람 조회를 **함께** 태워서
+        //       아래 조회 호출과 겹친다. 조회 횟수를 세는 테스트가 흔들린다.
+        //       이 스펙의 대상은 탭이 아니라 통계 렌더이므로 패널만 연다.
+        document.getElementById('panelStatsAdmin').hidden = false;
     });
-    await page.evaluate(() => window.__adminStats.loadReleaseStats());
+    await page.evaluate(() => window.__adminStats.loadReleaseStats({ force: true }));
 }
 
 /**

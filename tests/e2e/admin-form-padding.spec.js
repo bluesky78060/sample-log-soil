@@ -25,6 +25,10 @@ async function openAdminForm(page) {
             if (n.style && n.style.display === 'none') n.style.display = '';
             n = n.parentElement;
         }
+        // ⚠️ SLS-1-252에서 공지 폼이 탭 패널 안으로 들어갔다. 기본 탭이 '문의'라
+        //    공지 탭을 켜지 않으면 hidden이라 #noticeTitle이 보이지 않는다.
+        //    (위 while은 style.display만 손대므로 hidden 속성은 풀리지 않는다)
+        window.__adminTabs?.activateAdminTab('notice');
     });
     await expect(page.locator('#noticeTitle')).toBeVisible();
 }

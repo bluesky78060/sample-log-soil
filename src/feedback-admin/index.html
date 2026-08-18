@@ -73,6 +73,28 @@
         .reply-area select { max-width: 140px; }
         .count-badge { font-size: 0.8rem; color: #6B7D72; background: #E9EFEA; padding: 0.15rem 0.6rem; border-radius: 20px; }
 
+        /* ── 탭 (SLS-1-252) — 게시판(src/feedback/index.html)의 패턴을 그대로 쓴다 ── */
+        .board-tabs { display: flex; gap: 0.25rem; border-bottom: 2px solid #E8E4DF; margin-bottom: 1.25rem; }
+        .board-tab {
+            appearance: none; border: 0; background: transparent; font: inherit;
+            font-size: 0.95rem; font-weight: 600; color: #94a3b8; cursor: pointer;
+            padding: 0.65rem 1rem; border-radius: 10px 10px 0 0;
+            border-bottom: 2px solid transparent; margin-bottom: -2px;
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .board-tab:hover { color: #6B6460; background: #FAFAF9; }
+        .board-tab[aria-selected="true"] { color: #5C7A63; border-bottom-color: #7C9082; }
+        .board-tab:focus-visible { outline: 2px solid #7C9082; outline-offset: -2px; }
+        .board-tab .icon { font-size: 1.05rem; }
+        .tab-badge { background: #7C9082; color: #fff; font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 0.05rem 0.4rem; }
+        .board-tab[aria-selected="false"] .tab-badge { background: #A8A29E; }
+        @media (prefers-reduced-motion: reduce) { .board-tab { transition: none; } }
+        [data-theme="dark"] .board-tabs { border-bottom-color: #57534E; }
+        [data-theme="dark"] .board-tab { color: #A8A29E; }
+        [data-theme="dark"] .board-tab:hover { color: #E7E5E4; background: #292524; }
+        [data-theme="dark"] .board-tab[aria-selected="true"] { color: #A8B5A2; border-bottom-color: #7C9082; }
+
         /* ── 릴리스 배포 현황 (SLS-1-250) ── */
         .stat-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.7rem; margin-bottom: 1.3rem; }
         .stat-figures .fig { border: 1px solid #E8E4DF; border-radius: 12px; padding: 0.85rem 1rem; background: #FAFAF9; }
@@ -150,7 +172,26 @@
                 <button class="btn-secondary" id="logoutBtn">로그아웃</button>
             </div>
 
+            <!-- 탭 (SLS-1-252)
+                 ⚠️ 초기 상태를 **마크업에 그대로** 적는다. JS에만 맡기면 스크립트 로드 전
+                    세 패널이 모두 보이고, 스크립트가 죽으면 상태가 깨진다. -->
+            <div class="board-tabs" role="tablist" aria-label="관리자 메뉴">
+                <button type="button" class="board-tab" role="tab" id="tabNoticeAdmin"
+                        aria-selected="false" aria-controls="panelNoticeAdmin" data-tab="notice">
+                    <span class="icon">📢</span>공지
+                </button>
+                <button type="button" class="board-tab" role="tab" id="tabInquiryAdmin"
+                        aria-selected="true" aria-controls="panelInquiryAdmin" data-tab="inquiry">
+                    <span class="icon">🗂️</span>문의<span class="tab-badge" id="inquiryCount">0</span>
+                </button>
+                <button type="button" class="board-tab" role="tab" id="tabStatsAdmin"
+                        aria-selected="false" aria-controls="panelStatsAdmin" data-tab="stats">
+                    <span class="icon">📦</span>현황
+                </button>
+            </div>
+
             <!-- 공지 관리 -->
+            <div id="panelNoticeAdmin" role="tabpanel" aria-labelledby="tabNoticeAdmin" hidden>
             <div class="card">
                 <h2><span>📢</span> <span id="noticeFormTitle">공지 작성</span></h2>
                 <form id="noticeForm">
@@ -189,20 +230,25 @@
                 </form>
                 <div id="noticeList" style="margin-top: 1rem;"></div>
             </div>
+            </div><!-- /panelNoticeAdmin -->
 
-            <!-- 문의 관리 -->
+            <!-- 문의 관리 (기본 탭) -->
+            <div id="panelInquiryAdmin" role="tabpanel" aria-labelledby="tabInquiryAdmin">
             <div class="card">
-                <h2><span>🗂️</span> 문의 관리 <span class="count-badge" id="inquiryCount">0</span></h2>
+                <h2><span>🗂️</span> 문의 관리</h2>
                 <div id="inquiryList"></div>
             </div>
+            </div><!-- /panelInquiryAdmin -->
 
-            <!-- 릴리스 배포 현황 (SLS-1-250)
-                 ⚠️ 맨 아래에 둔다. 관리자가 이 화면에 오는 주 목적은 문의 답변·공지 작성이고,
-                    통계를 위에 두면 매번 그 두 카드가 아래로 밀린다. -->
+            <!-- 릴리스 배포 현황 (SLS-1-250) -->
+            <div id="panelStatsAdmin" role="tabpanel" aria-labelledby="tabStatsAdmin" hidden>
             <div class="card">
                 <h2><span>📦</span> 릴리스 배포 현황</h2>
-                <div id="releaseStats"><div class="hint">로그인하면 표시됩니다.</div></div>
+                <!-- ⚠️ 문구가 동작과 맞아야 한다 (SLS-1-252 계획 리뷰).
+                     지연 조회로 바꿨으므로 "로그인하면 표시됩니다"는 더 이상 사실이 아니다. -->
+                <div id="releaseStats"><div class="hint">현황 탭을 열면 조회합니다.</div></div>
             </div>
+            </div><!-- /panelStatsAdmin -->
         </div>
     </div>
 

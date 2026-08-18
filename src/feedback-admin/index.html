@@ -160,6 +160,12 @@
                     <input type="email" id="adminEmail" placeholder="admin@example.com" autocomplete="username" required>
                     <label for="adminPassword">비밀번호</label>
                     <input type="password" id="adminPassword" placeholder="비밀번호" autocomplete="current-password" required>
+                    <!-- 이메일 기억 (SLS-1-254) — 비밀번호는 저장하지 않는다.
+                         ⚠️ width:auto 인라인 — .card input의 width:100%가 체크박스에 걸리면 안 된다 -->
+                    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; margin-bottom: 0.9rem;">
+                        <input type="checkbox" id="rememberEmail" checked style="width: auto; margin: 0;">
+                        이메일 기억
+                    </label>
                     <button type="submit" class="btn-primary" id="loginBtn" style="width: 100%;">로그인</button>
                 </form>
             </div>

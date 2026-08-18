@@ -22,6 +22,70 @@ function fmtDate(iso) {
 function showAdmin() { $('loginSection').style.display = 'none'; $('adminSection').style.display = 'block'; }
 function showLogin() { $('adminSection').style.display = 'none'; $('loginSection').style.display = 'block'; }
 
+// ========================================
+// 로그인 이메일 기억 (SLS-1-254)
+// ========================================
+//
+// 🚨 **비밀번호는 저장하지 않는다.** 이메일만이다.
+//    브라우저가 비밀번호 저장을 제안하는 것(autocomplete="current-password")은
+//    사용자 선택이고 우리 저장소와 무관하다.
+//
+// ⚠️ 저장 범위는 **같은 기기·같은 origin**이다. 웹(GitHub Pages)과 Electron(file://)은
+//    저장소가 다르고 PC가 바뀌면 공유되지 않는다 — 웹 저장소의 성질이다.
+
+const EMAIL_KEY = 'feedbackAdminEmail';
+// 🚨 "기억 안 함" 선택을 **따로** 보관한다 (SLS-1-254 코드리뷰).
+//    이메일 유무로만 판단하면, 해제 → 새로고침 시 체크박스가 다시 켜지고
+//    사용자가 모른 채 로그인하면 또 저장된다. 개인정보 삭제 선택이 지속되지 않는다.
+const REMEMBER_KEY = 'feedbackAdminRemember';
+const EMAIL_MAX = 254;   // RFC 5321 이메일 상한
+
+/** 저장소가 막힌 환경(사생활 보호 모드)에서 던지면 로그인 화면이 통째로 죽는다 */
+function readSavedEmail() {
+    try {
+        return String(localStorage.getItem(EMAIL_KEY) || '').slice(0, EMAIL_MAX);
+    } catch {
+        return '';
+    }
+}
+
+function writeSavedEmail(email) {
+    try {
+        if (email) localStorage.setItem(EMAIL_KEY, String(email).slice(0, EMAIL_MAX));
+        else localStorage.removeItem(EMAIL_KEY);
+    } catch {
+        // 저장하지 못해도 로그인 자체는 진행돼야 한다
+    }
+}
+
+/** '기억 안 함' 선택을 보관한다 — 새로고침해도 유지되게 */
+function writeRememberPref(on) {
+    try {
+        if (on) localStorage.removeItem(REMEMBER_KEY);   // 기본이 켜짐이라 없으면 켜짐
+        else localStorage.setItem(REMEMBER_KEY, '0');
+    } catch { /* 보관 못 해도 이번 세션은 동작한다 */ }
+}
+
+function readRememberPref() {
+    try {
+        return localStorage.getItem(REMEMBER_KEY) !== '0';
+    } catch {
+        return true;
+    }
+}
+
+/** 페이지 로드 시 저장된 이메일을 폼에 채운다 */
+function restoreSavedEmail() {
+    const box = $('rememberEmail');
+    // 🚨 체크 상태는 **선호도 키**로 정한다. 이메일 유무로 정하면 해제 선택이 날아간다.
+    const on = readRememberPref();
+    if (box) box.checked = on;
+    if (!on) return;
+    const saved = readSavedEmail();
+    const input = $('adminEmail');
+    if (saved && input) input.value = saved;
+}
+
 /**
  * 로그인 직후 불러오는 것들.
  *
@@ -42,9 +106,21 @@ async function onLogin(e) {
     if (!email || !pw) { window.showToast?.('이메일과 비밀번호를 입력하세요.', 'warning'); return; }
     const btn = $('loginBtn');
     btn.disabled = true;
-    const r = await window.feedbackFirebase.signInAdmin(email, pw);
-    btn.disabled = false;
+    // ⚠️ try로 감싼다 (SLS-1-254 계획 리뷰). signInAdmin이 {ok:false} 대신 **던지면**
+    //    버튼이 disabled로 굳어 다시 시도할 수 없었다. 예외도 실패로 취급한다.
+    let r;
+    try {
+        r = await window.feedbackFirebase.signInAdmin(email, pw);
+    } catch (err) {
+        r = { ok: false, error: err?.message || '로그인 중 오류가 발생했습니다.' };
+    } finally {
+        btn.disabled = false;
+    }
+    // 🚨 실패했으면 **아무것도 저장하지 않는다.** 틀린 주소를 기억할 이유가 없고,
+    //    이미 저장된 값을 덮어써서도 안 된다.
     if (!r.ok) { window.showToast?.(r.error || '로그인에 실패했습니다.', 'error'); return; }
+    // 성공 — 체크 상태에 따라 저장하거나 지운다
+    writeSavedEmail($('rememberEmail')?.checked ? email : '');
     $('adminPassword').value = '';
     showAdmin();
     window.showToast?.('로그인되었습니다.', 'success');
@@ -630,6 +706,20 @@ function activateAdminTab(name) {
 
 function init() {
     $('loginForm')?.addEventListener('submit', onLogin);
+    // 체크를 풀면 **즉시** 지운다 — 잊으려고 다시 로그인해야 하는 건 이상하다
+    $('rememberEmail')?.addEventListener('change', (e) => {
+        const on = e.target.checked;
+        writeRememberPref(on);
+        if (!on) writeSavedEmail('');
+    });
+    // 🚨 다른 탭에서 해제하면 이 탭도 따라간다 (코드리뷰 MAJOR).
+    //    안 그러면 낡은 체크 상태로 로그인해 방금 지운 이메일을 되살린다.
+    window.addEventListener('storage', (e) => {
+        if (e.key !== REMEMBER_KEY && e.key !== null) return;
+        const box = $('rememberEmail');
+        if (box) box.checked = readRememberPref();
+    });
+    restoreSavedEmail();
     document.querySelectorAll('.board-tab').forEach((btn) => {
         btn.addEventListener('click', () => activateAdminTab(btn.dataset.tab));
     });
@@ -656,6 +746,10 @@ document.addEventListener('DOMContentLoaded', init);
 // 테스트용 노출 (프로덕션 동작에는 쓰이지 않는다) — window.__noticePopup과 같은 방식.
 // admin-script.js에는 export가 없어 순수 함수를 이렇게 잡는다.
 window.__adminNotice = { buildNoticePayload, addNotice, resetNoticeForm, startEditNotice };
+window.__adminAuth = {
+    readSavedEmail, writeSavedEmail, restoreSavedEmail,
+    readRememberPref, writeRememberPref, EMAIL_KEY, REMEMBER_KEY,
+};
 window.__adminTabs = { activateAdminTab, loadAdminData };
 window.__adminStats = {
     computeReleaseStats, parseNextLink, describeGhFailure, loadReleaseStats, clearReleaseStatsCache

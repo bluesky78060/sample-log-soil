@@ -36,7 +36,7 @@ async function onLogin(e) {
     $('adminPassword').value = '';
     showAdmin();
     window.showToast?.('로그인되었습니다.', 'success');
-    await Promise.all([loadInquiries(), loadNotices()]);
+    await Promise.all([loadInquiries(), loadNotices(), loadReleaseStats()]);
 }
 
 /** 로그아웃 */
@@ -47,6 +47,9 @@ async function onLogout() {
         // 편집 중이던 상태가 남으면, 다시 로그인했을 때 남의 문서에 set 할 수 있다.
         // 로그아웃이 실패해도 상태는 비워야 한다 — 그래서 finally다.
         resetNoticeForm();
+        // 통계 캐시도 비운다 (SLS-1-250 코드리뷰). 안 비우면 다시 로그인했을 때
+        // 60초 캐시가 살아 있어 낡은 수치를 보여주고 새로 조회하지 않는다.
+        clearReleaseStatsCache();
     }
     showLogin();
     window.showToast?.('로그아웃되었습니다.', 'success');
@@ -303,12 +306,253 @@ async function deleteNotice(id) {
     }
 }
 
+// ========================================
+// 릴리스 배포 현황 (SLS-1-250)
+// ========================================
+//
+// 🚨 이 카드에서 가장 중요한 산출물은 숫자가 아니라 **경고 상자**다.
+//    과거에 setup.exe 다운로드 수를 "수동 설치"로 읽고 "자동 업데이트가 동작하지 않는다"고
+//    잘못 결론 낸 적이 있다(CLAUDE.md에 정정 기록). 숫자만 크게 띄우면 또 그렇게 된다.
+//    경고 상자는 접거나 숨기지 않는다.
+
+const GH_OWNER = 'bluesky78060';
+const GH_REPO = 'sample-log-soil';
+const GH_PAGE_SIZE = 100;   // 미지정 시 기본 30이라 반드시 명시한다
+const GH_MAX_PAGES = 5;     // 폭주 방지 상한 (500개)
+const GH_TIMEOUT_MS = 10000;
+const GH_CACHE_MS = 60000;  // 한도가 IP당 60회/시간 — 새로고침 연타를 막는다
+const VERSION_BAR_LIMIT = 8;
+
+/** 설치 파일 판별. 자산은 setup.exe · latest.yml · RELEASES · *.nupkg 넷뿐이다. */
+const isSetupAsset = (name) => typeof name === 'string' && name.endsWith('setup.exe');
+
+/**
+ * GitHub 릴리스 배열 → 화면에 필요한 값만 계산하는 **순수 함수**.
+ * 네트워크·DOM 비의존 (유닛 테스트 대상). 결함은 fetch가 아니라 여기 산다.
+ *
+ * ⚠️ prerelease는 총합·버전별·월별에는 **포함**하고 `latestTag`에서만 **제외**한다.
+ *    업데이터가 allowPrerelease 기본 false라, 화면의 "현재 최신"은 사용자가 실제로
+ *    받는 버전과 같아야 한다.
+ *
+ * @param {Array} releases
+ * @returns {{totalSetup:number, latestTag:string, releaseCount:number,
+ *            topVersion:string, byVersion:Array, byMonth:Array}}
+ */
+function computeReleaseStats(releases) {
+    const list = Array.isArray(releases) ? releases : [];
+    const byVersion = [];
+    const monthMap = new Map();
+    let totalSetup = 0;
+    let latest = null;
+
+    for (const r of list) {
+        if (!r || typeof r !== 'object') continue;
+        const tag = String(r.tag_name ?? '');
+        const assets = Array.isArray(r.assets) ? r.assets : [];
+
+        let count = 0;
+        for (const a of assets) {
+            if (!a || !isSetupAsset(a.name)) continue;
+            const n = Number(a.download_count);
+            // 문자열·누락·NaN이 하나만 섞여도 합계 전체가 NaN이 되어 화면이 물든다
+            if (Number.isFinite(n) && n >= 0) count += n;
+        }
+        totalSetup += count;
+
+        const pub = r.published_at ? new Date(r.published_at) : null;
+        const at = pub && !Number.isNaN(pub.getTime()) ? pub.getTime() : 0;
+        byVersion.push({ tag, count, at });
+
+        if (at) {
+            const key = `${pub.getFullYear()}-${String(pub.getMonth() + 1).padStart(2, '0')}`;
+            monthMap.set(key, (monthMap.get(key) || 0) + count);
+            // "현재 최신"은 정식 릴리스 중 가장 최근
+            if (!r.prerelease && (!latest || at > latest.at)) latest = { tag, at };
+        }
+    }
+
+    // ⚠️ 동률은 **published_at으로** 가른다 (SLS-1-250 코드리뷰).
+    //    처음엔 배열 순서(GitHub이 최신순으로 준다는 가정)를 썼는데, 그건 문서화된 보장이
+    //    아니다. 순서가 뒤집히면 동률에서 옛 버전을 최다로 표시한다 — 실측으로 확인했다.
+    byVersion.sort((a, b) => b.count - a.count || b.at - a.at);
+
+    return {
+        totalSetup,
+        latestTag: latest ? latest.tag : '',
+        releaseCount: list.length,
+        topVersion: byVersion.length && byVersion[0].count > 0 ? byVersion[0].tag : '',
+        byVersion: byVersion.map(({ tag, count }) => ({ tag, count })),
+        byMonth: [...monthMap.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([month, count]) => ({ month, count }))
+    };
+}
+
+/**
+ * `Link` 헤더의 rel="next" 추출. 100개를 넘어도 누락되지 않게 한다
+ * (지금 52개, 주 1회씩 늘면 1년 내 100 돌파).
+ */
+function parseNextLink(linkHeader) {
+    if (!linkHeader) return '';
+    const m = String(linkHeader).match(/<([^>]+)>\s*;\s*rel="next"/);
+    return m ? m[1] : '';
+}
+
+/**
+ * 실패 사유 판정.
+ * ⚠️ 403만 보고 "한도 초과"라 하면 오진한다 — 403은 다른 사유로도 온다.
+ *    한도는 403 **또는** 429이면서 x-ratelimit-remaining이 0일 때다.
+ *    네트워크/CORS 실패는 응답 객체 자체가 없으므로 한도가 아니다.
+ */
+function describeGhFailure(res) {
+    const remaining = res.headers.get('x-ratelimit-remaining');
+    if ((res.status === 403 || res.status === 429) && remaining === '0') {
+        const reset = Number(res.headers.get('x-ratelimit-reset'));
+        const when = Number.isFinite(reset) && reset > 0
+            ? new Date(reset * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+            : '';
+        return `GitHub 조회 한도를 다 썼습니다${when ? ` — ${when} 이후 다시 시도하세요` : ''}.`;
+    }
+    if (res.status === 404) return '저장소를 찾을 수 없습니다.';
+    return `조회 실패 (HTTP ${res.status})`;
+}
+
+let _statsInFlight = null;
+let _statsCache = null;   // { at:number, stats:object }
+
+let _statsGen = 0;        // 세대 토큰 — 뒤늦게 도착한 이전 요청의 결과를 버린다
+
+/** 로그아웃 시 호출 — 재로그인에서 낡은 수치가 재사용되지 않게 한다 */
+function clearReleaseStatsCache() { _statsCache = null; _statsGen += 1; }
+
+/**
+ * 릴리스 전체를 페이지네이션으로 받아온다.
+ * @returns {Promise<{releases:Array, truncated:boolean}>}
+ *   truncated: 상한(5페이지)에 걸렸는데 뒤에 더 있다 — **조용히 자르지 않고 화면에 알린다**
+ */
+async function fetchAllReleases() {
+    let url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/releases?per_page=${GH_PAGE_SIZE}`;
+    const all = [];
+    for (let page = 0; page < GH_MAX_PAGES && url; page++) {
+        const ctrl = new AbortController();
+        // ⚠️ 타임아웃은 **본문을 다 읽을 때까지** 살려둔다 (SLS-1-250 코드리뷰).
+        //    fetch가 풀리는 시점은 헤더 수신이라, 여기서 타이머를 끄면 res.json()이
+        //    멈췄을 때 영원히 기다린다. 그러면 _statsInFlight가 남아 이후 새로고침까지 막힌다.
+        const timer = setTimeout(() => ctrl.abort(), GH_TIMEOUT_MS);
+        let body, link;
+        try {
+            const res = await fetch(url, {
+                headers: { Accept: 'application/vnd.github+json' }, signal: ctrl.signal
+            });
+            if (!res.ok) throw new Error(describeGhFailure(res));
+            body = await res.json();
+            link = res.headers.get('link');
+        } finally {
+            clearTimeout(timer);
+        }
+        if (!Array.isArray(body)) throw new Error('응답 형식이 예상과 다릅니다.');
+        all.push(...body);
+        url = parseNextLink(link);
+    }
+    // 상한에 걸렸는데 다음 페이지가 남아 있으면 숫자가 잘린 것이다 (적대적 검증 지적).
+    return { releases: all, truncated: Boolean(url) };
+}
+
+/**
+ * 릴리스 통계 로드 + 렌더
+ * @param {{force?: boolean}} [opts] force=true면 캐시를 건너뛴다 (새로고침 버튼)
+ *
+ * ⚠️ 세대(_statsGen) 토큰을 쓴다 (적대적 검증 지적). 로그아웃/재로그인 사이에
+ *    이전 요청이 뒤늦게 성공하면, 그 결과가 지금 화면에 그려져 어느 시점 값인지
+ *    알 수 없게 된다. 세대가 바뀌었으면 결과를 버린다.
+ */
+async function loadReleaseStats(opts) {
+    const box = $('releaseStats');
+    if (!box) return;
+    const force = opts?.force === true;
+    // 진행 중이면 그 약속을 함께 기다린다 (중복 요청 방지)
+    if (_statsInFlight) return _statsInFlight;
+    // 로그인 시 자동 조회는 60초 캐시를 쓰지만, **사용자가 새로고침을 누르면 반드시 새로 받는다.**
+    // 안 그러면 "새로고침했는데 안 바뀐다"가 된다.
+    if (!force && _statsCache && Date.now() - _statsCache.at < GH_CACHE_MS) {
+        renderReleaseStats(_statsCache.stats);
+        return;
+    }
+    const gen = ++_statsGen;
+    window.setInnerHTML(box, '<div class="hint">불러오는 중…</div>');
+    _statsInFlight = (async () => {
+        try {
+            const { releases, truncated } = await fetchAllReleases();
+            const stats = { ...computeReleaseStats(releases), truncated };
+            if (gen !== _statsGen) return;          // 그 사이 로그아웃/재요청 — 버린다
+            _statsCache = { at: Date.now(), stats };
+            renderReleaseStats(stats);
+        } catch (e) {
+            if (gen !== _statsGen) return;
+            // 🚨 실패를 0으로 렌더하지 않는다. "0회"로 보이면 배포가 안 나간 것으로 오해한다.
+            const msg = e?.name === 'AbortError' ? '조회 시간이 초과됐습니다.'
+                : (e?.message || '조회 실패 — 네트워크를 확인하세요.');
+            window.setInnerHTML(box, `<div class="stats-fail">⚠️ ${window.escapeHTML(msg)}</div>`);
+        } finally {
+            _statsInFlight = null;
+        }
+    })();
+    return _statsInFlight;
+}
+
+/** 막대 목록 마크업 */
+function statBars(rows, labelKey) {
+    const max = rows.reduce((m, r) => Math.max(m, r.count), 0);
+    const esc = window.escapeHTML;
+    return rows.map((r) => {
+        // max가 0이면 0으로 나누게 된다 — 다운로드가 하나도 없을 때 실제로 발생한다
+        const pct = max > 0 ? Math.round((r.count / max) * 100) : 0;
+        return `<div class="stat-bar">
+            <span class="lab">${esc(r[labelKey])}</span>
+            <span class="track"><span class="fill" style="width:${pct}%"></span></span>
+            <span class="num">${esc(String(r.count))}</span>
+        </div>`;
+    }).join('');
+}
+
+function renderReleaseStats(s) {
+    const box = $('releaseStats');
+    if (!box) return;
+    if (!s.releaseCount) {
+        window.setInnerHTML(box, '<div class="hint">공개된 릴리스가 없습니다.</div>');
+        return;
+    }
+    const esc = window.escapeHTML;
+    const dash = (v) => (v ? esc(v) : '—');
+    const versions = s.byVersion.filter((v) => v.count > 0).slice(0, VERSION_BAR_LIMIT);
+
+    window.setInnerHTML(box, `
+        <div class="stat-figures">
+            <div class="fig"><div class="k">설치 파일 내려간 횟수</div><div class="v">${esc(String(s.totalSetup))}<small>회</small></div></div>
+            <div class="fig"><div class="k">현재 최신</div><div class="v">${dash(s.latestTag)}</div></div>
+            <div class="fig"><div class="k">누적 릴리스</div><div class="v">${esc(String(s.releaseCount))}<small>개</small></div></div>
+            <div class="fig"><div class="k">최다 배포 버전</div><div class="v">${dash(s.topVersion)}</div></div>
+        </div>
+        ${s.truncated ? `<div class="stats-partial">⚠️ 릴리스가 많아 최근 ${GH_PAGE_SIZE * GH_MAX_PAGES}개까지만 집계했습니다 — 실제 합계는 이보다 큽니다.</div>` : ''}
+        ${versions.length ? `<div class="stat-label">버전별 (상위 ${versions.length}개)</div>${statBars(versions, 'tag')}` : ''}
+        ${s.byMonth.length ? `<div class="stat-label">릴리스 공개 월 기준</div>${statBars(s.byMonth, 'month')}` : ''}
+        <div class="stat-note" id="releaseStatsNote">
+            <strong>⚠️ 이 숫자로 알 수 없는 것</strong>
+            <ul>
+                <li><b>자동 업데이트인지 직접 내려받은 건지 구분되지 않습니다.</b> 업데이터도 같은 setup.exe를 받아가고, GitHub은 누가 받았는지 알려주지 않습니다.</li>
+                <li><b>사용 기관 수가 아닙니다.</b> 한 곳이 열두 버전을 거치면 12회로 잡힙니다.</li>
+                <li>월별은 <b>다운로드 시점이 아니라 릴리스가 공개된 달</b> 기준입니다. GitHub이 다운로드 시각을 주지 않습니다.</li>
+                <li><b>누가 안 받았는지는 나오지 않습니다.</b></li>
+            </ul>
+        </div>`);
+}
+
 function init() {
     $('loginForm')?.addEventListener('submit', onLogin);
     $('noticeForm')?.addEventListener('submit', addNotice);
     $('noticeCancelBtn')?.addEventListener('click', resetNoticeForm);
     $('logoutBtn')?.addEventListener('click', onLogout);
-    $('refreshBtn')?.addEventListener('click', () => Promise.all([loadInquiries(), loadNotices()]));
+    // 새로고침은 캐시를 건너뛴다 — 눌렀는데 안 바뀌면 고장으로 보인다
+    $('refreshBtn')?.addEventListener('click', () => Promise.all([loadInquiries(), loadNotices(), loadReleaseStats({ force: true })]));
     // 웹(데스크톱 아님)에서는 게시판 설정이 없어 로그인 불가 — 안내 노출
     if (!window.electronAPI?.isElectron) {
         const w = $('webWarn');
@@ -321,3 +565,6 @@ document.addEventListener('DOMContentLoaded', init);
 // 테스트용 노출 (프로덕션 동작에는 쓰이지 않는다) — window.__noticePopup과 같은 방식.
 // admin-script.js에는 export가 없어 순수 함수를 이렇게 잡는다.
 window.__adminNotice = { buildNoticePayload, addNotice, resetNoticeForm, startEditNotice };
+window.__adminStats = {
+    computeReleaseStats, parseNextLink, describeGhFailure, loadReleaseStats, clearReleaseStatsCache
+};

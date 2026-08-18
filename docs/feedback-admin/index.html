@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file: https://fonts.googleapis.com; font-src 'self' file: https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.ipify.org https://business.juso.go.kr https://api.vworld.kr https://api.github.com; img-src 'self' file: data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>관리자 - 문의/공지 관리</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -71,6 +71,37 @@
         .reply-area { margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed #E8E4DF; }
         .reply-area select { max-width: 140px; }
         .count-badge { font-size: 0.8rem; color: #6B7D72; background: #E9EFEA; padding: 0.15rem 0.6rem; border-radius: 20px; }
+
+        /* ── 릴리스 배포 현황 (SLS-1-250) ── */
+        .stat-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.7rem; margin-bottom: 1.3rem; }
+        .stat-figures .fig { border: 1px solid #E8E4DF; border-radius: 12px; padding: 0.85rem 1rem; background: #FAFAF9; }
+        .stat-figures .k { font-size: 0.73rem; color: #94A3B8; margin-bottom: 0.25rem; }
+        .stat-figures .v { font-family: 'Fraunces', 'Noto Sans KR', serif; font-size: 1.75rem; font-weight: 600; color: #3C3530; font-variant-numeric: tabular-nums; line-height: 1.15; }
+        .stat-figures .v small { font-size: 0.85rem; font-weight: 500; color: #94A3B8; margin-left: 0.15rem; }
+        .stat-label { font-size: 0.72rem; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.3rem 0 0.6rem; }
+        .stat-bar { display: grid; grid-template-columns: 5.2rem 1fr 2.4rem; align-items: center; gap: 0.7rem; font-size: 0.8rem; margin-bottom: 0.4rem; }
+        .stat-bar .lab { color: #6B6460; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .stat-bar .track { background: #EFEDE9; border-radius: 5px; height: 10px; overflow: hidden; }
+        .stat-bar .fill { display: block; height: 100%; background: #7C9082; border-radius: 5px; }
+        .stat-bar .num { text-align: right; font-weight: 600; color: #3C3530; font-variant-numeric: tabular-nums; }
+        /* 🚨 경고 상자 — 이 카드에서 가장 중요하다. 접거나 숨기지 않는다. */
+        .stat-note { background: #FEF3C7; border: 1px solid #FDE68A; color: #92400E; padding: 0.85rem 1.05rem; border-radius: 10px; font-size: 0.82rem; margin-top: 1.4rem; line-height: 1.6; }
+        .stat-note strong { display: block; margin-bottom: 0.3rem; }
+        .stat-note ul { margin: 0.35rem 0 0 1.05rem; }
+        .stat-note li { margin-bottom: 0.2rem; }
+        .stats-fail { background: #FEF2F2; border: 1px solid #FECACA; color: #B91C1C; padding: 0.85rem 1.05rem; border-radius: 10px; font-size: 0.85rem; }
+        /* 상한에 걸려 숫자가 잘렸음을 알린다 — 조용히 자르지 않는다 */
+        .stats-partial { background: #FEF3C7; border: 1px solid #FDE68A; color: #92400E; padding: 0.7rem 1rem; border-radius: 8px; font-size: 0.8rem; margin-bottom: 1rem; }
+
+        [data-theme="dark"] .stat-figures .fig { background: #1C1917; border-color: #57534E; }
+        [data-theme="dark"] .stat-figures .v { color: #E7E5E4; }
+        [data-theme="dark"] .stat-bar .lab { color: #A8A29E; }
+        [data-theme="dark"] .stat-bar .num { color: #E7E5E4; }
+        [data-theme="dark"] .stat-bar .track { background: #3A3633; }
+        [data-theme="dark"] .stat-bar .fill { background: #8FA695; }
+        [data-theme="dark"] .stat-note { background: #3A2F14; border-color: #5C4A1C; color: #FCD34D; }
+        [data-theme="dark"] .stats-fail { background: #3A1C1C; border-color: #7F1D1D; color: #FCA5A5; }
+        [data-theme="dark"] .stats-partial { background: #3A2F14; border-color: #5C4A1C; color: #FCD34D; }
         .login-wrap { max-width: 380px; margin: 3rem auto; }
         [data-theme="dark"] body { background: linear-gradient(135deg, #1C1917 0%, #292524 50%, #1C1917 100%); }
         [data-theme="dark"] .card { background: rgba(41,37,36,0.95); border-color: #57534E; }
@@ -86,7 +117,7 @@
         .toast.success { background: #16a34a; } .toast.error { background: #dc2626; } .toast.warning { background: #f59e0b; color: #1c1917; } .toast.info { background: #2563eb; }
         .toast-icon { font-size: 1.2rem; } .toast-message { flex: 1; font-size: 0.875rem; font-weight: 500; }
     </style>
-  <script type="module" crossorigin src="../assets/feedbackAdmin-CIiuXTYj.js"></script>
+  <script type="module" crossorigin src="../assets/feedbackAdmin-DZstUv5a.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/frame-guard-BIL41LH3.js">
   <link rel="modulepreload" crossorigin href="../assets/purify.es-D6gMnemd.js">
   <link rel="modulepreload" crossorigin href="../assets/logger-D78Nny2I.js">
@@ -172,6 +203,14 @@
             <div class="card">
                 <h2><span>🗂️</span> 문의 관리 <span class="count-badge" id="inquiryCount">0</span></h2>
                 <div id="inquiryList"></div>
+            </div>
+
+            <!-- 릴리스 배포 현황 (SLS-1-250)
+                 ⚠️ 맨 아래에 둔다. 관리자가 이 화면에 오는 주 목적은 문의 답변·공지 작성이고,
+                    통계를 위에 두면 매번 그 두 카드가 아래로 밀린다. -->
+            <div class="card">
+                <h2><span>📦</span> 릴리스 배포 현황</h2>
+                <div id="releaseStats"><div class="hint">로그인하면 표시됩니다.</div></div>
             </div>
         </div>
     </div>

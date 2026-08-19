@@ -1367,7 +1367,8 @@ select#completedFilter:focus {
     gap: 1rem;
     background: white;
     padding: 1.25rem 1.5rem;
-    border-radius: 1.25rem;
+    /* 12px — 넓은 카드라 20px이면 과하게 둥글어 보였다 (SLS-1-256) */
+    border-radius: 12px;
     box-shadow: none;
     margin-bottom: 1.5rem;
     border: 1px solid #E8E4DF;
@@ -2647,7 +2648,11 @@ input[type="number"] {
 .table-wrapper {
     background: white;
     border: 1px solid var(--gray-200);
-    border-radius: var(--radius-xl);
+    /* 🚨 var(--radius-xl)을 쓰지 않는다 (SLS-1-256).
+       그 토큰은 .modal-content/.modal-header/.modal-footer/.empty-parcels가
+       함께 쓴다 — 값을 바꾸면 **앱의 모든 모달**이 같이 각져진다.
+       목록 표만 12px로 맞춘다. */
+    border-radius: 12px;
     box-shadow: var(--shadow-sm);
     overflow: auto;
     max-height: calc(100vh - 200px);

@@ -54,7 +54,53 @@
         '유효인산':                 { type: 'field', key: 'availableP' },
         '규산':                     { type: 'field', key: 'silica' },
         '유효규산':                 { type: 'field', key: 'silica' },
+        // 🚨 '교환성'과 '치환성'이 **둘 다** 쓰인다 (SLS-1-258).
+        //    사전에는 '치환성'만 있었는데 **앱의 기본 서식은 '교환성'**을 쓴다.
+        //    그래서 자기 서식을 올려도 칼륨·칼슘·마그네슘이 자동 매핑되지 않았다.
+        '교환성칼륨':               { type: 'field', key: 'exK' },
+        '교환성칼슘':               { type: 'field', key: 'exCa' },
+        '교환성마그네슘':           { type: 'field', key: 'exMg' },
+        // 기본 서식의 표기 — 사전에는 영문 약어(ec/cec)만 있었다
+        '전기전도도':               { type: 'field', key: 'ec' },
+        '양이온치환용량':           { type: 'field', key: 'cec' },
         '치환성칼륨':               { type: 'field', key: 'exK' },
+
+        // ── 현장에서 쓰이는 다른 표기 (SLS-1-258) ──
+        // ⚠️ 짧은 낱말은 **정확일치로만** 걸린다(부분일치는 4자 이상). 그래서
+        //    '산도'·'칼륨' 같은 것도 단독 머리글일 때만 잡히고 오탐이 잘 안 난다.
+        // ⚠️ K2O·CaO 같은 **산화물 표기는 넣지 않는다.** 같은 성분이라도 단위·환산이
+        //    달라(칼륨은 cmol+/kg, K2O는 mg/kg) 그대로 넣으면 값의 의미가 바뀐다.
+        '산도':                     { type: 'field', key: 'pH' },
+        '토양산도':                 { type: 'field', key: 'pH' },
+        '유기물함량':               { type: 'field', key: 'organicMatter' },
+        '유효인산(p2o5)':           { type: 'field', key: 'availableP' },
+        '인산함량':                 { type: 'field', key: 'availableP' },
+        '유효규산(sio2)':           { type: 'field', key: 'silica' },
+        '규산함량':                 { type: 'field', key: 'silica' },
+        '칼륨':                     { type: 'field', key: 'exK' },
+        '교환성k':                  { type: 'field', key: 'exK' },
+        '치환성k':                  { type: 'field', key: 'exK' },
+        '칼슘':                     { type: 'field', key: 'exCa' },
+        '교환성ca':                 { type: 'field', key: 'exCa' },
+        '치환성ca':                 { type: 'field', key: 'exCa' },
+        '마그네슘':                 { type: 'field', key: 'exMg' },
+        '교환성mg':                 { type: 'field', key: 'exMg' },
+        '치환성mg':                 { type: 'field', key: 'exMg' },
+        '전기전도도(ec)':           { type: 'field', key: 'ec' },
+        '염농도':                   { type: 'field', key: 'ec' },
+        '석회시용량':               { type: 'field', key: 'limeReq' },
+        '석회필요량':               { type: 'field', key: 'limeReq' },
+        // 🚨 '양이온교환용량'이 표준 표기다. 기본 서식은 '치환'을 쓴다 — 둘 다 넣는다.
+        '양이온교환용량':           { type: 'field', key: 'cec' },
+        '양이온치환용량(cec)':      { type: 'field', key: 'cec' },
+        '양이온교환용량(cec)':      { type: 'field', key: 'cec' },
+        '염기치환용량':             { type: 'field', key: 'cec' },
+        // 매칭 키 표기
+        '시료no':                   { type: 'matchKey' },
+        '시료번호no':               { type: 'matchKey' },
+        '검체번호':                 { type: 'matchKey' },
+        '샘플번호':                 { type: 'matchKey' },
+        '의뢰번호':                 { type: 'matchKey' },
         'k':                        { type: 'field', key: 'exK' },
         '치환성칼슘':               { type: 'field', key: 'exCa' },
         'ca':                       { type: 'field', key: 'exCa' },
@@ -146,6 +192,9 @@
                 sheetNames: [],
                 activeSheet: '',
                 headerRowIdx: 0,                  // 0-based; -1이면 헤더 없음
+                headerMerge: false,               // true면 headerRowIdx와 그 다음 행을 합쳐 머리글로 (SLS-1-258)
+                headerAuto: false,                // 이번 판정이 자동이었나 (화면 안내용)
+                headerManualSheets: new Set(),    // 사용자가 헤더 행을 손으로 고른 시트 — 자동이 덮지 않는다
                 // 텍스트 모드
                 rawText: '',
                 hasHeader: true,
@@ -287,10 +336,17 @@
             // 시트 변경 / 헤더 행 / 헤더 없음
             this._els.sheetSelect?.addEventListener('change', () => {
                 this._state.activeSheet = this._els.sheetSelect.value;
+                this._applyHeaderDetection();
                 this._refreshAfterInput();
                 this._renderFilePreview();
             });
             this._els.headerRow?.addEventListener('input', () => {
+                // 자동 판정이 값을 채우는 중이면 수동 전환이 아니다 (SLS-1-258)
+                if (this._suppressHeaderInput) return;
+                // 손으로 고른 시트는 이후 자동이 덮지 않는다
+                if (this._state.activeSheet) this._state.headerManualSheets.add(this._state.activeSheet);
+                this._state.headerAuto = false;
+                this._state.headerMerge = false;   // 직접 지정하면 합치기는 끈다
                 const v = parseInt(this._els.headerRow.value, 10);
                 if (!Number.isNaN(v) && v >= 1) {
                     this._state.headerRowIdx = v - 1;
@@ -369,6 +425,9 @@
                 this._els.headerRow.value = '1';
                 this._els.headerRow.disabled = false;
             }
+            this._state.headerMerge = false;
+            this._state.headerAuto = false;
+            this._state.headerManualSheets = new Set();
             if (this._els.noHeaderCB) this._els.noHeaderCB.checked = false;
             this._els.modeRads?.forEach(r => { r.checked = (r.value === this._state.mode); });
             this._els.conflictRads?.forEach(r => { r.checked = (r.value === 'preview'); });
@@ -449,8 +508,15 @@
 
             let headers, rows;
             if (hIdx >= 0 && hIdx < allRows.length) {
-                headers = (allRows[hIdx] || []).slice();
-                rows = allRows.slice(hIdx + 1);
+                if (this._state.headerMerge && hIdx + 1 < allRows.length) {
+                    // 🚨 합칠 때 데이터는 **hIdx + 2**부터다. +1로 두면 부 머리글(4행)이
+                    //    데이터로 섞여 들어간다.
+                    headers = this._mergeHeaderRows(allRows[hIdx], allRows[hIdx + 1], maxCol);
+                    rows = allRows.slice(hIdx + 2);
+                } else {
+                    headers = (allRows[hIdx] || []).slice();
+                    rows = allRows.slice(hIdx + 1);
+                }
             } else {
                 headers = Array.from({ length: maxCol }, (_, i) => `열 ${i + 1}`);
                 rows = allRows;
@@ -528,9 +594,16 @@
                 this._state.sheets = sheets;
                 this._state.sheetNames = sheetNames;
                 this._state.activeSheet = sheetNames[0];
+                // 🚨 초기화를 **먼저** 하고 자동 판정을 **나중에** 한다 (SLS-1-258 코드리뷰).
+                //    순서가 뒤바뀌면 판정 결과를 바로 아래 초기화가 덮어써서,
+                //    파일을 처음 열 때는 자동 인식이 통째로 무효가 된다(시트를 바꿔야만 동작).
                 this._state.headerRowIdx = 0;
+                this._state.headerMerge = false;
+                this._state.headerAuto = false;
+                this._state.headerManualSheets = new Set();   // 새 파일이면 수동 표식도 초기화
                 this._state.fieldMapping = {};
                 this._state.matchKeyCol = -1;
+                this._applyHeaderDetection();
 
                 // M-4 fix: paste 모드에서 파일 드롭 시 자동으로 file 모드 전환
                 // (_switchMode가 mode 변경 검사로 fieldMapping reset을 또 시도하지만
@@ -602,7 +675,10 @@
             }).join('');
 
             body.innerHTML = `<table class="importer-mini-table"><tbody>${trs}</tbody></table>
-                <p class="importer-help importer-preview-note">${hIdx >= 0 ? `${hIdx + 1}행이 헤더 (강조 표시)` : '헤더 없음 — 모든 행이 데이터'} · 첫 ${Math.min(SHOW, sheet.rows.length)}행만 표시</p>`;
+                <p class="importer-help importer-preview-note">${hIdx >= 0
+                    ? `${this._state.headerMerge ? `${hIdx + 1}~${hIdx + 2}행을 합쳐 헤더로 사용` : `${hIdx + 1}행이 헤더 (강조 표시)`}`
+                      + ` · ${this._state.headerAuto ? '자동 인식' : '직접 지정'}`
+                    : '헤더 없음 — 모든 행이 데이터'} · 첫 ${Math.min(SHOW, sheet.rows.length)}행만 표시</p>`;
         }
 
         _refreshAfterInput() {
@@ -615,6 +691,94 @@
         // ============================================================
         // 자동 매핑
         // ============================================================
+        // ============================================================
+        // 머리글 행 자동 인식 (SLS-1-258)
+        // ============================================================
+        //
+        // 🚨 앱 기본 서식은 머리글이 **두 줄**이다.
+        //      3행: … 접수번호 …            화학성분값
+        //      4행:                 점토함량  pH  유기물 …
+        //    한 줄만 읽으면 매칭 키와 결과 항목을 **동시에 얻을 수 없다.**
+        //    그래서 1행(제목) 고정이던 것을 사전으로 채점해 고르고, 합치는 편이 나으면 합친다.
+        //
+        // ⚠️ 새 사전을 만들지 않는다. `_autoMap`이 쓰는 것과 **같은 규칙**으로 센다 —
+        //    갈리면 "자동으로 고른 행인데 자동 매핑이 안 붙는" 일이 생긴다.
+
+        HEADER_SCAN_ROWS() { return 8; }   // 머리글이 6~7행인 서식도 있다
+
+        /** 한 행이 사전에 몇 칸이나 걸리나 */
+        _scoreHeaderRow(row) {
+            const patterns = this._patterns();
+            let n = 0;
+            for (const cell of (row || [])) {
+                const norm = normalizeHeader(String(cell ?? ''));
+                if (!norm) continue;
+                let rule = patterns[norm];
+                if (!rule) {
+                    const partial = Object.keys(patterns).find(k => k.length >= 4 && norm.includes(k));
+                    if (partial) rule = patterns[partial];
+                }
+                if (rule) n++;
+            }
+            return n;
+        }
+
+        /**
+         * 두 행을 합친다. 열마다 빈 것을 빼고 공백으로 잇는다.
+         * ⚠️ 열 수가 다를 수 있어 maxCol까지 맞춘 뒤 합친다 — 안 그러면 뒤쪽 열이 잘린다.
+         */
+        _mergeHeaderRows(a, b, maxCol) {
+            const out = [];
+            for (let i = 0; i < maxCol; i++) {
+                const x = String((a || [])[i] ?? '').trim();
+                const y = String((b || [])[i] ?? '').trim();
+                out.push([x, y].filter(Boolean).join(' '));
+            }
+            return out;
+        }
+
+        /**
+         * 앞 몇 행을 채점해 머리글 행을 고른다.
+         * @returns {{idx:number, merge:boolean}} 점수가 전부 0이면 {0,false} (지금 동작 유지)
+         */
+        _detectHeaderRow(allRows, maxCol) {
+            const limit = Math.min(this.HEADER_SCAN_ROWS(), (allRows || []).length);
+            let best = { idx: 0, merge: false, score: 0 };
+            for (let i = 0; i < limit; i++) {
+                const single = this._scoreHeaderRow(allRows[i]);
+                // 동점이면 위쪽 행 — 아래로 갈수록 데이터일 가능성이 크다
+                if (single > best.score) best = { idx: i, merge: false, score: single };
+            }
+            // ⚠️ 짝의 두 번째 행은 탐색 범위 밖이어도 본다 — 마지막 후보 행이 주 머리글이고
+            //    바로 다음이 부 머리글인 서식을 놓치지 않기 위해서다 (코드리뷰 지적).
+            for (let i = 0; i < limit && i + 1 < (allRows || []).length; i++) {
+                const merged = this._scoreHeaderRow(
+                    this._mergeHeaderRows(allRows[i], allRows[i + 1], maxCol));
+                // 🚨 **엄격히 클 때만** 합친다. 동점이면 단일 —
+                //    한 줄 서식을 괜히 두 줄로 읽어 데이터 행을 먹으면 안 된다.
+                if (merged > best.score) best = { idx: i, merge: true, score: merged };
+            }
+            return { idx: best.idx, merge: best.merge };
+        }
+
+        /** 파일 로드·시트 변경 시 자동 판정 (사용자가 손댄 시트는 건드리지 않는다) */
+        _applyHeaderDetection() {
+            const name = this._state.activeSheet;
+            const sheet = name ? this._state.sheets[name] : null;
+            if (!sheet || !sheet.rows || !sheet.rows.length) return;
+            if (this._state.headerRowIdx < 0) return;                    // '헤더 없음'이면 손대지 않는다
+            if (this._state.headerManualSheets.has(name)) return;        // 손으로 고른 시트
+
+            const { idx, merge } = this._detectHeaderRow(sheet.rows, sheet.maxCol);
+            this._state.headerRowIdx = idx;
+            this._state.headerMerge = merge;
+            this._state.headerAuto = true;
+            // ⚠️ 값 대입이 수동 전환으로 읽히지 않게 가드를 세운다
+            this._suppressHeaderInput = true;
+            if (this._els.headerRow) this._els.headerRow.value = String(idx + 1);
+            this._suppressHeaderInput = false;
+        }
+
         _autoMap() {
             const { headers } = this._parseInput();
             if (headers.length === 0) {

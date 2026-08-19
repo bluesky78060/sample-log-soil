@@ -22,7 +22,10 @@
     // ============================================================
     const FILE_SIZE_WARN  = 5  * 1024 * 1024;   // 5MB: 경고만
     const FILE_SIZE_HARD  = 50 * 1024 * 1024;   // 50MB: 거부
-    const PREVIEW_MATCHED_LIMIT   = 50;          // 미리보기 매칭 셀 최대 표시
+    // 🚨 단위가 '셀'이 아니라 **'시료(행)'** 이다 (SLS-1-257).
+    //    예전엔 셀 하나가 한 줄이라 50이 셀 개수였고, 분석항목이 10개인 탓에
+    //    **시료 5건이면 상한이 꽉 찼다.** 가로 표로 바꾸면서 100시료로 올렸다.
+    const PREVIEW_MATCHED_LIMIT   = 100;         // 미리보기 시료(행) 최대 표시
     const PREVIEW_UNMATCHED_LIMIT = 20;          // 미리보기 미매칭 행 최대 표시
     const UTF8_BOM = '﻿';                   // CSV 한글 인식용 BOM (Excel)
 
@@ -927,48 +930,100 @@
                 : '';
             summary.innerHTML = badges + warningsHtml;
 
-            const items = [];
             const labels = this.cfg.fieldLabels || {};
-            // 매칭된 셀 (충돌·경고 우선 정렬, 상한 제한)
-            const sorted = p.matched.slice().sort((a, b) => {
-                const sa = (a.hasConflict ? 2 : 0) + (a.rangeWarning ? 1 : 0);
-                const sb = (b.hasConflict ? 2 : 0) + (b.rangeWarning ? 1 : 0);
-                return sb - sa;
-            });
-            sorted.slice(0, PREVIEW_MATCHED_LIMIT).forEach(m => {
-                const lbl = labels[m.field] || m.field;
-                let badges = '';
-                if (m.hasConflict) {
-                    badges += `<span class="badge badge-info">기존: ${escapeHtml(m.oldValue)}</span>`;
-                }
-                if (!m.willApply) {
-                    badges += '<span class="badge badge-muted">건너뜀</span>';
-                }
-                if (m.rangeWarning) {
-                    badges += `<span class="badge badge-warn" title="${escapeHtml(m.rangeWarning)}">범위 초과</span>`;
-                }
-                items.push(`<li class="importer-preview-item ${m.willApply ? '' : 'is-skip'}">
-                    <span class="importer-preview-key">${escapeHtml(m.sampleNumber)}</span>
-                    <span class="importer-preview-field">${escapeHtml(lbl)}</span>
-                    <span class="importer-preview-arrow">→</span>
-                    <span class="importer-preview-value">${escapeHtml(m.newValue)}</span>
-                    ${badges}
-                </li>`);
-            });
-            // 미매칭 표시 (상한 제한)
-            p.unmatched.slice(0, PREVIEW_UNMATCHED_LIMIT).forEach(u => {
-                items.push(`<li class="importer-preview-item is-unmatched">
-                    <span class="importer-preview-key">${escapeHtml(u.key || '(빈 키)')}</span>
-                    <span class="badge badge-warn">미매칭</span>
-                </li>`);
-            });
 
-            const overflow = (sorted.length > PREVIEW_MATCHED_LIMIT || p.unmatched.length > PREVIEW_UNMATCHED_LIMIT)
-                ? `<li class="importer-preview-overflow">… (전체 ${sorted.length}셀 / 미매칭 ${p.unmatched.length}건)</li>`
+            // ══════════════════════════════════════════════════════════════
+            // 시료 단위로 묶어 **가로 표**로 그린다 (SLS-1-257).
+            //
+            // 예전엔 셀 하나가 <li> 하나였다. 분석항목이 10개라 시료 하나가 10줄을 먹었고,
+            // 상한 50이 **시료 5건이면 꽉 찼다.** 게다가 같은 항목이 시료마다 흩어져
+            // 시료 간 비교가 안 됐고, 엑셀(가로 입력)과 모양이 달라 대응도 어려웠다.
+            //
+            // ⚠️ 한 시료번호에 같은 항목이 두 번 오면(엑셀에 같은 번호가 여러 행)
+            //    **마지막 것을 남긴다.** 저장 루프가 matched를 순서대로 돌며 덮어쓰므로
+            //    (아래 _save의 `for (const m of p.matched)`), 마지막 값이 실제로 저장된다.
+            //    Map.set을 순서대로 부르면 자연히 그렇게 된다 — 화면과 저장을 일치시킨다.
+            // ══════════════════════════════════════════════════════════════
+            const bySample = new Map();
+            for (const m of p.matched) {
+                let g = bySample.get(m.sampleNumber);
+                if (!g) { g = { cells: new Map() }; bySample.set(m.sampleNumber, g); }
+                g.cells.set(m.field, m);
+            }
+            // 🚨 점수는 **덮어쓰기가 끝난 뒤** 남은 셀로만 계산한다 (SLS-1-257 코드리뷰).
+            //    묶는 도중에 누적하면, 겹친 앞쪽 셀의 충돌 점수가 남아 화면엔 멀쩡한 시료가
+            //    "확인 필요"로 맨 위에 올라온다 — 표시와 정렬이 어긋난다.
+            const scoreOf = (m) => (m.hasConflict ? 2 : 0) + (m.rangeWarning ? 1 : 0) + (m.willApply ? 0 : 1);
+            for (const g of bySample.values()) {
+                g.score = 0;
+                for (const m of g.cells.values()) g.score = Math.max(g.score, scoreOf(m));
+            }
+
+            // 열은 **실제 매핑된 항목만**. 순서는 resultFields 기준 — 엑셀·앱과 같은 순서라야
+            // 눈이 따라간다. (매핑 해제 시 fieldMapping에서 키를 delete하므로 키 존재 = 매핑됨)
+            const mapped = new Set(Object.keys(this._state.fieldMapping || {}));
+            const cols = (this.cfg.resultFields || []).filter(f => mapped.has(f));
+
+            // 확인이 필요한 시료를 위로 (충돌 2 / 범위초과 1). 동점이면 시료번호 순.
+            // 열에 없는 항목만 가진 시료는 빈 줄이 되므로 표에서 뺀다
+            const colSet = new Set(cols);
+            const groups = [...bySample.entries()]
+                .filter(([, g]) => [...g.cells.keys()].some(f => colSet.has(f)))
+                .sort((a, b) =>
+                    b[1].score - a[1].score ||
+                    String(a[0]).localeCompare(String(b[0]), 'ko', { numeric: true }));
+            const shown = groups.slice(0, PREVIEW_MATCHED_LIMIT);
+
+            const head = `<tr><th scope="col">시료번호</th>${
+                cols.map(f => `<th scope="col">${escapeHtml(labels[f] || f)}</th>`).join('')}</tr>`;
+
+            const body = shown.map(([sampleNumber, g]) => {
+                const tds = cols.map(f => {
+                    const m = g.cells.get(f);
+                    if (!m) return '<td class="is-empty"></td>';   // 이 시료엔 그 항목이 없다
+                    const cls = [];
+                    const tip = [];
+                    if (m.hasConflict) {
+                        cls.push('is-conflict');
+                        tip.push(`기존값 ${m.oldValue} → ${m.newValue}`);
+                    }
+                    if (m.rangeWarning) { cls.push('is-warn'); tip.push(m.rangeWarning); }
+                    // 🚨 색만으로 구분하지 않는다 — 건너뜀은 취소선이 함께 붙는다
+                    if (!m.willApply) { cls.push('is-skip'); tip.push('건너뜁니다'); }
+                    const title = tip.length ? ` title="${escapeHtml(tip.join(' · '))}"` : '';
+                    return `<td class="${cls.join(' ')}"${title}>${escapeHtml(m.newValue)}</td>`;
+                }).join('');
+                return `<tr><th scope="row">${escapeHtml(sampleNumber)}</th>${tds}</tr>`;
+            }).join('');
+
+            const tableHtml = shown.length
+                ? `<div class="importer-pv-scroll"><table class="importer-pv-table">
+                     <thead>${head}</thead><tbody>${body}</tbody></table></div>`
                 : '';
 
-            list.innerHTML = items.length
-                ? `<ul class="importer-preview-ul">${items.join('')}${overflow}</ul>`
+            // ⚠️ 넘칠 때 **시료 기준**임을 밝힌다. 안 그러면 100이 셀 개수로 읽혀
+            //    "왜 이것밖에 안 보이나"가 된다.
+            const tableOverflow = groups.length > PREVIEW_MATCHED_LIMIT
+                // ⚠️ '보이는 것'과 '저장되는 것'을 구분해 적는다 (코드리뷰).
+                //    안 그러면 표에 100건만 보이니 100건만 저장된다고 오해한다.
+                ? `<div class="importer-preview-overflow">… 표에는 시료 ${PREVIEW_MATCHED_LIMIT}건까지만 보입니다 (전체 ${groups.length}시료) — <strong>저장은 전체가 대상입니다</strong></div>`
+                : '';
+
+            // 미매칭은 표에 자리가 없다(시료번호를 못 찾은 것) — 아래에 따로 나열한다
+            const unmatchedItems = p.unmatched.slice(0, PREVIEW_UNMATCHED_LIMIT).map(u =>
+                `<li class="importer-preview-item is-unmatched">
+                    <span class="importer-preview-key">${escapeHtml(u.key || '(빈 키)')}</span>
+                    <span class="badge badge-warn">미매칭</span>
+                </li>`).join('');
+            const unmatchedOverflow = p.unmatched.length > PREVIEW_UNMATCHED_LIMIT
+                ? `<li class="importer-preview-overflow">… 미매칭 ${p.unmatched.length}건 중 ${PREVIEW_UNMATCHED_LIMIT}건만 표시</li>`
+                : '';
+            const unmatchedHtml = unmatchedItems
+                ? `<ul class="importer-preview-ul">${unmatchedItems}${unmatchedOverflow}</ul>`
+                : '';
+
+            list.innerHTML = (tableHtml || unmatchedHtml)
+                ? tableHtml + tableOverflow + unmatchedHtml
                 : '<div class="importer-preview-empty">저장될 항목이 없습니다.</div>';
 
             saveBtn.disabled = willApplyCount === 0;

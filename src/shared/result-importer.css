@@ -425,6 +425,71 @@
 .importer-preview-item.is-skip { opacity: 0.55; }
 .importer-preview-item.is-unmatched { background: rgba(234,179,8,0.06); }
 
+/* ── 결과 미리보기 가로 표 (SLS-1-257) ────────────────────────────
+   시료 하나 = 한 줄, 분석항목은 가로 열.
+   ⚠️ 상태는 **클래스로만** 준다 — 인라인 style은 sanitize가 지운다(SLS-1-253 참고).
+   ⚠️ 색만으로 구분하지 않는다 — 건너뜀은 취소선, 충돌·경고는 title이 함께 붙는다. */
+.importer-pv-scroll {
+    overflow: auto;
+    max-height: 320px;
+    border: 1px solid #e7e5e4;
+    border-radius: 8px;
+}
+[data-theme="dark"] .importer-pv-scroll { border-color: #3d3656; }
+
+.importer-pv-table {
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    width: 100%;
+}
+.importer-pv-table th,
+.importer-pv-table td {
+    padding: 6px 10px;
+    text-align: right;
+    white-space: nowrap;
+    border-bottom: 1px solid #f5f5f4;
+    font-variant-numeric: tabular-nums;
+}
+[data-theme="dark"] .importer-pv-table th,
+[data-theme="dark"] .importer-pv-table td { border-bottom-color: #3d3656; }
+.importer-pv-table tbody tr:last-child th,
+.importer-pv-table tbody tr:last-child td { border-bottom: 0; }
+
+/* 항목명 머리글 — 세로 스크롤에도 붙어 있어야 어느 열인지 안다 */
+.importer-pv-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #78716c;
+    border-bottom: 1.5px solid #e7e5e4;
+}
+[data-theme="dark"] .importer-pv-table thead th { background: #2a2438; color: #a8a29e; border-bottom-color: #3d3656; }
+
+/* 시료번호 열 — 항목이 10개라 가로로 스크롤된다. 왼쪽에 고정해야 어느 시료인지 안다 */
+.importer-pv-table thead th:first-child,
+.importer-pv-table tbody th {
+    position: sticky;
+    left: 0;
+    text-align: left;
+    background: #fff;
+    font-weight: 700;
+    color: #292524;
+}
+.importer-pv-table thead th:first-child { z-index: 2; }
+[data-theme="dark"] .importer-pv-table thead th:first-child,
+[data-theme="dark"] .importer-pv-table tbody th { background: #2a2438; color: #e7e5e4; }
+
+.importer-pv-table td.is-conflict { background: #dbeafe; color: #1e40af; font-weight: 600; }
+.importer-pv-table td.is-warn     { background: #fef3c7; color: #92400e; font-weight: 600; }
+.importer-pv-table td.is-skip     { opacity: 0.45; text-decoration: line-through; }
+.importer-pv-table td.is-empty    { color: #d6d3d1; }
+[data-theme="dark"] .importer-pv-table td.is-conflict { background: rgba(59,130,246,0.18); color: #93c5fd; }
+[data-theme="dark"] .importer-pv-table td.is-warn     { background: rgba(234,179,8,0.18);  color: #fde68a; }
+[data-theme="dark"] .importer-pv-table td.is-empty    { color: #57534e; }
+
 .importer-preview-key {
     font-weight: 600;
     min-width: 80px;

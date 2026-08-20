@@ -135,14 +135,21 @@ for (const cfg of PAGES) {
             expect(before.tdBackground, '관리 칸 배경이 투명하다').not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
 
             const moved = await scrollRight(page, 400);
-            expect(moved, '가로 스크롤이 실제로 일어나지 않음').toBeGreaterThan(100);
+            expect(moved, '가로 스크롤이 실제로 일어나지 않음').toBeGreaterThan(30);
 
             const after = await actionCells(page);
 
-            // 대조군: 가운데 열은 밀린 만큼 왼쪽으로 가야 한다.
+            // 대조군: 고정 안 된 열은 밀린 만큼 왼쪽으로 가야 한다.
             // 이게 없으면 "스크롤이 안 먹어서" 관리 열이 안 움직인 것도 통과한다.
-            expect(after.freeLeft, '고정 안 된 열이 안 밀렸다 — 스크롤이 안 먹은 것')
-                .toBeLessThan(before.freeLeft - 100);
+            //
+            // ⚠️ 이동량을 **실제 스크롤량에 비례**해서 본다. 고정 px로 잡았다가
+            //    SLS-1-261(경지구분 숨김)로 표가 좁아지면서 스크롤 여유가
+            //    100px 밑으로 내려가 이 시험이 깨졌다. 열 구성이 바뀔 때마다
+            //    숫자를 다시 맞추는 시험은 오래 못 간다.
+            const freeShift = before.freeLeft - after.freeLeft;
+            expect(freeShift, `고정 안 된 열이 안 밀렸다 — 스크롤 ${moved}px인데 `
+                + `${Math.round(freeShift)}px만 움직였다`)
+                .toBeGreaterThan(moved * 0.5);
 
             expect(Math.abs(after.tdRight - before.tdRight), '관리 열이 같이 밀려났다')
                 .toBeLessThan(2);

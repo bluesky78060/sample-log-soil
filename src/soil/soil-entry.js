@@ -28,7 +28,6 @@ import '../shared/firestore-db.js';
 import '../shared/storage-manager.js';
 import '../shared/sync-utils.js';
 import '../shared/BaseSampleManager.js';
-import '../shared/excel-import-manager.js';
 
 // Data
 import '../cropData.js';

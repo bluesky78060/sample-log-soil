@@ -337,7 +337,6 @@ describe('핸드오프 setItem 가드 (라벨 인쇄)', () => {
         window.electronAPI = { isElectron: true, openHeuktoram }
         const m = createSoilManager()
         m.getSelectedIds = () => ['s1']
-        m.initExcelImporter = () => {}
         try {
             m._bindExportImportAndIO()
             vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw quotaError() })

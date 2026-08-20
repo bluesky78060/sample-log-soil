@@ -4238,8 +4238,8 @@ class SoilSampleManager extends window.BaseSampleManager {
 
     setupTypeSpecificEvents() {
         // 그룹별 바인딩 메서드를 원래 순서대로 호출한다.
-        // ⚠️ 일부 메서드는 초기화 부작용(AddressManager 인스턴스화·addParcel·드롭다운 채우기·
-        //    initExcelImporter)을 포함하므로 호출 순서를 바꾸면 안 된다(SLS-1-106 zero-move 분해).
+        // ⚠️ 일부 메서드는 초기화 부작용(AddressManager 인스턴스화·addParcel·드롭다운 채우기)을
+        //    포함하므로 호출 순서를 바꾸면 안 된다(SLS-1-106 zero-move 분해).
         this._initFormControls();
         this._bindParcelContainerEvents();
         this._bindCropAreaModalEvents();
@@ -5148,9 +5148,6 @@ class SoilSampleManager extends window.BaseSampleManager {
             }, 5000);
         });
 
-        // 엑셀 가져오기
-        this.initExcelImporter();
-
     }
 
     _bindViewerAndResultModals() {
@@ -5397,154 +5394,6 @@ class SoilSampleManager extends window.BaseSampleManager {
         XLSX.utils.book_append_sheet(wb, ws, '등록결과');
         XLSX.writeFile(wb, `등록결과_${this.currentRegistrationData.receptionNumber}_${this.currentRegistrationData.name}.xlsx`);
         this.showToast('엑셀 파일로 내보내기 완료', 'success');
-    }
-
-    // ========================================
-    // 엑셀 가져오기 초기화
-    // ========================================
-
-    initExcelImporter() {
-        const excelImporter = new ExcelImportManager({
-            ...this._excelImporterFieldConfig(),
-            ...this._excelImporterBehaviorConfig()
-        });
-        excelImporter.init();
-    }
-
-    /**
-     * 엑셀 가져오기: 필드·자동매핑·서식·미리보기 등 정적 설정.
-     */
-    _excelImporterFieldConfig() {
-        return {
-            appFields: [
-                { key: 'receptionNumber', label: '접수번호' }, { key: 'date', label: '접수일자' },
-                { key: 'subCategory', label: '구분(논/밭)' }, { key: 'purpose', label: '목적(용도)' },
-                { key: 'name', label: '성명' }, { key: 'phoneNumber', label: '전화번호' },
-                { key: 'address', label: '주소' }, { key: 'lotAddress', label: '필지 주소' },
-                { key: 'crop', label: '작물' }, { key: 'area', label: '면적(m2)' },
-                { key: 'receptionMethod', label: '수령방법' }, { key: 'note', label: '비고' }
-            ],
-            autoMapRules: {
-                '접수번호': 'receptionNumber', '번호': 'receptionNumber', 'no': 'receptionNumber',
-                '접수일자': 'date', '날짜': 'date', '일자': 'date',
-                '구분': 'subCategory', '분류': 'subCategory', '논밭': 'subCategory',
-                '목적': 'purpose', '용도': 'purpose', '목적(용도)': 'purpose',
-                '성명': 'name', '이름': 'name', '의뢰인': 'name', '의뢰자': 'name',
-                '전화번호': 'phoneNumber', '연락처': 'phoneNumber', '전화': 'phoneNumber', '휴대폰': 'phoneNumber',
-                '주소': 'address', '의뢰인주소': 'address', '자택주소': 'address',
-                '필지': 'lotAddress', '필지주소': 'lotAddress', '필지 주소': 'lotAddress',
-                '지번': 'lotAddress', '소재지': 'lotAddress', '토지소재지': 'lotAddress',
-                '작물': 'crop', '작물명': 'crop', '재배작물': 'crop',
-                '면적': 'area', '면적(m²)': 'area', '면적(m2)': 'area', '재배면적': 'area',
-                '수령방법': 'receptionMethod', '수령 방법': 'receptionMethod',
-                '비고': 'note', '메모': 'note', '참고': 'note'
-            },
-            templateConfig: {
-                headers: ['접수번호', '구분', '목적(용도)', '필지 주소', '작물', '면적(m2)', '비고'],
-                sampleRow: ['1', '밭', '일반재배', '○○시 ○○읍 ○○리 100', '고추', '1500', ''],
-                colWidths: [{ wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 35 }, { wch: 12 }, { wch: 12 }, { wch: 20 }],
-                sheetName: '토양시료', fileName: '토양_가져오기_서식'
-            },
-            previewColumns: [
-                { key: 'receptionNumber', label: '접수번호' }, { key: 'date', label: '접수일자' },
-                { key: 'subCategory', label: '구분' }, { key: 'name', label: '성명' },
-                { key: 'lotAddress', label: '필지 주소' }, { key: 'cropsDisplay', label: '작물' },
-                { key: 'area', label: '면적(m2)' }, { key: 'note', label: '비고' }
-            ]
-        };
-    }
-
-    /**
-     * 엑셀 가져오기: 레코드 생성·자동번호·완료 콜백 등 동작 설정.
-     */
-    _excelImporterBehaviorConfig() {
-        return {
-            getCommonData: () => {
-                const groupId = crypto.randomUUID();
-                return {
-                    date: document.getElementById('importDate').value || new Date().toISOString().slice(0, 10),
-                    name: document.getElementById('importName').value.trim(),
-                    phone: document.getElementById('importPhone').value.trim(),
-                    address: document.getElementById('importAddress').value.trim(),
-                    method: document.getElementById('importMethod').value,
-                    purpose: document.getElementById('importPurpose').value,
-                    groupId, now: new Date().toISOString()
-                };
-            },
-            buildRecord: (getVal, parseExcelDate, common) => {
-                const receptionNumber = getVal('receptionNumber') || '';
-                const dateVal = getVal('date');
-                const date = parseExcelDate(dateVal) || common.date;
-                const subCategory = getVal('subCategory') || '밭';
-                const purpose = getVal('purpose') || common.purpose;
-                const name = getVal('name') || common.name;
-                const phoneNumber = getVal('phoneNumber') || common.phone;
-                const address = getVal('address') || common.address;
-                const lotAddress = getVal('lotAddress') || '';
-                const crop = getVal('crop') || '';
-                const areaVal = getVal('area');
-                const area = areaVal ? String(parseFloat(areaVal) || 0) : '0';
-                const receptionMethod = getVal('receptionMethod') || common.method;
-                const note = getVal('note') || '';
-                return {
-                    id: crypto.randomUUID(), receptionNumber, date, name, phoneNumber, address,
-                    subCategory, purpose, receptionMethod, note, groupId: common.groupId,
-                    parcelIndex: 0, totalParcels: 0,
-                    parcels: [{ id: crypto.randomUUID(), lotAddress, isMountain: false, subLots: [],
-                        crops: crop ? [{ name: crop, area: area, unit: 'm2' }] : [],
-                        category: subCategory, purpose, note: '' }],
-                    lotAddress, area, cropsDisplay: crop || '-',
-                    createdAt: common.now, updatedAt: common.now
-                };
-            },
-            skipRowCheck: (record) => {
-                // 접수번호 표기와 구분의 불변식을 이 경로에서도 지킨다 (SLS-1-223 리뷰).
-                // 이 레거시 경로는 UI에서 도달 불가지만(SLS-1-224) 배선이 남아 있어,
-                // 되살아나면 위반 레코드를 만든다.
-                const RN = window.ReceptionNumber;
-                const rn = String(record.receptionNumber || '').trim();
-                if (rn) {
-                    const v = RN.namespaceViolation(RN.baseOf(rn), record.subCategory === '성토');
-                    if (v) return v;
-                }
-                if (!record.lotAddress && record.cropsDisplay === '-' && !record.name) return `필지주소, 작물, 성명이 모두 비어 있어 건너뜁니다.`;
-                return null;
-            },
-            postBuildRecords: (records) => {
-                const total = records.length;
-                records.forEach((l, i) => { l.parcelIndex = i + 1; l.totalParcels = total; });
-            },
-            getExistingLogs: () => this.sampleLogs,
-            autoNumberFilter: (log) => {
-                // 시퀀스 판별은 표기 기준이다 (SLS-1-223) — subCategory를 보지 않는다.
-                // 구 판별자를 남겨두면 불변식이 깨진 레코드가 이 필터에서 제외돼
-                // 그 번호가 재발급된다(조용한 중복).
-                if (!log.receptionNumber) return false;
-                const RN = window.ReceptionNumber;
-                return !RN.isFillNotation(RN.baseOf(log.receptionNumber));
-            },
-            autoNumberExtract: (log) => {
-                const base = log.receptionNumber.split('-')[0];
-                return parseInt(base, 10);
-            },
-            onImportComplete: (records) => {
-                records.forEach(logEntry => this.sampleLogs.push(logEntry));
-                this.sampleLogs.sort((a, b) => {
-                    const partsA = (a.receptionNumber || '').replace(/^F/, '').split('-').map(Number);
-                    const partsB = (b.receptionNumber || '').replace(/^F/, '').split('-').map(Number);
-                    for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-                        const va = partsA[i] || 0;
-                        const vb = partsB[i] || 0;
-                        if (va !== vb) return va - vb;
-                    }
-                    return 0;
-                });
-                this.saveLogs();
-                this.firebaseBatchSync(); // 대량 import는 전체 동기화
-                this.filterAndRenderLogs();
-                this.log('엑셀 가져오기 완료:', records.length, '건');
-            }
-        };
     }
 
     // ========================================

@@ -1086,6 +1086,9 @@ class BaseSampleManager {
         );
         this.renderLogs(filtered);
         this.updateSearchButtonState();
+        // SLS-1-264: 고정 열 좌표를 화면에서 재서 맞춘다.
+        // 토양은 이 메서드를 오버라이드하므로 거기서 따로 부른다(중복 호출 아님).
+        window.scheduleStickyColumns?.(this.logTable || document.getElementById('logTable'));
     }
 
     /**

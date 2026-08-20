@@ -2810,6 +2810,8 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         this.renderLogs(filteredLogs);
         this.updateSearchButtonState();
+        // SLS-1-264: 열 구성(공익직불제 탭 등)이 바뀌면 고정 좌표도 달라진다
+        window.scheduleStickyColumns?.(this.logTable);
     }
 
     /**
@@ -4584,6 +4586,9 @@ class SoilSampleManager extends window.BaseSampleManager {
                     if (toggleIcon) toggleIcon.textContent = '👁️';
                     viewToggleBtn.classList.remove('active');
                 }
+                // SLS-1-264: 열이 늘고 준다. 이 토글은 목록을 다시 그리지 않으므로
+                // 여기서 직접 불러야 고정 좌표가 따라간다.
+                window.scheduleStickyColumns?.(this.logTable);
             });
         }
 

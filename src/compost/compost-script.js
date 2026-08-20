@@ -2234,6 +2234,9 @@ class CompostSampleManager extends window.BaseSampleManager {
                     if (toggleIcon) toggleIcon.textContent = '👁️';
                     viewToggleBtn.classList.remove('active');
                 }
+                // SLS-1-264: 열이 늘고 준다. 이 토글은 목록을 다시 그리지 않으므로
+                // 여기서 직접 불러야 고정 좌표가 따라간다.
+                window.scheduleStickyColumns?.(logTable);
             });
         }
     }

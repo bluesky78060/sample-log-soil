@@ -47,6 +47,7 @@ import './reception-group.js';
 import './sheet-name.js';
 
 // Main script
+import '../shared/sticky-columns.js';  // SLS-1-264: 고정 열 좌표를 화면에서 재서 맞춤
 import './soil-script.js';
 
 // 흙토람式 가져오기 모달 (soil-script.js 뒤 — window.soilManager 준비 후 버튼 연결)

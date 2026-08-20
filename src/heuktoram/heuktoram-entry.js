@@ -17,6 +17,9 @@ import '../shared/utils.js';
 import '../shared/toast.js';
 import '../shared/address.js';
 import '../shared/address-parser.js';
+// SLS-1-265: 하위 지번 접수번호 계산을 접수 화면과 **같은 함수**로 한다.
+// 이게 없으면 흙토람만 옛 계산식으로 떨어져 `503-1`이 두 번 나온다.
+import '../soil/soil-log-record.js';
 import '../shared/lot-address-parser.js';   // SLS-1-200: 지번 파서 공유 (SIDO_LIST 뒤)
 import '../shared/theme.js';
 import '../shared/tooltip.js';

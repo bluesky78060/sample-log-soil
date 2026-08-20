@@ -37,6 +37,30 @@ const SHORT_SIDO_RE = /^(서울|부산|대구|인천|광주|대전|울산|세종
  * 경지구분 1차 선택지 (12개)
  * @type {string[]}
  */
+/**
+ * 접수번호 오름차순 비교 (`1`, `1-1`, `1-2`, `2`, `F3-1` 지원).
+ *
+ * 레코드 정렬과 목록 행 정렬이 **같은 규칙**을 써야 한다 (SLS-1-265).
+ * 따로 두면 하위 지번 행이 엉뚱한 자리에 끼어든다.
+ * `F` 접두는 떼고 비교한다 — 성토와 일반은 이미 다른 그룹이다.
+ * @param {string} a @param {string} b @returns {number}
+ */
+function compareReceptionNumbers(a, b) {
+    const sa = String(a || '');
+    const sb = String(b || '');
+    const partsA = sa.replace(/^F/, '').split('-').map(Number);
+    const partsB = sb.replace(/^F/, '').split('-').map(Number);
+    for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+        const va = partsA[i] || 0;
+        const vb = partsB[i] || 0;
+        if (va !== vb) return va - vb;
+    }
+    // 숫자가 같으면 `503`과 `F503`이 남는다. 예전에는 0을 돌려줘 **입력 순서에 맡겼고**,
+    // 하위 지번 행까지 정렬하게 되면서 두 그룹이 섞일 수 있었다(codex 지적).
+    // 일반을 먼저 두어 순서를 고정한다 — 숫자 순서 자체는 바뀌지 않는다.
+    return (sa.startsWith('F') ? 1 : 0) - (sb.startsWith('F') ? 1 : 0);
+}
+
 const LAND_CLASS1_OPTIONS = ['개량제', '전략', '직불', '자체', '기타', '친환경', '유기농', '무농약', 'GAP', '농가의뢰', '대표필지', '공익직불제'];
 
 /**
@@ -818,18 +842,14 @@ class SoilSampleManager extends window.BaseSampleManager {
         if (this.paginationContainer) this.paginationContainer.style.display = 'flex';
 
         // 접수번호 기준 오름차순 정렬 (1, 1-1, 1-2, 2, 3-1 등 지원)
-        const sortedLogs = [...logs].sort((a, b) => {
-            const partsA = (a.receptionNumber || '').replace(/^F/, '').split('-').map(Number);
-            const partsB = (b.receptionNumber || '').replace(/^F/, '').split('-').map(Number);
-            for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-                const va = partsA[i] || 0;
-                const vb = partsB[i] || 0;
-                if (va !== vb) return va - vb;
-            }
-            return 0;
-        });
+        const sortedLogs = [...logs].sort(
+            (a, b) => compareReceptionNumbers(a.receptionNumber, b.receptionNumber));
 
         // 데이터 평탄화
+        // SLS-1-265: 평탄화는 레코드 순서대로 하위 지번 행을 자기 레코드 뒤에 붙인다.
+        // 작물 분할이 있으면 `503, 503-2, 503-3, 503-1`처럼 순서가 뒤집혀 보인다
+        // (하위 지번이 형제 레코드 번호를 건너뛰기 때문). 번호는 맞지만 읽기 불편해
+        // **표시 번호 기준으로 한 번 더 정렬**한다. 기존 데이터는 순서가 그대로다.
         this.currentFlatRows = this.flattenLogsForTable(sortedLogs);
 
         // 페이지네이션 계산
@@ -2092,7 +2112,8 @@ class SoilSampleManager extends window.BaseSampleManager {
                     logs.push(window.SoilLogRecord.buildSoilLogRecord(parcel, {
                         receptionNumber, commonData, groupId, index,
                         totalParcels: validParcels.length,
-                        crop, cropIndex, isGroupEdit, existingLog
+                        crop, cropIndex, cropSplitCount: validCrops.length,
+                        isGroupEdit, existingLog
                     }));
                 });
             } else {
@@ -3701,7 +3722,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                                 ...log,
                                 _isFirstRow: false,
                                 _subLotIndex: subLotIndex,
-                                _displayNumber: `${log.receptionNumber}-${idx + 1}`,
+                                _displayNumber: window.SoilLogRecord.subLotDisplayNumber(log, idx),
                                 _lotAddress: lotAddress,
                                 _cropsDisplay: subLotCropsDisplay,
                                 _areaDisplay: subAreaDisplay,
@@ -3727,6 +3748,14 @@ class SoilSampleManager extends window.BaseSampleManager {
                 });
             }
         });
+        // SLS-1-265: 평탄화는 하위 지번 행을 자기 레코드 바로 뒤에 붙인다. 작물 분할이
+        // 있으면 하위 지번이 형제 레코드 번호를 건너뛰므로 `503, 503-2, 503-3, 503-1`처럼
+        // 순서가 뒤집혀 보인다. 번호는 맞지만 읽기 불편해 표시 번호로 다시 정렬한다.
+        //
+        // ⚠️ **여기서 정렬해야 한다.** 호출부가 둘이다(filterAndRenderLogs·prepareDataForRender).
+        //    한쪽에서만 정렬하면 화면에 따라 순서가 갈린다.
+        //    기존 데이터는 `503, 503-1, 503-2, 504…`라 정렬해도 순서가 그대로다.
+        rows.sort((a, b) => compareReceptionNumbers(a._displayNumber, b._displayNumber));
         return rows;
     }
 
@@ -5228,7 +5257,7 @@ class SoilSampleManager extends window.BaseSampleManager {
                             const subLotCropsDisplay = subLotCrops.length > 0 ? subLotCrops.map(c => c.name).join(', ') : '-';
                             const subLotTotalArea = subLotCrops.length > 0 ? subLotCrops.reduce((sum, c) => sum + (parseFloat(c.area) || 0), 0) : 0;
                             excelData.push({
-                                '접수번호': `${log.receptionNumber}-${sIdx + 1}`, '접수일자': log.date,
+                                '접수번호': window.SoilLogRecord.subLotDisplayNumber(log, sIdx), '접수일자': log.date,
                                 '구분': log.subCategory || '-', '경지구분1차': log.landClass1 || LAND_CLASS1_DEFAULT,
                                 '목적(용도)': parcel.purpose || log.purpose || '-',
                                 '성명': log.name, '전화번호': log.phoneNumber, '시도': addressParts.sido || '-',

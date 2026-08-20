@@ -576,6 +576,22 @@ class HeuktoramManager {
                     entryCounter++;
                 }
 
+                // SLS-1-265: 이 필지가 작물 여러 개로 나뉘었다면 형제 레코드(503-1…)가
+                // 이미 그만큼의 번호를 쓰고 있다. 하위 지번은 그 뒤부터여야 겹치지 않는다.
+                // 이 레코드에는 자기 작물 1개만 담겨 있어 카운터만으로는 알 수 없다.
+                // ⚠️ **레코드당 한 번만 더한다** (`pi === 0`). 처음엔 필지 루프 안에서
+                //    조건 없이 더했는데, 레코드에 필지가 여럿이면 **필지마다 반복 적용**되어
+                //    번호가 계속 밀린다(codex 코드 리뷰가 CRITICAL로 지적).
+                //    cropSplitCount는 "그 레코드가 작물 몇 개로 나뉘었나"라 레코드 단위 값이다.
+                //
+                // ⚠️ 폴백을 두지 않는다. 처음엔 `window.SoilLogRecord ? … : 1`로 썼는데,
+                //    흙토람 entry가 그 모듈을 안 싣고 있어서 **조용히 옛 계산식으로
+                //    떨어져 503-1이 두 번 나왔다.** 폴백이 배선 누락을 감췄다.
+                //    지금은 entry에서 반드시 싣는다(heuktoram-entry.js).
+                if (pi === 0) {
+                    entryCounter += window.SoilLogRecord.cropSplitCountOf(log) - 1;
+                }
+
                 // 하위필지 (실제 하위 지번)
                 if (parcel.subLots) {
                     for (let si = 0; si < parcel.subLots.length; si++) {

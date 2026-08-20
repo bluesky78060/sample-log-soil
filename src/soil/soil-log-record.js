@@ -57,7 +57,13 @@
                 id: newId(nowISO),
                 lotAddress: parcel.lotAddress,
                 isMountain: parcel.isMountain || false,
-                subLots: isSplit ? [] : [...parcel.subLots],
+                // 🚨 분할이어도 **주작물 레코드에는 하위 지번을 보존한다** (SLS-1-265).
+                //    예전에는 분할이면 무조건 `[]`이라, 한 지번에 작물을 2개 넣고
+                //    하위 지번도 넣으면 **입력한 지번이 경고 없이 사라졌다.**
+                //    하위 지번은 접수대장 내보내기와 흙토람 업로드에도 행으로 나가므로
+                //    흙토람에도 그 지번이 안 올라갔다.
+                //    형제 레코드(503-1…)에는 붙이지 않는다 — 같은 지번이 두 번 나간다.
+                subLots: (isSplit && o.cropIndex !== 0) ? [] : [...parcel.subLots],
                 crops: isSplit ? [{ ...crop }] : parcel.crops.map(c => ({ ...c })),
                 category: parcel.category || '',
                 purpose: parcel.purpose || '',
@@ -72,7 +78,12 @@
                 : (parcel.crops.map(c => c.name).join(', ') || '-')
         };
 
-        if (isSplit) rec.cropIndex = o.cropIndex + 1;
+        if (isSplit) {
+            rec.cropIndex = o.cropIndex + 1;
+            // 그 필지가 작물 몇 개로 나뉘었는지. 하위 지번 번호를 이만큼 밀어
+            // 형제 레코드 번호와 겹치지 않게 한다 (SLS-1-265).
+            rec.cropSplitCount = o.cropSplitCount;
+        }
 
         // 그룹 수정 모드: 기존 레코드에서 보존해야 하는 필드 (없으면 기본값)
         if (o.isGroupEdit) {
@@ -85,6 +96,39 @@
         }
 
         return rec;
+    }
+
+    /**
+     * 그 레코드의 작물 분할 수 (SLS-1-265).
+     *
+     * 하위 지번 번호는 이 수만큼 밀어야 형제 레코드와 안 겹친다.
+     * 작물 2개로 나뉜 503이면 형제가 503-1을 쓰므로 하위 지번은 503-2부터다.
+     *
+     * ⚠️ **없거나 이상한 값은 1로 본다.** 이 필드가 없는 레코드가 대부분이다
+     *    (이 티켓 이전에 만들어진 것 전부). 1이면 예전 계산과 완전히 같아진다.
+     * @param {Object} log
+     * @returns {number} 1 이상의 정수
+     */
+    function cropSplitCountOf(log) {
+        const n = Number(log && log.cropSplitCount);
+        return Number.isInteger(n) && n >= 1 ? n : 1;
+    }
+
+    /**
+     * 하위 지번의 표시 번호 (SLS-1-265).
+     *
+     * 목록·접수대장 내보내기·흙토람이 **이 함수 하나를 공유한다.**
+     * 세 곳에서 각각 계산하면 화면마다 번호가 달라진다 — 접수번호는 성적서와
+     * 흙토람으로 나가는 대외 식별자라 그러면 안 된다.
+     *
+     * @param {Object} log - 하위 지번을 가진 레코드
+     * @param {number} subLotIdx - 0-based 하위 지번 순번
+     * @returns {string} 예: 작물 1개면 `503-1`, 작물 2개로 나뉘었으면 `503-2`
+     */
+    function subLotDisplayNumber(log, subLotIdx) {
+        const idx = Number(subLotIdx);
+        const safeIdx = Number.isInteger(idx) && idx >= 0 ? idx : 0;
+        return `${log.receptionNumber}-${cropSplitCountOf(log) + safeIdx}`;
     }
 
     /**
@@ -129,5 +173,6 @@
         return names.map((name, i) => ({ name, area: i === 0 ? ((log && log.area) || '') : '' }));
     }
 
-    window.SoilLogRecord = { buildSoilLogRecord, resolveParcelCategory, resolveParcelPurpose, cropsFromDisplay };
+    window.SoilLogRecord = { buildSoilLogRecord, resolveParcelCategory, resolveParcelPurpose,
+        cropsFromDisplay, cropSplitCountOf, subLotDisplayNumber };
 })();

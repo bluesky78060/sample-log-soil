@@ -2164,14 +2164,31 @@ class SoilSampleManager extends window.BaseSampleManager {
         // 그룹 수정·신규 등록은 필지마다 레코드가 생기므로 전수를 본다.
         // 단건 수정은 레코드가 하나이고 그 subCategory는 첫 필지 값이므로
         // 전수를 보면 저장 결과보다 엄격해져 정합 레코드도 막힌다.
-        const parcelCats = (validParcels || []).map(p => p.category || mainSub);
-        const cats = this.editingLogId && !this.editingGroupId
-            ? [parcelCats[0] || mainSub]
-            : (parcelCats.length ? parcelCats : [mainSub]);
+        const isSingleEdit = !!this.editingLogId && !this.editingGroupId;
+        const allParcels = (validParcels || []).length ? validParcels : [{ category: mainSub, crops: [] }];
+        const scope = isSingleEdit ? [allParcels[0]] : allParcels;
 
-        // 위반 구분을 **전부** 모은다. 하나만 보면 나머지 필지의 신규 위반이 새어나간다.
-        const offendingCats = [...new Set(cats.filter(c => RN.namespaceViolation(base, c === '성토')))];
-        if (offendingCats.length === 0) return true;
+        // 위반 필지를 **전부** 모은다. 하나만 보면 나머지 필지의 신규 위반이 새어나간다.
+        //
+        // ⚠️ 구분의 **종류**(Set)로 모으면 안 된다 (SLS-1-223 재리뷰 2). 그룹 편집에서
+        // 필지를 늘리면 위반 레코드가 1건 → 2건으로 늘어도 구분은 여전히 '성토' 하나라
+        // 아래 "악화 없음" 예외를 통과해 새 위반이 저장됐다. 건수를 세야 한다.
+        const offendingParcels = scope.filter(p => RN.namespaceViolation(base, (p.category || mainSub) === '성토'));
+        if (offendingParcels.length === 0) return true;
+
+        /**
+         * 이 필지가 저장 시 만들 **레코드 수**. 작물이 2개 이상이면 작물마다
+         * 레코드가 나뉜다 (`_buildLogsForParcels`의 `useSubNumbers` 분기).
+         *
+         * ⚠️ 아래 비교 대상(`wasOffendingCount`)은 대장의 **레코드** 수다. 필지 수를
+         * 그대로 쓰면 단위가 어긋나, 작물 2개짜리 위반 필지가 1개 → 2개로 늘 때
+         * (레코드 2건 → 4건) `2 <= 2`가 되어 통과한다 (SLS-1-223 재리뷰 2-2).
+         */
+        const recordsOf = (p) => Math.max(1, ((p && p.crops) || []).filter(c => (c.name || '').trim()).length);
+        // 단건 수정은 작물이 몇 개든 레코드가 하나다 (`_submitSingleEdit`는 분할하지 않는다)
+        const offendingRecordCount = isSingleEdit
+            ? offendingParcels.length
+            : offendingParcels.reduce((n, p) => n + recordsOf(p), 0);
 
         // 수정 중이라면, 이번 수정이 위반을 **새로 만들거나 늘렸을 때만** 막는다.
         // 원래도 위반이던 레코드의 정당한 수정(전화번호 오타 등)을 막으면
@@ -2180,21 +2197,17 @@ class SoilSampleManager extends window.BaseSampleManager {
             const beforeLogs = this.editingGroupId
                 ? (this.editingGroupLogs || this.sampleLogs.filter(l => l.groupId === this.editingGroupId))
                 : this.sampleLogs.filter(l => l.id === this.editingLogId);
-            // 같은 네임스페이스(F 여부)에서 이미 위반이던 구분들.
+            // 같은 네임스페이스(F 여부)에서 이미 위반이던 레코드 **수**.
             // 그룹은 멤버 번호가 base, base+1… 로 갈리므로 본번 일치가 아니라 F 여부로 본다.
-            const wasOffending = new Set(
-                beforeLogs
-                    .filter((l) => {
-                        const b = RN.baseOf(l.receptionNumber || '');
-                        return RN.isFillNotation(b) === RN.isFillNotation(base)
-                            && RN.namespaceViolation(b, l.subCategory === '성토');
-                    })
-                    .map((l) => l.subCategory)
-            );
-            if (offendingCats.every((c) => wasOffending.has(c))) return true;   // 악화 없음
+            const wasOffendingCount = beforeLogs.filter((l) => {
+                const b = RN.baseOf(l.receptionNumber || '');
+                return RN.isFillNotation(b) === RN.isFillNotation(base)
+                    && RN.namespaceViolation(b, l.subCategory === '성토');
+            }).length;
+            if (offendingRecordCount <= wasOffendingCount) return true;   // 악화 없음
         }
 
-        const offending = offendingCats[0];
+        const offending = offendingParcels[0].category || mainSub;
         const violation = RN.namespaceViolation(base, offending === '성토');
         const guide = offending === '성토'
             ? `성토 시료는 접수번호가 F로 시작해야 합니다 (현재: ${editedNumber}).`

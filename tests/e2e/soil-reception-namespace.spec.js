@@ -182,6 +182,75 @@ test.describe('접수번호 네임스페이스 불변식 (SLS-1-223)', () => {
         expect(saved).toEqual([{ no: 'F9', tel: '010-9999-8888' }]);
     });
 
+    test('그룹 편집으로 위반 건수가 늘면 구분이 같아도 막는다', async ({ page }) => {
+        // 재리뷰 2 지적(MAJOR): "악화 없음" 예외가 `wasOffending`을 **구분의 Set**으로
+        // 비교해, 위반 레코드가 1건 → 2건으로 늘어도 구분은 여전히 '성토' 하나라
+        // 통과했다. 주석은 "새로 만들거나 늘렸을 때만 차단"인데 늘어난 것을 못 봤다.
+        await page.goto('/soil/');
+        await page.waitForLoadState('networkidle');
+        await page.waitForFunction(() => typeof window.soilManager !== 'undefined');
+        await page.evaluate(() => localStorage.clear());
+        await seedLedger(page, [{
+            id: 'bad-1', receptionNumber: '3', name: '손상', subCategory: '성토',   // ← F 없는데 성토 (위반)
+            landClass1: '농가의뢰', groupId: 'g-bad', parcelIndex: 1, totalParcels: 1, parcels: [],
+        }]);
+
+        /** 그룹 수정 중 상태로 두고 필지 구성만 바꿔 검사한다 */
+        const check = (parcels) => page.evaluate((ps) => {
+            const mgr = window.soilManager;
+            mgr.editingLogId = null;
+            mgr.editingGroupId = 'g-bad';
+            mgr.editingGroupLogs = mgr.sampleLogs.filter((l) => l.groupId === 'g-bad');
+            const fd = new FormData();
+            fd.set('receptionNumber', '3');
+            fd.set('subCategory', '성토');
+            return mgr._checkReceptionNamespace(ps, fd);
+        }, parcels);
+
+        const one = (crops) => ({ category: '성토', crops: crops.map((name) => ({ name })) });
+
+        // 필지 1개·작물 1개 — 위반 건수가 그대로(1건)다. 정당한 수정이므로 허용해야 한다
+        expect(await check([one(['벼'])])).toBe(true);
+
+        // 필지 2개 — 저장되면 위반이 2건이 된다. 악화이므로 막아야 한다
+        expect(await check([one(['벼']), one(['콩'])])).toBe(false);
+    });
+
+    test('작물 분할까지 세어 위반 레코드 증가를 막는다', async ({ page }) => {
+        // 재리뷰 2-2 지적(MAJOR): 위반 **필지** 수를 대장의 **레코드** 수와 비교하면
+        // 단위가 어긋난다. 한 필지의 작물이 2개 이상이면 `_buildLogsForParcels`가
+        // 작물마다 레코드를 만들기 때문이다(`useSubNumbers` 분기).
+        await page.goto('/soil/');
+        await page.waitForLoadState('networkidle');
+        await page.waitForFunction(() => typeof window.soilManager !== 'undefined');
+        await page.evaluate(() => localStorage.clear());
+        // 위반 필지 1개 × 작물 2개 = 기존 위반 **레코드 2건** ('3'과 '3-1')
+        await seedLedger(page, [
+            { id: 'bad-1', receptionNumber: '3', subCategory: '성토', landClass1: '농가의뢰', groupId: 'g-bad', parcels: [] },
+            { id: 'bad-2', receptionNumber: '3-1', subCategory: '성토', landClass1: '농가의뢰', groupId: 'g-bad', parcels: [] },
+        ]);
+
+        const check = (parcels) => page.evaluate((ps) => {
+            const mgr = window.soilManager;
+            mgr.editingLogId = null;
+            mgr.editingGroupId = 'g-bad';
+            mgr.editingGroupLogs = mgr.sampleLogs.filter((l) => l.groupId === 'g-bad');
+            const fd = new FormData();
+            fd.set('receptionNumber', '3');
+            fd.set('subCategory', '성토');
+            return mgr._checkReceptionNamespace(ps, fd);
+        }, parcels);
+
+        const twoCrops = () => ({ category: '성토', crops: [{ name: '벼' }, { name: '콩' }] });
+
+        // 필지 1개 × 작물 2개 = 레코드 2건 — 그대로다. 허용
+        expect(await check([twoCrops()])).toBe(true);
+
+        // 필지 2개 × 작물 2개 = 레코드 4건 — 2건 → 4건 악화다. 차단해야 한다.
+        // 필지 수만 세면 2 <= 2가 되어 그냥 통과했다.
+        expect(await check([twoCrops(), twoCrops()])).toBe(false);
+    });
+
     test('가져오기 자동채번이 손상 레코드의 번호를 재발급하지 않는다', async ({ page }) => {
         // 표기 기준 네임스페이스의 핵심 효과 — 구분 기준이던 시절에는
         // 성토 '3'이 두 풀 어디에도 없어 일반 자동채번이 '3'을 다시 부여했다

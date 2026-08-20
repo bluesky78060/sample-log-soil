@@ -74,8 +74,12 @@
             // 시퀀스 분리는 표기 기준 (전수성: 모든 레코드가 정확히 한쪽에 들어간다)
             if (fill !== isFillNotation(base)) continue;
 
+            // 안전 정수만 받는다 (SLS-1-223 재리뷰 2). `isNaN`만 보면 400자리 같은 거대
+            // 표기에서 `parseInt`가 `Infinity`를 돌려주고 그것이 maxNumber가 된다 →
+            // 다음 접수번호가 `'Infinity'`·`'FInfinity'`로 저장되고, 그 레코드가 다시
+            // 대장에 남아 이후 채번을 계속 오염시킨다.
             const num = parseInt(fill ? base.slice(1) : base, 10);
-            if (!isNaN(num) && num > maxNumber) maxNumber = num;
+            if (Number.isSafeInteger(num) && num > maxNumber) maxNumber = num;
         }
         return maxNumber + 1;
     }
@@ -133,8 +137,15 @@
             };
 
             // 본번을 읽을 수 없는 레코드는 별 분류 — 중복 집계에 섞으면 의미 없는 노이즈가 된다
-            if (base === '' || Number.isNaN(parseInt(isFillNotation(base) ? base.slice(1) : base, 10))) {
+            const parsed = parseInt(isFillNotation(base) ? base.slice(1) : base, 10);
+            if (base === '' || Number.isNaN(parsed)) {
                 malformed.push({ ...info, reason: '접수번호에서 번호를 읽을 수 없음' });
+                continue;
+            }
+            // 채번이 `Number.isSafeInteger`로 거르는 값은 점검에서도 드러나야 한다 —
+            // 한쪽만 걸러내면 사용자는 화면에서 이상을 못 보는데 채번만 조용히 달라진다
+            if (!Number.isSafeInteger(parsed)) {
+                malformed.push({ ...info, reason: '접수번호가 다룰 수 있는 범위를 벗어남' });
                 continue;
             }
 

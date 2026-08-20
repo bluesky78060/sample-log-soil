@@ -52,8 +52,18 @@ describe('collectExistingNumbers — 시퀀스 분리는 표기 기준 (SLS-1-22
         const fill = collect(logs, '농가의뢰', { fill: true })
         const inScope = logs.filter(l => (l.landClass1 || '농가의뢰') === '농가의뢰')
         expect(normal.size + fill.size).toBe(inScope.length)
-        // 같은 숫자가 양쪽에 동시에 있어도 서로 다른 네임스페이스다 (5 vs F5)
-        expect([...normal].some(n => fill.has(n) && false)).toBe(false)
+
+        // 레코드를 하나씩 넣어 분류를 직접 센다 — 합이 항상 정확히 1이어야 한다.
+        //
+        // ⚠️ 여기 있던 `some(n => fill.has(n) && false)`는 `&& false` 때문에 **항상**
+        // false를 돌려주는 죽은 단언이었다 (SLS-1-223 재리뷰 2). 어떤 구현을 넣어도
+        // 죽지 않아 전수성을 전혀 검증하지 못했다. 위의 size 합계도 Set이라
+        // 같은 번호가 여러 레코드에 있으면 뭉개진다 — 한 건씩 보면 그 구멍이 없다.
+        for (const l of inScope) {
+            const n = collect([l], '농가의뢰')
+            const f = collect([l], '농가의뢰', { fill: true })
+            expect(n.size + f.size).toBe(1)
+        }
     })
 
     it('landClass1이 없으면 기본값(농가의뢰)으로 간주', () => {

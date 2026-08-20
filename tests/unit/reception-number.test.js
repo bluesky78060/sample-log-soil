@@ -55,6 +55,22 @@ describe('computeNextNumber — 일반(성토 아님) 채번', () => {
         expect(next(logs, '농가의뢰')).toBe(1)
     })
 
+    it('안전 정수 범위를 넘는 본번은 무시한다 (Infinity 오염 방지)', () => {
+        // parseInt('1000…0')은 NaN이 아니라 Infinity를 돌려준다. isNaN만 보면
+        // maxNumber가 Infinity가 되어 다음 접수번호가 'Infinity'로 저장되고,
+        // 그 레코드가 대장에 남아 이후 채번을 계속 오염시킨다 (SLS-1-223 재리뷰 2).
+        const huge = '1' + '0'.repeat(400)
+        expect(parseInt(huge, 10)).toBe(Infinity)   // 전제 확인
+        expect(next([log(huge, '농가의뢰'), log('3', '농가의뢰')], '농가의뢰')).toBe(4)
+
+        // 2^53 경계 위쪽도 마찬가지 (정밀도를 잃어 엉뚱한 번호가 된다)
+        expect(next([log('9007199254740993', '농가의뢰')], '농가의뢰')).toBe(1)
+
+        // 성토 시퀀스도 같아야 한다 — 'FInfinity'가 저장되면 F 풀이 통째로 망가진다
+        const fillNext = (logs) => RN.computeNextNumber(logs, '농가의뢰', { fill: true })
+        expect(fillNext([log('F' + huge, '농가의뢰', '성토'), log('F2', '농가의뢰', '성토')])).toBe(3)
+    })
+
     it('targetClass 미지정 시 defaultClass 기준', () => {
         const logs = [log('7', '농가의뢰')]
         expect(next(logs)).toBe(8)  // target 생략 → 농가의뢰
@@ -272,6 +288,18 @@ describe('auditReceptionNumbers', () => {
         ])
         expect(r.malformed).toHaveLength(3)
         expect(r.duplicates).toEqual([])   // 노이즈를 중복에 섞지 않는다
+    })
+
+    it('안전 정수 범위를 넘는 접수번호도 malformed로 드러난다', () => {
+        // 채번(computeNextNumber)이 무시하는 값은 점검에서도 보여야 한다.
+        // 한쪽만 거르면 사용자는 화면에서 이상을 못 보는데 채번만 조용히 달라진다.
+        const r = audit([
+            { id: 'a', receptionNumber: '1' + '0'.repeat(400), landClass1: '농가의뢰' },
+            { id: 'b', receptionNumber: '9007199254740993', landClass1: '농가의뢰' },
+        ])
+        expect(r.malformed).toHaveLength(2)
+        expect(r.malformed[0].reason).toBe('접수번호가 다룰 수 있는 범위를 벗어남')
+        expect(r.duplicates).toEqual([])
     })
 
     it('F5와 5는 서로 다른 표기라 중복이 아니다', () => {

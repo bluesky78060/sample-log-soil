@@ -13,10 +13,18 @@
 // ⚠️ docs/ 빌드 산출물 대상 — `npm run build` 먼저.
 const { test, expect } = require('@playwright/test');
 
-/** 페이지별 고정 해제 기준 — 왼쪽 고정폭이 달라 기준도 다르다 */
+/**
+ * 페이지별 고정 해제 기준 — 왼쪽 고정폭이 달라 기준도 다르다.
+ *
+ * `wide`는 **해제 기준 바로 위**로 잡는다. 넓은 창일수록 표가 조금만 넘쳐
+ * 스크롤 여유가 줄고, 그러면 아래 측정이 임계값에 아슬아슬해진다.
+ * 실제로 1400px에서 여유가 117px뿐이라 전체 실행에서 가끔 실패했다
+ * (단독·재실행에서는 통과 — 전형적인 불안정 시험). 기준 바로 위가
+ * **고정이 살아 있으면서 스크롤 여유는 가장 큰** 지점이다.
+ */
 const PAGES = [
-    { name: '토양', path: '/soil/', manager: 'soilManager', key: 'soilSampleLogs', release: 1024 },
-    { name: '퇴비', path: '/compost/', manager: 'compostManager', key: 'compostSampleLogs', release: 1200 },
+    { name: '토양', path: '/soil/', manager: 'soilManager', key: 'soilSampleLogs', release: 1024, wide: 1080 },
+    { name: '퇴비', path: '/compost/', manager: 'compostManager', key: 'compostSampleLogs', release: 1200, wide: 1260 },
 ];
 
 const rows = (n) => Array.from({ length: n }, (_, i) => ({
@@ -90,7 +98,14 @@ const actionCells = (page) => page.evaluate(() => {
         })(),
         tdPosition: cs.position,
         tdBackground: cs.backgroundColor,
-        tdRight: td.getBoundingClientRect().right,
+        // ⚠️ 화면 기준이 아니라 **표 영역 오른쪽 끝에서 얼마나 떨어졌는지**를 잰다.
+        //    토양 페이지는 목록을 옆으로 밀면 표 영역 자체가 화면에서 이동한다
+        //    (1080px에서 오른쪽 끝이 960 → 1025로). 화면 좌표로 재면 고정이
+        //    멀쩡한데도 "관리 열이 밀려났다"고 나온다. 실제로 그렇게 오판했다.
+        tdInsetFromRight: (() => {
+            const wrap = document.querySelector('#listView .table-wrapper');
+            return wrap.getBoundingClientRect().right - td.getBoundingClientRect().right;
+        })(),
         // 대조군: **고정되지 않고 화면에 보이는** 첫 칸.
         // - 자리 번호로 고르면 안 된다: 토양은 가운데쯤이 하필 왼쪽 고정 열(성명)이라
         //   밀리지 않아, 고정이 멀쩡한데도 "스크롤이 안 먹었다"고 잘못 실패한다.
@@ -106,21 +121,36 @@ const actionCells = (page) => page.evaluate(() => {
     };
 });
 
-const scrollRight = (page, px) => page.evaluate((n) => {
+/**
+ * 밀 수 있는 만큼의 일정 비율까지 민다.
+ *
+ * ⚠️ **끝까지 밀면 안 된다.** 최대 스크롤에서는 오른쪽 고정 열이 자기 원래
+ *    자리에 정확히 도달해 고정이 풀리는 **경계점**이 된다. 거기서는 1px 반올림에
+ *    따라 붙었다 떨어졌다 해서, 멀쩡한 코드에서도 가끔 실패한다(실제로 그랬다).
+ *    고정이 확실히 걸려 있는 중간 지점에서 재야 한다.
+ */
+const SCROLL_FRACTION = 0.7;
+
+const scrollPartway = (page) => page.evaluate((f) => {
     const w = document.querySelector('#listView .table-wrapper');
     if (!w) throw new Error('#listView .table-wrapper가 없음');
-    if (w.scrollWidth <= w.clientWidth + 50) {
-        throw new Error(`표가 가로로 넘치지 않아 시험 자체가 성립하지 않음 `
-            + `(scrollWidth ${w.scrollWidth} / clientWidth ${w.clientWidth})`);
+    const max = w.scrollWidth - w.clientWidth;
+    if (max < 120) {
+        throw new Error(`표가 가로로 충분히 넘치지 않아 측정이 임계값에 붙는다 `
+            + `(밀 수 있는 폭 ${max}px). 열이 줄었으면 이 시험의 wide 폭을 낮춰야 한다`);
     }
-    w.scrollLeft = n;
-    return w.scrollLeft;
-}, px);
+    w.scrollLeft = Math.round(max * f);
+    // ⚠️ 바로 좌표를 읽으면 안 된다. sticky 위치는 다음 프레임에 갱신돼서,
+    //    스크롤 직후에 재면 **아직 안 붙은 상태**가 잡힌다. 이것 때문에
+    //    멀쩡한 코드에서 15회 중 3회 실패했다. 두 프레임 기다린다.
+    return new Promise((resolve) => requestAnimationFrame(
+        () => requestAnimationFrame(() => resolve(w.scrollLeft))));
+}, SCROLL_FRACTION);
 
 for (const cfg of PAGES) {
     test.describe(`${cfg.name} 목록 관리 열 고정`, () => {
         test('넓은 화면: 가로로 밀어도 관리 열은 제자리에 남는다', async ({ page }) => {
-            await page.setViewportSize({ width: 1400, height: 900 });
+            await page.setViewportSize({ width: cfg.wide, height: 900 });
             await seed(page, cfg);
 
             const before = await actionCells(page);
@@ -134,8 +164,8 @@ for (const cfg of PAGES) {
             // 배경이 투명하면 밑을 지나는 내용이 비쳐 보인다
             expect(before.tdBackground, '관리 칸 배경이 투명하다').not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
 
-            const moved = await scrollRight(page, 400);
-            expect(moved, '가로 스크롤이 실제로 일어나지 않음').toBeGreaterThan(30);
+            const moved = await scrollPartway(page);
+            expect(moved, '가로 스크롤이 실제로 일어나지 않음').toBeGreaterThan(80);
 
             const after = await actionCells(page);
 
@@ -143,22 +173,23 @@ for (const cfg of PAGES) {
             // 이게 없으면 "스크롤이 안 먹어서" 관리 열이 안 움직인 것도 통과한다.
             //
             // ⚠️ 이동량을 **실제 스크롤량에 비례**해서 본다. 고정 px로 잡았다가
-            //    SLS-1-261(경지구분 숨김)로 표가 좁아지면서 스크롤 여유가
-            //    100px 밑으로 내려가 이 시험이 깨졌다. 열 구성이 바뀔 때마다
-            //    숫자를 다시 맞추는 시험은 오래 못 간다.
+            //    SLS-1-261(경지구분 숨김)로 표가 좁아지면서 이 시험이 깨졌다.
+            //    열 구성이 바뀔 때마다 숫자를 다시 맞추는 시험은 오래 못 간다.
             const freeShift = before.freeLeft - after.freeLeft;
             expect(freeShift, `고정 안 된 열이 안 밀렸다 — 스크롤 ${moved}px인데 `
                 + `${Math.round(freeShift)}px만 움직였다`)
                 .toBeGreaterThan(moved * 0.5);
 
-            expect(Math.abs(after.tdRight - before.tdRight), '관리 열이 같이 밀려났다')
-                .toBeLessThan(2);
+            expect(Math.abs(after.tdInsetFromRight - before.tdInsetFromRight),
+                `관리 열이 표 오른쪽 끝에서 떨어졌다 `
+                + `(${Math.round(before.tdInsetFromRight)}px → ${Math.round(after.tdInsetFromRight)}px, `
+                + `스크롤 ${moved}px)`).toBeLessThan(2);
         });
 
         // 고정된 칸은 배경을 반드시 칠해야 밑을 지나는 내용이 안 비친다.
         // 다크모드에서 흰 배경이 남으면 그 한 칸만 눈에 확 튄다.
         test('다크모드: 관리 칸 배경이 다른 고정 칸과 같다', async ({ page }) => {
-            await page.setViewportSize({ width: 1400, height: 900 });
+            await page.setViewportSize({ width: cfg.wide, height: 900 });
             await seed(page, cfg);
             await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
 

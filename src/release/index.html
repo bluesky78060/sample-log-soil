@@ -605,13 +605,54 @@
             <!-- data-popup: '비고가 기타주소에 함께 저장되던' 항목에만 붙인다.
                  이미 저장된 자료를 사용자가 직접 확인해야 하고, 그 값이 흙토람·공익직불제
                  제출 파일의 주소 칸으로 나가기 때문이다. 나머지는 개선이라 붙이지 않는다. -->
+            <!-- v1.14.11 -->
+            <!-- data-popup: '하위 지번' 항목에만 붙인다.
+                 번호 부여 방식이 눈에 보이게 달라지고(사라지던 지번이 이제 503-2, 503-3으로
+                 이어진다), 여러 대를 함께 쓰는 기관은 전환기에 옛 기기에서 503-1이 두 번
+                 보인다. 접수번호는 성적서·흙토람으로 나가는 대외 식별자라 중복을 그냥
+                 넘길 수 없다. 나머지 둘은 좋아지기만 하는 변화라 붙이지 않는다.
+
+                 ⚠️ "자료를 확인하십시오" 같은 문구는 넣지 않는다 — 그 조합으로 접수한 건이
+                 없다고 사용자가 확인했다(2026-08-20). 없는 사고를 알리면 불필요한 점검만 하게 된다. -->
+            <div class="version-entry">
+                <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.11</span>
+                                <span class="version-date">2026-08-20</span>
+                            </div>
+                            <div class="version-title">📍 목록을 옆으로 넘길 때 왼쪽 항목이 흔들리지 않습니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>목록을 좌우로 넘길 때 접수번호·접수일자·구분·성명이 제자리에 있습니다.</strong>
+                            그동안은 왼쪽에 고정해 둔 항목들이 <strong>조금씩 따라 밀려</strong>
+                            성명은 45칸까지 움직였습니다. 이제 화면에서 실제 위치를 재서 맞춥니다.</li>
+                        <li><strong>화면을 옮길 때 잠깐 확대되던 것이 없어졌습니다.</strong>
+                            접수와 목록을 오갈 때 화면 전체가 작았다가 커지던 효과입니다.</li>
+                        <li data-popup><strong>한 지번에 작물을 여러 개 넣으면서 하위 지번도 넣으실 수 있습니다.</strong>
+                            그동안은 이렇게 입력하면 <strong>하위 지번이 저장되지 않았습니다</strong>
+                            (안내도 없이 등록만 되었습니다). 이제 번호를 이어서 매깁니다 —
+                            <strong>503(주작물), 503-1(추가 작물), 503-2·503-3(하위 지번)</strong>.
+                            접수대장과 흙토람 파일 모두 같은 번호로 나갑니다.
+                            <br><strong>여러 대에 나눠 설치해 함께 쓰신다면 모든 기기를 업데이트해 주십시오.</strong>
+                            새 방식으로 접수한 건을 예전 버전에서 열면 번호가 겹쳐 보입니다.</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- v1.14.10 -->
             <!-- data-popup: '경지구분 열' 항목에만 붙인다. 이 변경을 요청한 것은 한 곳이지만
                  배포는 전국이고, 나머지 사용자에게는 예고 없이 열이 사라지는 것으로 보인다.
                  "경지구분 자료가 날아갔나" 하고 오해할 수 있어, 전체 보기로 다시 볼 수 있다는
                  것을 알려야 한다. 관리 열 고정은 좋아지기만 하는 변화라 붙이지 않는다. -->
             <div class="version-entry">
-                <div class="version-dot latest"></div>
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -622,7 +663,6 @@
                             <div class="version-title">📌 목록을 옆으로 넘겨도 수정 버튼이 따라옵니다</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

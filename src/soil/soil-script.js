@@ -4035,6 +4035,9 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         // 액션 버튼
         const tdAction = document.createElement('td');
+        // thead의 <th class="col-action">과 짝을 맞춘다. 이게 없으면
+        // 본문 칸을 겨냥한 CSS(오른쪽 고정 포함)가 머리글에만 걸린다.
+        tdAction.className = 'col-action sticky-col';
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'table-actions';
         const btnEdit = document.createElement('button');

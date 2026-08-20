@@ -1272,6 +1272,11 @@ tr.farm-separator:hover {
 .data-table .col-landclass1 { left: 365px; min-width: 70px; }
 .data-table .col-name       { left: 435px; min-width: 70px; border-right: 2px solid #e2d9c8; }
 
+/* 관리(수정·삭제)는 오른쪽 끝에 고정한다.
+   왼쪽 열들과 달리 앞 열 폭을 더할 필요가 없다 — 항상 마지막 열이라
+   right:0 하나로 끝나고, 아래 공익직불제 오프셋 재계산에도 얽히지 않는다. */
+.data-table .col-action     { right: 0; min-width: 140px; border-left: 2px solid #e2d9c8; }
+
 /* 공익직불제 전용 컬럼 — 경지구분=공익직불제 탭일 때만 표시 */
 .data-table .gongik-col { display: none; }
 .data-table.gongik-on .gongik-col { display: table-cell; }
@@ -1330,6 +1335,26 @@ tr.farm-separator:hover {
 
 [data-theme="dark"] .data-table .col-name {
     border-right-color: #44403c;
+}
+
+[data-theme="dark"] .data-table .col-action {
+    border-left-color: #44403c;
+}
+
+/* 좁은 화면에서는 관리 고정을 푼다.
+   창이 더 좁아지면 가운데 스크롤 영역이 사라지고 좌우 고정 열이 포개진다 —
+   주소·작물명을 보려고 스크롤하는 화면에서 볼 공간이 없어지면 손해다.
+
+   기준 바로 위(1025px)에서 실측한 값 — 계산이 아니라 잰 것이다:
+     표 영역 983px / 고정 9칸 합계 557px / 남는 스크롤 폭 426px
+   여기가 가장 빡빡한 지점이고, 426px면 주소 한 열은 보인다.
+   왼쪽 고정은 원래 동작 그대로 둔다(이 티켓 범위 밖). */
+@media (max-width: 1024px) {
+    .data-table .col-action {
+        position: static;
+        right: auto;
+        border-left: none;
+    }
 }
 
 /* ========================================

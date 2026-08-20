@@ -500,7 +500,7 @@ class CompostSampleManager extends window.BaseSampleManager {
 
         // 23. Action buttons (edit/delete)
         const tdAction = document.createElement('td');
-        tdAction.className = 'col-action';
+        tdAction.className = 'col-action sticky-col';
         const btnEdit = document.createElement('button');
         btnEdit.className = 'btn-edit';
         btnEdit.dataset.id = logItem.id;

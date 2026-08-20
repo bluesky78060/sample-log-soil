@@ -1238,12 +1238,22 @@ tr.farm-separator:hover {
     border-radius: 10px;
     font-size: 11px;
     font-weight: 600;
-    animation: fadeIn 0.2s ease;
+    animation: badgePopIn 0.2s ease;
 }
 [data-theme="dark"] .selected-count-badge {
     background: #7c5ce7;
 }
-@keyframes fadeIn {
+/* 🚨 이 효과는 **선택 개수 배지 전용**이다. 이름을 `fadeIn`으로 두면 안 된다.
+   `@keyframes` 이름에는 스코프가 없다 — 파일을 나눠도 전역이다. 원래 이 블록이
+   `fadeIn`이라, 나중에 로드되는 이 파일이 공용 style.css의 `fadeIn`(살짝 올라오는
+   효과)을 **토양 페이지 전체에서** 덮어썼다. 그래서 `.view`가 바뀔 때마다
+   (style.css의 `animation: fadeIn 0.3s ease`) 화면 전체가 80%에서 확대됐다.
+   작은 배지에 어울리는 팝업 효과가 페이지 전환에 걸린 것이다.
+
+   2026-08-20 SLS-1-260/261 측정이 계속 어긋나 발견했다. 0.3초 동안 모든 요소가
+   0.844배 등으로 찍혀, 고정 열 좌표를 잴 수가 없었다. 눈에는 잠깐 커지는 정도라도
+   화면을 재는 코드에는 치명적이다. */
+@keyframes badgePopIn {
     from { opacity: 0; transform: scale(0.8); }
     to { opacity: 1; transform: scale(1); }
 }

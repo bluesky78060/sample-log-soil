@@ -63,6 +63,27 @@ bash .claude/hooks/set-ticket.sh clear            # 해제
 보안·DB 마이그레이션·결제·권한 경로는 `--fast`를 걸어도 `codex-review-guard`가
 변경 파일을 재확인해 차단한다(우회 불가).
 
+### ⚠️ 훅이 요구하는 `docs/`는 빌드가 지운다 — 산출물 정본은 `docs-internal/`
+
+두 전역 훅은 `docs/00-discovery` · `01-plan` · `02-review` · `03-code-review`를 찾는데,
+**이 저장소의 `docs/`는 vite의 `outDir`이고 `emptyOutDir: true`다.** `npm run build`가
+통째로 비우므로 그 자리에 둔 산출물은 다음 빌드에서 사라진다.
+
+그래서 **정본은 `docs-internal/ai-pm/{티켓}/`에 두고 그쪽을 커밋한다.**
+`docs/` 아래 사본은 훅을 통과시키기 위한 일회용이며 커밋하지 않는다.
+
+```bash
+# approve_review 직전에만 만든다 (훅은 파일명에 티켓 코드가 있으면 인정)
+mkdir -p docs/03-code-review
+cp docs-internal/ai-pm/SLS-1-223/SLS-1-223-code-review.md \
+   docs/03-code-review/SLS-1-223-review.md
+# 승인 후 제거 — 어차피 다음 빌드에서 지워진다
+rm -rf docs/03-code-review
+```
+
+> 사본에는 "정본은 `docs-internal/`에 있다"는 한 줄을 머리에 남긴다. 빌드 산출물
+> 사이에 리뷰 문서가 섞여 있으면 다음 사람이 그것을 정본으로 오해한다.
+
 표준 워크플로우:
 1. `mcp__ai-pm__create_task(epic_id="4d7bdd33-...", title="...")` → ticket_code 받음
 2. `bash .claude/hooks/set-ticket.sh SLS-X-Y` (티켓 활성화)

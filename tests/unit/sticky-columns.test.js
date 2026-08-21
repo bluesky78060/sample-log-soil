@@ -23,7 +23,7 @@ import { join } from 'node:path'
 const MODULE = readFileSync(
     join(process.cwd(), 'src', 'shared', 'sticky-columns.js'), 'utf8')
 
-/** @param {Array<{cls:string,left:number,width:number,right?:string}>} cols */
+/** @param {Array<{cls:string,left:number,width:number,right?:string,position?:string}>} cols */
 function makeTable(cols, id = 'logTable') {
     const table = document.createElement('table')
     table.id = id
@@ -35,7 +35,7 @@ function makeTable(cols, id = 'logTable') {
         th.className = `${c.cls} sticky-col`
         Object.defineProperty(th, 'offsetLeft', { value: c.left })
         Object.defineProperty(th, 'offsetWidth', { value: c.width })
-        styles.set(th, { right: c.right ?? 'auto' })
+        styles.set(th, { right: c.right ?? 'auto', position: c.position ?? 'sticky' })
         tr.appendChild(th)
     }
     document.body.appendChild(table)
@@ -105,6 +105,20 @@ describe('고정 열 좌표 계산 (SLS-1-264)', () => {
             { cls: 'col-name', left: 40, width: 70 },
         ])
         expect(css, '오른쪽 고정 열에 left 규칙이 붙었다').not.toContain('col-action')
+        expect(css).toBe('#logTable .col-checkbox{left:0px}#logTable .col-name{left:40px}')
+    })
+
+    it('고정이 풀린 열은 왼쪽 좌표를 받지 않는다 (SLS-1-275)', () => {
+        // 관리 열은 좁은 화면(토양 1024px·퇴비 1200px 이하)에서
+        // `position: static; right: auto`가 된다. 여기서 left 규칙이 붙으면
+        // **창을 다시 넓혔을 때** `right:0`과 함께 걸려 오른쪽 고정이 깨진다.
+        // 그때 관측자가 안 불릴 수도 있어(표 폭이 그대로면) 스스로 안 풀린다.
+        const css = build([
+            { cls: 'col-checkbox', left: 0, width: 40 },
+            { cls: 'col-name', left: 40, width: 70 },
+            { cls: 'col-action', left: 900, width: 140, right: 'auto', position: 'static' },
+        ])
+        expect(css, '고정이 풀린 관리 열에 left 규칙이 붙었다').not.toContain('col-action')
         expect(css).toBe('#logTable .col-checkbox{left:0px}#logTable .col-name{left:40px}')
     })
 

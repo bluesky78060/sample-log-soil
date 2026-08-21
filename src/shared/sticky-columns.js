@@ -68,8 +68,21 @@
             // 숨겨진 열 — 자리를 차지하지 않으므로 좌표에서 빠져야 한다
             // (경지구분 숨김 SLS-1-261, 공익직불제 탭의 목적 숨김 등)
             if (th.offsetWidth === 0) continue;
+            const cs = getComputedStyle(th);
             // 오른쪽 고정(관리 열, SLS-1-260)은 `right: 0`이라 왼쪽 누적과 무관하다
-            if (getComputedStyle(th).right !== 'auto') continue;
+            if (cs.right !== 'auto') continue;
+            // 🚨 고정이 **풀린** 열에는 왼쪽 좌표를 주면 안 된다 (SLS-1-275).
+            //    관리 열은 1024px(퇴비 1200px) 이하에서 `position: static; right: auto`가
+            //    된다. 그 상태로 재면 오른쪽 고정 열인데도 위 검사를 통과해
+            //    `col-action{left:900px}` 같은 규칙이 붙는다. static일 땐 무해하지만
+            //    **창을 다시 넓히면** 그 열은 `right:0`과 `left:900px`를 함께 갖는다 —
+            //    왼쪽 제약이 이겨 관리 열이 오른쪽 끝에서 떨어진다.
+            //    화면 폭이 바뀌어도 표 폭은 그대로일 수 있어 관측자가 안 불릴 수
+            //    있으므로(그럼 잘못된 규칙이 그대로 남는다) 애초에 만들지 않는다.
+            //    `-webkit-sticky`도 받는다 — 구형 WebKit은 computed value를 그대로
+            //    돌려준다. 여기서 걸러 버리면 **규칙이 하나도 안 만들어지는데
+            //    오류도 안 나고**(폴백 CSS로 화면은 그럴듯하다) 밀림만 되살아난다.
+            if (cs.position !== 'sticky' && cs.position !== '-webkit-sticky') continue;
 
             const cls = Array.from(th.classList).find((c) => c.startsWith('col-'));
             if (!cls) continue;
@@ -103,7 +116,36 @@
         // 표가 화면에 없으면(뷰 전환 전 등) 폭이 0이라 재 봐야 의미가 없다.
         if (table.offsetWidth === 0) return;
 
-        sheetFor(table).textContent = buildRules(table);
+        // 🚨 재기 전에 **이 모듈이 넣은 좌표를 먼저 끈다** (SLS-1-275).
+        //
+        //    `offsetLeft`는 그 요소의 sticky 변위를 **포함한다**. 직전 규칙이
+        //    지금의 자연 위치보다 큰 left를 걸어 두었으면 요소가 오른쪽으로 밀려
+        //    있고, 그 밀린 자리를 다시 읽어 **같은 값을 다시 쓴다.** 한 번 어긋나면
+        //    스스로 그 값에 고정돼(latch) 새로 고치기 전까지 풀리지 않는다.
+        //
+        //    열이 **줄어드는** 전환에서만 터진다 — 공익직불제→농가의뢰(차수 제거),
+        //    전체 보기 해제(경지구분 제거). 늘어나는 쪽은 직전 값이 더 작아
+        //    변위가 안 생기므로 멀쩡하다. 그래서 왕복하지 않는 시험은 못 잡았다.
+        //    실측(1440×900): 농가의뢰로 돌아오면 접수일자 163px → 225px,
+        //    62px 틈이 생기고 그만큼 밀린 셀이 `구분`을 덮었다.
+        //
+        //    `left:auto`면 sticky가 가로로 걸리지 않아 자연 위치가 읽힌다.
+        //    `#id .sticky-col`(1,1,0)이 CSS 폴백 `.data-table.gongik-on .col-date`
+        //    (0,3,0)도 이기므로 폴백이 만든 변위까지 함께 걷힌다.
+        //    오른쪽 고정(관리 열)은 `right`를 안 건드리므로 그대로다.
+        //
+        //    덤: 가로로 민 상태에서 관측자가 불려도 변위가 섞이지 않는다.
+        //
+        // ⚠️ 두 쓰기는 **같은 태스크 안에서** 끝나야 한다. 사이에 페인트가 없어야
+        //    깜빡이지 않는다 — 중간에 await·rAF를 끼워 넣지 마라.
+        // ⚠️ **순서를 한 줄씩 나눠 쓴다.** 한 줄로 붙여 놓으면
+        //    `sheet.textContent = buildRules(table)`가 리셋을 덮어쓴 뒤에 재는 것처럼
+        //    읽힌다(실제로 코드 리뷰에서 그렇게 오독됐다). 인자가 먼저 평가되므로
+        //    동작은 같지만, 재는 시점이 눈에 보이는 편이 낫다.
+        const sheet = sheetFor(table);
+        sheet.textContent = `#${table.id} .sticky-col{left:auto}`;
+        const rules = buildRules(table);   // ← 위 리셋이 걸린 상태에서 잰다
+        sheet.textContent = rules;
 
         // 표 폭이 달라지면 다시 맞춘다. `window.resize`로는 부족하다 —
         // 열이 숨겨지거나 내용이 바뀌어 폭이 달라지는 경우를 못 잡는다.

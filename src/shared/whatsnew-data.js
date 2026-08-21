@@ -2,7 +2,7 @@
 // 내용을 바꾸려면 src/release/index.html의 data-popup 표시를 고치고 다시 빌드하세요.
 // 생성 근거: SLS-1-218
 window.WHATS_NEW = {
-    "generatedFor": "1.14.13",
+    "generatedFor": "1.14.14",
     "entries": [
         {
             "version": "1.14.13",

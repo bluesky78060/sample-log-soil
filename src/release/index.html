@@ -614,6 +614,39 @@
 
                  ⚠️ "자료를 확인하십시오" 같은 문구는 넣지 않는다 — 그 조합으로 접수한 건이
                  없다고 사용자가 확인했다(2026-08-20). 없는 사고를 알리면 불필요한 점검만 하게 된다. -->
+            <!-- v1.14.14 -->
+            <!-- data-popup: 붙이지 않는다. 목록이 **보이는 방식**만 어긋났던 것이고,
+                 자료가 잘못 저장되거나 나간 것이 아니다. 켜면 저절로 제자리로 돌아오므로
+                 사용자가 확인하거나 손볼 것이 없다.
+                 매번 팝업이 뜨면 읽지 않고 닫는 습관이 생겨 정작 중요할 때 놓친다. -->
+            <div class="version-entry">
+                <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.14</span>
+                                <span class="version-date">2026-08-21</span>
+                            </div>
+                            <div class="version-title">📋 목록의 열이 어긋나던 것을 바로잡았습니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>공익직불제를 보고 농가의뢰로 돌아오면 열이 어긋나던 것을 고쳤습니다.</strong>
+                            접수번호 다음에 <strong>빈 칸이 생기고 &lsquo;구분&rsquo; 열이 가려지던</strong> 증상입니다.
+                            한 번 어긋나면 화면을 새로 고치기 전까지 그대로 남았습니다.
+                            <br><strong>전체 보기를 켰다 끄는 경우</strong>에도 같은 일이 있었고,
+                            <strong>퇴·액비 목록도</strong> 같았습니다. 이제 탭을 몇 번 오가도 처음 자리 그대로입니다.</li>
+                        <li><strong>창을 좁혔다 다시 넓히면 &lsquo;관리&rsquo; 열이 오른쪽 끝에서 떨어지던 것을 고쳤습니다.</strong>
+                            창이 좁을 때는 &lsquo;수정&rsquo;·&lsquo;삭제&rsquo; 단추가 고정되지 않는데, 다시 넓혔을 때
+                            그 흔적이 남아 엉뚱한 자리에 붙었습니다.</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- v1.14.13 -->
             <!-- data-popup: 두 항목 모두 붙인다. 가져오기 **동작이 달라져** 사용자가 화면에서
                  다르게 보게 되는 변경이기 때문이다 — 빈 행이 걸러져 등록 건수가 줄고,
@@ -623,7 +656,7 @@
                  사례가 있는지 확인된 바 없다. 없는 사고를 알리면 불필요한 점검만 하게 된다
                  (v1.14.11의 판단과 같은 이유). -->
             <div class="version-entry">
-                <div class="version-dot latest"></div>
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -634,7 +667,6 @@
                             <div class="version-title">📥 퇴·액비 엑셀 가져오기가 더 꼼꼼해졌습니다</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

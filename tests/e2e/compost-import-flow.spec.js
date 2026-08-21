@@ -202,25 +202,49 @@ test.describe('퇴비 엑셀 가져오기 전 구간 (SLS-1-268)', () => {
         expect(persisted.map((r) => r.receptionNumber)).toEqual(['101', '102']);
     });
 
-    test('7. 접수번호가 일부 행에만 있으면 나머지는 빈 채로 저장된다 (현재 동작)', async ({ page }) => {
-        // ⚠️ 이것은 **현재 동작을 고정**하는 테스트다. 개선이 아니라 기록이다.
-        //    excel-import-manager.js:370의 `.some()`은 한 행만 번호가 있어도
-        //    배치 전체의 자동 채번을 건너뛴다 → 나머지 행은 빈 접수번호로 저장된다.
-        //    고칠 때 이 테스트가 빨개지면서 "무엇이 바뀌는지"를 드러내는 것이 목적이다.
+    test('7. 접수번호가 일부 행에만 있으면 나머지가 이어지는 번호로 채워진다 (SLS-1-270)', async ({ page }) => {
+        // 예전에는 `.some()` 때문에 한 행만 번호가 있어도 배치 전체의 채번을 건너뛰어
+        // 나머지가 **빈 접수번호로 저장**됐다. 접수번호는 성적서·흙토람으로 나가는
+        // 대외 식별자라 빈 값은 그 자리에서 접수를 무효로 만든다.
         await uploadSheet(page, HEADERS, [['201', ...ROW_A], ['', ...ROW_B]]);
         await advanceToPreview(page);
-        expect(await previewNumbers(page)).toEqual(['201', '']);
+        // 명시 번호는 보존되고, 빈 칸은 그 위(202)에서 이어진다
+        expect(await previewNumbers(page)).toEqual(['201', '202']);
 
         await importAll(page);
         const persisted = await readPersisted(page);
-        // ⚠️ 저장 후 순서가 미리보기와 **뒤집힌다.** compost-script.js:2397의 정렬이
-        //    `parseInt('') || 0` → 0으로 보아 빈 번호를 목록 맨 앞에 놓기 때문이다.
-        //    번호가 빈 채로 남는 것과 별개인 두 번째 증상이라 농장명으로 짝지어 단언한다.
+        // 빈 번호가 없으니 `parseInt('') || 0` 정렬이 발동할 대상도 없다 —
+        // 미리보기 순서가 저장 순서와 같다 (예전에는 빈 번호가 맨 앞으로 튀었다).
         expect(persisted.map((r) => ({ farmName: r.farmName, receptionNumber: r.receptionNumber })))
             .toEqual([
-                { farmName: '영주농장', receptionNumber: '' },
                 { farmName: '봉화농장', receptionNumber: '201' },
+                { farmName: '영주농장', receptionNumber: '202' },
             ]);
+    });
+
+    test('7-b. 접수번호를 못 채운 행이 남으면 가져오기가 막힌다 (SLS-1-270)', async ({ page }) => {
+        // 자동 채번이 못 채우는 상황을 만든다 — 기존 최대가 MAX_SAFE_INTEGER면
+        // 다음 번호가 안전 범위를 벗어나 빈 칸이 남는다.
+        const year = await yearOf(page);
+        await page.evaluate((y) => {
+            const max = String(Number.MAX_SAFE_INTEGER);
+            const rec = [{ id: 'seed', receptionNumber: max, farmName: '기존농장', name: '기존', isComplete: false }];
+            localStorage.setItem(`compostSampleLogs_${y}`, JSON.stringify(rec));
+            window.compostManager.sampleLogs = rec;
+        }, year);
+
+        await uploadSheet(page, HEADERS_NO_NUM, [ROW_A]);
+        await advanceToPreview(page);
+        // 채우지 못한 사유가 미리보기에 보인다 (조용히 넘어가지 않는다)
+        await expect(page.locator('#importWarnings')).toBeVisible();
+        await expect(page.locator('#importWarnings')).toContainText('접수번호');
+
+        // "가져오기"를 눌러도 모달이 닫히지 않는다 = 저장되지 않았다
+        await nextBtn(page).click();
+        await expect(modalOf(page)).toBeVisible();
+
+        const persisted = await readPersisted(page);
+        expect(persisted.map((r) => r.farmName)).toEqual(['기존농장']);   // 새 레코드 없음
     });
 
     test('8. 서식 다운로드가 동작한다', async ({ page }) => {

@@ -356,7 +356,7 @@ class ExcelImportManager {
         }
 
         // 접수번호 자동 채번
-        this._autoAssignReceptionNumbers();
+        this._autoAssignReceptionNumbers(warnings);
 
         // 미리보기 테이블 렌더링
         this._renderPreview(warnings);
@@ -366,33 +366,66 @@ class ExcelImportManager {
     // 접수번호 자동 채번
     // ========================================
 
-    _autoAssignReceptionNumbers() {
-        const hasReceptionNumbers = this._parsedLogs.some(l => l.receptionNumber !== '');
-        if (hasReceptionNumbers) return;
-
-        // 기존 데이터에서 최대 번호 구하기
+    /**
+     * 비어 있는 접수번호만 채운다 (SLS-1-270).
+     *
+     * ⚠️ 예전에는 `some(l => l.receptionNumber !== '')`로 **한 행만 번호가 있어도
+     *    배치 전체의 채번을 건너뛰었다.** 나머지 행은 빈 접수번호로 저장됐고,
+     *    접수번호는 성적서·흙토람으로 나가는 대외 식별자라 그 자리에서 접수가 무효가 됐다.
+     *
+     * @param {string[]} [warnings] - 미리보기에 표시할 경고 누적 배열
+     */
+    _autoAssignReceptionNumbers(warnings) {
+        const isBlank = (v) => String(v ?? '').trim() === '';
         const existingLogs = this.config.getExistingLogs ? this.config.getExistingLogs() : [];
-        let maxNum = 0;
-
         const extractFn = this.config.autoNumberExtract;
         const filterFn = this.config.autoNumberFilter;
 
+        const numberOf = (log) => (extractFn ? extractFn(log) : parseInt(log.receptionNumber, 10));
+        // filterFn은 성토(F1)/일반(1)처럼 **별도 시퀀스**를 두기 위한 훅이다.
+        // 술어 하나로는 시퀀스를 열거할 수 없으므로 **한 번의 가져오기는 한 시퀀스만 채운다.**
+        // 범위 밖 행은 이 시퀀스의 소관이 아니라 손대지 않는다 (그 행이 비어 있으면
+        // _handleNext의 가드가 가져오기를 막아 조용히 저장되는 일은 없다).
+        const inScope = (log) => !filterFn || filterFn(log);
+
+        const blanks = this._parsedLogs.filter(l => isBlank(l.receptionNumber) && inScope(l));
+        if (blanks.length === 0) return;   // 채울 것이 없으면 손대지 않는다
+
+        let maxNum = 0;
+        const consider = (raw) => {
+            // extractFn이 숫자 문자열을 주던 기존 호환을 지킨다 (!isNaN('5')는 참이었다)
+            const n = typeof raw === 'number' ? raw : parseInt(raw, 10);
+            // parseInt('400자리')는 Infinity가 된다 — soil의 SLS-1-223과 같은 방어
+            if (Number.isSafeInteger(n) && n > maxNum) maxNum = n;
+        };
+
         existingLogs.forEach(log => {
             if (!log.receptionNumber) return;
-            if (filterFn && !filterFn(log)) return;
+            if (!inScope(log)) return;
+            consider(numberOf(log));
+        });
+        // 같은 배치에서 사용자가 직접 적은 번호도 점유로 본다 → 자동 채번이 그 위에서 시작한다
+        this._parsedLogs.forEach(l => {
+            if (isBlank(l.receptionNumber)) return;
+            if (!inScope(l)) return;
+            consider(numberOf(l));
+        });
 
-            let n;
-            if (extractFn) {
-                n = extractFn(log);
-            } else {
-                n = parseInt(log.receptionNumber, 10);
+        // 기존 ∪ 배치 명시 번호의 최대값 위에서 시작하므로 충돌이 구조적으로 불가능하다.
+        let next = maxNum;
+        let assigned = 0;
+        for (const l of blanks) {
+            next += 1;
+            if (!Number.isSafeInteger(next)) {
+                // 조용히 자르지 않는다 — 남은 행은 빈 채로 두고 사용자에게 알린다
+                if (warnings) {
+                    warnings.push(`접수번호가 다룰 수 있는 범위를 넘어 ${blanks.length - assigned}건은 번호를 매기지 못했습니다. 엑셀에서 접수번호를 채운 뒤 다시 가져와 주세요.`);
+                }
+                break;
             }
-            if (!isNaN(n) && n > maxNum) maxNum = n;
-        });
-
-        this._parsedLogs.forEach((l, i) => {
-            l.receptionNumber = String(maxNum + i + 1);
-        });
+            l.receptionNumber = String(next);
+            assigned += 1;
+        }
     }
 
     // ========================================
@@ -470,6 +503,18 @@ class ExcelImportManager {
         } else if (this._currentStep === 3) {
             if (this._parsedLogs.length === 0) {
                 showToast('가져올 데이터가 없습니다.', 'error');
+                return;
+            }
+
+            // 접수번호 없는 행은 내보내지 않는다 (SLS-1-270).
+            // 접수번호는 성적서·흙토람으로 나가는 대외 식별자라 빈 값이면 접수가 무효다.
+            // 자동 채번이 못 채운 경우(안전 범위 초과 등)에 경고만 띄우고 통과시키면
+            // 이 티켓이 막으려던 상태가 그대로 저장된다.
+            const unnumbered = this._parsedLogs.filter(
+                l => String(l.receptionNumber ?? '').trim() === ''
+            ).length;
+            if (unnumbered > 0) {
+                showToast(`접수번호가 비어 있는 행이 ${unnumbered}건 있습니다. 엑셀에서 접수번호를 채운 뒤 다시 가져와 주세요.`, 'error');
                 return;
             }
 

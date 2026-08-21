@@ -94,35 +94,65 @@ test.describe('퇴비 엑셀 가져오기 실패 경로 (SLS-1-271)', () => {
         await expect(page.locator('#excelImportStep3')).toBeHidden();
     });
 
-    test('4. 농장명·대표자가 빈 행도 등록된다 (현재 동작 — skipRowCheck는 죽은 분기)', async ({ page }) => {
-        // ⚠️ 개선이 아니라 **기록**이다.
-        //    compost-script.js의 skipRowCheck는
-        //      !record.farmName && !record.name && !record.sampleType
-        //    인데 buildRecord가 `getVal('sampleType') || '가축분퇴비'`로 기본값을 넣어
-        //    세 번째 조건이 절대 참이 되지 않는다 → **어떤 입력으로도 발동하지 않는다.**
-        //    비고 한 칸만 채운 행이 기본값만 걸친 레코드로 등록된다.
-        //    고칠 때 이 테스트가 빨개지며 무엇이 바뀌는지 드러나는 것이 목적이다.
+    test('4. 농장명·대표자·시료종류가 모두 빈 행은 건너뛴다 (SLS-1-273)', async ({ page }) => {
+        // 예전에는 이 검사가 **통째로 죽어 있었다.** buildRecord가 sampleType에
+        // '가축분퇴비'를 채우고 name을 공통 대표자로 메워, `record`로 "비었는지"를 보면
+        // 어떤 입력으로도 참이 되지 않았다. 비고 한 칸만 적은 행이 기본값만 걸친
+        // 레코드로 등록되고 경고도 뜨지 않았다.
         await uploadAoa(page, [HEADERS, ['', '', '', '', '', '', '', '', '메모만 있음']]);
         await expect(modalOf(page)).toBeVisible();
         await page.click('#excelImportNextBtn');
         await page.click('#excelImportNextBtn');
         await expect(page.locator('#excelImportStep3')).toBeVisible();
 
-        // 건너뛰지 않았다 — 미리보기에 1건이 올라온다
-        await expect(page.locator('#previewTableBody tr')).toHaveCount(1);
-        await expect(page.locator('#importWarnings')).toBeHidden();   // 건너뜀 경고도 없다
+        // 건너뛴 사유가 행 번호와 함께 보인다
+        await expect(page.locator('#importWarnings')).toBeVisible();
+        await expect(page.locator('#importWarnings')).toContainText('행 2');
+        await expect(page.locator('#previewTableBody tr')).toHaveCount(0);
 
+        // 가져올 것이 없으니 진행도 막힌다
         await page.click('#excelImportNextBtn');
-        await expect(modalOf(page)).toBeHidden();
+        await expect(modalOf(page)).toBeVisible();
 
         const year = await yearOf(page);
         const saved = await page.evaluate((y) => JSON.parse(localStorage.getItem(`compostSampleLogs_${y}`) || '[]'), year);
-        expect(saved).toHaveLength(1);
-        expect(saved[0].farmName).toBe('');
-        expect(saved[0].name).toBe('');
-        // 이 기본값이 skipRowCheck를 무력화한 장본인이다
-        expect(saved[0].sampleType).toBe('가축분퇴비');
+        expect(saved).toHaveLength(0);
     });
+
+    test('4-b. 공통 대표자를 입력해도 원본이 빈 행은 건너뛴다 (SLS-1-273)', async ({ page }) => {
+        // ⚠️ 이 시나리오가 핵심이다. 1단계 공통 대표자를 채우면 `record.name`이 그 값으로
+        //    메워진다 — `record`를 보는 판정은 여기서 **다시 죽는다.**
+        //    원본 셀을 봐야 비로소 걸러진다.
+        await uploadAoa(page, [HEADERS, ['', '', '', '', '', '', '', '', '메모만 있음']]);
+        await page.locator('#importName').fill('공통대표자');
+        await page.click('#excelImportNextBtn');
+        await page.click('#excelImportNextBtn');
+        await expect(page.locator('#excelImportStep3')).toBeVisible();
+
+        await expect(page.locator('#importWarnings')).toContainText('행 2');
+        await expect(page.locator('#previewTableBody tr')).toHaveCount(0);
+    });
+
+    // 식별자가 **하나만** 있어도 남긴다 — 판정은 3필드의 AND다.
+    // 각각 따로 두어야 `&&` → `||` 변이가 확실히 죽는다.
+    // previewColumns: 접수번호, 접수일자, 농장명, 대표자, 시료종류, 축종, 원료, 비고
+    for (const [label, row, col, expected] of [
+        ['농장명만', ['', '봉화농장', '', '', '', '', '', '', ''], 3, '봉화농장'],
+        ['대표자만', ['', '', '홍길동', '', '', '', '', '', ''], 4, '홍길동'],
+        ['시료종류만', ['', '', '', '액비', '', '', '', '', ''], 5, '액비'],
+    ]) {
+        test(`4-c. ${label} 있는 행은 그대로 가져온다 (SLS-1-273)`, async ({ page }) => {
+            await uploadAoa(page, [HEADERS, row]);
+            await page.click('#excelImportNextBtn');
+            await page.click('#excelImportNextBtn');
+            await expect(page.locator('#excelImportStep3')).toBeVisible();
+            await expect(page.locator('#previewTableBody tr')).toHaveCount(1);
+            await expect(page.locator('#importWarnings')).toBeHidden();
+            // ⚠️ 행 수만 세면 값이 뭉개져도 통과한다. 특히 '시료종류만'은 그 값이
+            //    무시되고 기본값 '가축분퇴비'로 바뀌어도 1건이라 초록불이 된다.
+            await expect(page.locator(`#previewTableBody tr td:nth-child(${col})`)).toHaveText(expected);
+        });
+    }
 
     test('5. 5000행을 넘으면 앞에서부터 5000건만 처리한다', async ({ page }) => {
         const MAX = 5000;

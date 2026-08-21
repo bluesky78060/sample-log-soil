@@ -2384,8 +2384,13 @@ class CompostSampleManager extends window.BaseSampleManager {
                     updatedAt: common.now
                 };
             },
-            skipRowCheck: (record, rowIdx) => {
-                if (!record.farmName && !record.name && !record.sampleType) {
+            skipRowCheck: (record, rowIdx, raw) => {
+                // ⚠️ `record`가 아니라 `raw`를 본다 (SLS-1-273).
+                //    record는 buildRecord가 손댄 뒤라 sampleType은 늘 '가축분퇴비'이고,
+                //    name은 1단계 공통 대표자로 메워진다. 그 값으로 "비었는지"를 보면
+                //    **어떤 입력으로도 참이 되지 않아** 이 검사가 통째로 죽어 있었다.
+                //    비고 한 칸만 적은 행이 기본값만 걸친 레코드로 등록됐다.
+                if (!raw('farmName') && !raw('name') && !raw('sampleType')) {
                     return `행 ${rowIdx + 2}: 농장명, 대표자, 시료종류가 모두 비어 있어 건너뜁니다.`;
                 }
                 return null;

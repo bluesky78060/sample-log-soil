@@ -23,7 +23,9 @@ class ExcelImportManager {
      * @param {string} config.templateConfig.fileName - 파일명 (확장자 제외)
      * @param {Array<{key:string, label:string}>} config.previewColumns - 미리보기 테이블 컬럼
      * @param {Function} config.buildRecord - (getVal, parseExcelDate, commonData, rowIdx) => object
-     * @param {Function} [config.skipRowCheck] - (record, rowIdx) => string|null (경고 메시지 또는 null)
+     * @param {Function} [config.skipRowCheck] - (record, rowIdx, raw) => string|null (경고 또는 null)
+     *        ⚠️ `record`는 buildRecord가 기본값·공통값을 채운 뒤다. "비었는지"를 볼 때는
+     *           세 번째 인자 `raw(field)`(그 행의 원본 셀)를 쓸 것 (SLS-1-273).
      * @param {Function} [config.renderPreviewCell] - (record, columnKey) => string (커스텀 셀 렌더링)
      * @param {Function} config.onImportComplete - (records) => void
      * @param {Function} config.getCommonData - () => object
@@ -328,8 +330,11 @@ class ExcelImportManager {
 
         // 각 행 처리
         this._excelData.forEach((row, rowIdx) => {
+            // 이 행에 사용자가 **실제로 적은 값**. 기본값·공통값이 섞이기 전이다.
+            const rawVal = (field) => getVal(row, field);
+
             const record = this.config.buildRecord(
-                (field) => getVal(row, field),
+                rawVal,
                 ExcelImportManager.parseExcelDate,
                 commonData,
                 rowIdx
@@ -339,8 +344,14 @@ class ExcelImportManager {
             if (record === null) return;
 
             // skipRowCheck 콜백으로 경고/건너뛰기 처리
+            //
+            // ⚠️ `record`는 **`buildRecord`가 손댄 뒤**의 값이다 (SLS-1-273).
+            //    기본값이 채워지거나(예: sampleType) 1단계 공통 입력으로 메워지는
+            //    필드(예: name ← common.name)로 "비었는지"를 판정하면
+            //    **그 조건은 절대 참이 되지 않는다.** 실제로 compost가 그랬다.
+            //    그런 판정에는 세 번째 인자 `raw(field)`를 쓸 것.
             if (this.config.skipRowCheck) {
-                const warning = this.config.skipRowCheck(record, rowIdx);
+                const warning = this.config.skipRowCheck(record, rowIdx, rawVal);
                 if (warning) {
                     warnings.push(warning);
                     return;

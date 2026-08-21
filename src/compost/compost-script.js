@@ -2425,8 +2425,16 @@ class CompostSampleManager extends window.BaseSampleManager {
                 throw e;
             }
 
+            // SLS-1-197 E: 메서드 존재까지 본다.
+            //   구버전 preload가 openCompostAnalysis를 노출하지 않으면 TypeError로
+            //   **버튼이 아무 반응 없이 죽는다.** 그럴 땐 아래 웹 경로로 넘긴다.
+            //
+            //   ⚠️ 이 폴백은 "죽지 않게" 하는 것이지 Electron 팝업과 동등하지 않다.
+            //      메인의 setWindowOpenHandler가 로컬 상대경로 새 창을 막으므로
+            //      실제로는 `window.location.href`로 **현재 창이 이동**할 가능성이 크다.
+            //      구버전 Electron까지 제대로 지원하려면 메인 프로세스 호환 경로가 필요하다.
             const isElectron = window.electronAPI?.isElectron === true;
-            if (isElectron) {
+            if (isElectron && typeof window.electronAPI.openCompostAnalysis === 'function') {
                 window.electronAPI.openCompostAnalysis();
             } else {
                 const popup = window.open('../compost-analysis/index.html', '_blank');

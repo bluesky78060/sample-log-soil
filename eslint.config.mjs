@@ -65,6 +65,17 @@ const RULES = {
     'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none', varsIgnorePattern: '^_' }],
     'no-constant-condition': ['warn', { checkLoops: false }],
     // ── 거대 함수 탐지 (분석 #6) ────────────────────────
+    //
+    // ⚠️ 이 규칙은 warn이라 **경고가 쌓이면 배경 소음이 된다** (SLS-1-197 D / 195 MINOR-5).
+    //    현재 알려진 위반은 6건이고 `npm run lint`가 `--max-warnings 6`으로 그 수를 고정한다.
+    //    → 7번째가 생기면 **린트가 실패한다.** 주석으로 "알고 있다"고 적는 것보다 강하다.
+    //
+    //    알려진 6건 (2026-08-21):
+    //      compost-script.js  buildTableRow / setupTypeSpecificEvents / showStatistics / setupExcelImport
+    //      soil-result-importer.js  computePreview / soilModalInnerHtml
+    //
+    //    ⚠️ 함수를 쪼개 경고를 **줄였다면 이 숫자도 함께 낮춘다.** 그러지 않으면
+    //       줄어든 만큼 새 위반이 들어올 여유가 생겨 고정의 의미가 사라진다.
     'max-lines-per-function': ['warn', { max: 100, skipBlankLines: true, skipComments: true, IIFEs: false }],
 };
 

@@ -2755,11 +2755,6 @@ class SoilSampleManager extends window.BaseSampleManager {
     // 검색/필터
     // ========================================
 
-    extractReceptionNumber(receptionNumber) {
-        const match = receptionNumber.match(/(\d+)$/);
-        return match ? parseInt(match[1], 10) : 0;
-    }
-
     filterAndRenderLogs() {
         const filteredLogs = this.sampleLogs.filter(log => {
             const matchesName = !this.currentSearchFilter.name ||
@@ -2860,38 +2855,25 @@ class SoilSampleManager extends window.BaseSampleManager {
         return this.sampleLogs.filter(log => (log.landClass1 || LAND_CLASS1_DEFAULT) === tab);
     }
 
-    updateSearchButtonState() {
-        const openSearchModalBtn = document.getElementById('openSearchModalBtn');
-        const purposeFilter = document.getElementById('purposeFilter');
-        const hasFilter = this.currentSearchFilter.dateFrom || this.currentSearchFilter.dateTo ||
-            this.currentSearchFilter.name || this.currentSearchFilter.receptionFrom ||
-            this.currentSearchFilter.receptionTo || this.currentSearchFilter.lot || this.currentSearchFilter.purpose ||
-            (this.currentSearchFilter.completed && this.currentSearchFilter.completed !== 'incomplete');
+    /**
+     * 검색 버튼 배지 판정에 쓰는 필터 키 (SLS-1-197 A-3)
+     *
+     * ⚠️ `landClass1`은 **일부러 넣지 않는다.** 기본값이 '농가의뢰'라 항상 참이 되어
+     *    검색 버튼이 늘 "검색 중"으로 보인다. 그것은 필터가 아니라 탭이다.
+     */
+    getFilterKeys() {
+        return [...super.getFilterKeys(), 'lot', 'purpose'];
+    }
 
-        if (openSearchModalBtn) {
-            if (hasFilter) {
-                openSearchModalBtn.classList.add('has-filter');
-                openSearchModalBtn.innerHTML = sanitizeHTML('🔍 검색 중');
-            } else {
-                openSearchModalBtn.classList.remove('has-filter');
-                openSearchModalBtn.innerHTML = sanitizeHTML('🔍 검색');
-            }
-        }
-        if (purposeFilter) {
-            if (this.currentSearchFilter.purpose) {
-                purposeFilter.classList.add('has-filter');
-            } else {
-                purposeFilter.classList.remove('has-filter');
-            }
-        }
-        const landClass1Tab = document.getElementById('landClass1Tab');
-        if (landClass1Tab) {
-            if (this.currentSearchFilter.landClass1) {
-                landClass1Tab.classList.add('has-filter');
-            } else {
-                landClass1Tab.classList.remove('has-filter');
-            }
-        }
+    /**
+     * 검색 버튼 배지는 base가 처리하고, soil 고유 배지 2개만 여기서 더한다 (SLS-1-197 A-3).
+     * 예전에는 base와 같은 본문을 통째로 복사해 두고 배지 처리만 덧붙였다.
+     */
+    updateSearchButtonState() {
+        super.updateSearchButtonState();
+        const badge = (id, on) => document.getElementById(id)?.classList.toggle('has-filter', !!on);
+        badge('purposeFilter', this.currentSearchFilter.purpose);
+        badge('landClass1Tab', this.currentSearchFilter.landClass1);
     }
 
     // ========================================
@@ -3357,35 +3339,15 @@ class SoilSampleManager extends window.BaseSampleManager {
         };
     }
 
-    openLabelPrintWithData(logs) {
-        const labelData = logs.map(log => {
-            const { address, postalCode } = this._extractLabelAddress(log);
-            return { name: log.name || '', address, postalCode };
-        });
-
-        const uniqueMap = new Map();
-        labelData.forEach(item => {
-            const key = `${item.address}|${item.postalCode}`;
-            if (!uniqueMap.has(key)) uniqueMap.set(key, item);
-        });
-        const uniqueLabelData = Array.from(uniqueMap.values());
-
-        const duplicateCount = labelData.length - uniqueLabelData.length;
-        if (duplicateCount > 0) {
-            this.showToast(`주소 중복 ${duplicateCount}건 제거됨 (총 ${uniqueLabelData.length}건)`, 'info');
-        }
-
-        // SLS-1-198: quota 상태에서 throw하면 다음 줄 이동이 실행되지 않아 무반응으로 죽는다
-        try {
-            localStorage.setItem('labelPrintData', JSON.stringify(uniqueLabelData));
-        } catch (e) {
-            if (e.name === 'QuotaExceededError' || e.code === 22) {
-                this.showToast('저장 공간 부족으로 라벨 데이터를 전달하지 못했습니다. 설정에서 오래된 연도의 데이터를 정리해 주세요.', 'error');
-                return;
-            }
-            throw e;
-        }
-        window.location.href = '../label-print/index.html';
+    /**
+     * 라벨용 주소 추출 훅 (SLS-1-197 A-2).
+     *
+     * base의 `openLabelPrintWithData`가 이 훅을 부른다. 예전에는 그 메서드를 통째로
+     * 복사해 두고 이 한 줄만 달랐다 — base 쪽에 널 가드(`(logs || [])`)가 더 있어
+     * 사본이 오히려 열화판이었다.
+     */
+    getLabelAddressParts(log) {
+        return this._extractLabelAddress(log);
     }
 
     // ========================================

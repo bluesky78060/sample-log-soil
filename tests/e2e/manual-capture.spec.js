@@ -1,6 +1,6 @@
 // tests/e2e/manual-capture.spec.js
 // @ts-check
-const { test } = require('@playwright/test');
+const { test, expect } = require('@playwright/test');
 const path = require('path');
 const { seedSoilDemoData } = require('./helpers/seed-demo-data');
 const { annotate, clearAnnotations } = require('./helpers/annotate');
@@ -192,8 +192,15 @@ test.describe('설명서 캡처', () => {
       ]));
     }, year);
     await gotoAndWait(page, '/compost/');
-    const listBtn = page.locator('#navListBtn, [data-view="list"]').first();
-    if (await listBtn.count()) await listBtn.click();
+    // 🚨 조건부 클릭이면 안 된다 (SLS-1-197 m-2 / SLS-1-267).
+    //    `if (await listBtn.count()) await listBtn.click()`은 셀렉터가 깨져도 **통과한 채**
+    //    접수 화면을 '목록' 이미지로 저장해 배포한다 — 초록불인데 산출물이 틀린 유형이다.
+    //    폴백이던 `#navListBtn`은 compost·soil 어디에도 없는 죽은 셀렉터라 함께 지운다.
+    const listBtn = page.locator('[data-view="list"]');
+    await expect(listBtn).toBeVisible();
+    await listBtn.click();
+    await expect(page.locator('#listView')).toBeVisible();   // 목록이 실제로 떴는가
+    // 렌더 애니메이션이 끝난 뒤를 찍는다 — toBeVisible()은 '보인다'까지만 보장한다
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(OUT, 'step-15-compost-list.png') });
   });

@@ -25,7 +25,8 @@
     "sync-version": "node scripts/sync-version.js",
     "build:css": "tailwindcss -i src/styles/input.css -o src/shared/tailwind-output.css --minify",
     "watch:css": "tailwindcss -i src/styles/input.css -o src/shared/tailwind-output.css --watch",
-    "sync": "npm run build"
+    "sync": "npm run build",
+    "capture:manual": "npx playwright test --config=playwright.manual.config.js"
   },
   "keywords": [],
   "author": "leechanhee",

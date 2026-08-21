@@ -614,6 +614,44 @@
 
                  ⚠️ "자료를 확인하십시오" 같은 문구는 넣지 않는다 — 그 조합으로 접수한 건이
                  없다고 사용자가 확인했다(2026-08-20). 없는 사고를 알리면 불필요한 점검만 하게 된다. -->
+            <!-- v1.14.13 -->
+            <!-- data-popup: 두 항목 모두 붙인다. 가져오기 **동작이 달라져** 사용자가 화면에서
+                 다르게 보게 되는 변경이기 때문이다 — 빈 행이 걸러져 등록 건수가 줄고,
+                 비어 있던 접수번호가 채워진다. 미리 모르면 "왜 3건 넣었는데 2건만 들어오지"
+                 하고 오해한다.
+                 ⚠️ "과거 자료를 확인하십시오" 문구는 넣지 않는다 — 실제로 그렇게 접수한
+                 사례가 있는지 확인된 바 없다. 없는 사고를 알리면 불필요한 점검만 하게 된다
+                 (v1.14.11의 판단과 같은 이유). -->
+            <div class="version-entry">
+                <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.13</span>
+                                <span class="version-date">2026-08-21</span>
+                            </div>
+                            <div class="version-title">📥 퇴·액비 엑셀 가져오기가 더 꼼꼼해졌습니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li data-popup><strong>접수번호를 일부만 적어도 나머지가 자동으로 이어집니다.</strong>
+                            그동안은 한 줄이라도 접수번호가 적혀 있으면 <strong>나머지 줄의 접수번호가
+                            비어 있는 채로 등록</strong>됐습니다. 이제 적어 두신 번호는 그대로 두고
+                            빈 칸만 그 다음 번호로 채웁니다.
+                            <br>접수번호를 매길 수 없는 경우에는 등록을 멈추고 알려 드립니다 —
+                            <strong>번호 없이 등록되는 일이 없습니다.</strong></li>
+                        <li data-popup><strong>농장명·대표자·시료종류가 모두 비어 있는 줄은 등록하지 않습니다.</strong>
+                            건너뛴 줄의 <strong>번호와 이유</strong>를 미리보기에서 알려 드립니다.
+                            그동안은 비고나 주소 한 칸만 적힌 줄도 그대로 등록돼 대장에 빈 항목이 쌓였습니다.
+                            <br>세 항목 중 <strong>하나라도 입력되어 있으면 해당 줄은 등록</strong>됩니다.</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- v1.14.12 -->
             <!-- data-popup: 붙이지 않는다. 세 항목 모두 **내부 결함 수정**이라 사용자가 행동을
                  바꿀 것이 없다. 접수번호 오염은 400자리처럼 비정상적으로 긴 번호를 넣어야
@@ -621,7 +659,7 @@
                  하게 된다(v1.14.11의 판단과 같은 이유).
                  매번 팝업이 뜨면 읽지 않고 닫는 습관이 생겨 정작 중요할 때 놓친다. -->
             <div class="version-entry">
-                <div class="version-dot latest"></div>
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -632,7 +670,6 @@
                             <div class="version-title">🔢 접수번호가 어긋나던 경우를 바로잡았습니다</div>
                         </div>
                         <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

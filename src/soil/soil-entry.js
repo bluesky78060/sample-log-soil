@@ -46,6 +46,7 @@ import './reception-group.js';
 import './sheet-name.js';
 
 // Main script
+import '../shared/table-scroll-anchor.js';  // SLS-1-278: 열이 늘고 줄어도 보던 열을 제자리에
 import '../shared/sticky-columns.js';  // SLS-1-264: 고정 열 좌표를 화면에서 재서 맞춤
 import './soil-script.js';
 

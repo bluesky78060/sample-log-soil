@@ -4664,6 +4664,10 @@ class SoilSampleManager extends window.BaseSampleManager {
         const viewToggleBtn = document.getElementById('viewToggleBtn');
         if (viewToggleBtn) {
             viewToggleBtn.addEventListener('click', () => {
+                // SLS-1-278: 열이 늘고 줄면 그 뒤 일반 열이 전부 밀린다(실측 +151px).
+                // 바꾸기 전에 기준을 잡아 두고 바꾼 뒤에 되돌린다.
+                const restoreColumnAnchor = window.captureColumnAnchor?.(this.logTable);
+
                 this.isFullView = !this.isFullView;
                 const toggleText = viewToggleBtn.querySelector('.toggle-text');
                 const toggleIcon = viewToggleBtn.querySelector('.toggle-icon');
@@ -4678,6 +4682,11 @@ class SoilSampleManager extends window.BaseSampleManager {
                     if (toggleIcon) toggleIcon.textContent = '👁️';
                     viewToggleBtn.classList.remove('active');
                 }
+                // 🚨 순서가 중요하다. 보던 열을 **먼저** 제자리로 돌리고,
+                //    고정 열 좌표는 그 뒤에 잰다. 반대로 하면 보정 전 위치에서
+                //    재게 되고, 그 값이 그대로 굳는다 (SLS-1-275의 latch 사고).
+                restoreColumnAnchor?.();
+
                 // SLS-1-264: 열이 늘고 준다. 이 토글은 목록을 다시 그리지 않으므로
                 // 여기서 직접 불러야 고정 좌표가 따라간다.
                 window.scheduleStickyColumns?.(this.logTable);

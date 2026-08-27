@@ -38,5 +38,6 @@ import '../shared/compost-fields.js';          // SLS-1-205: 검정 항목 규�
 // 정적 시·군 데이터 제거 - 자동완성은 juso API 단독
 
 // Main script
+import '../shared/table-scroll-anchor.js';  // SLS-1-278: 열이 늘고 줄어도 보던 열을 제자리에
 import '../shared/sticky-columns.js';  // SLS-1-264: 고정 열 좌표를 화면에서 재서 맞춤
 import './compost-script.js';

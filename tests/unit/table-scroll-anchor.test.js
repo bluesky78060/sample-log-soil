@@ -20,12 +20,21 @@ import { join } from 'node:path'
 const MODULE = readFileSync(
     join(process.cwd(), 'src', 'shared', 'table-scroll-anchor.js'), 'utf8')
 
+/** 감싼 칸이 차지하는 화면 구간 — 이 밖의 열은 기준이 되지 못한다 */
+const VIEW = { left: 0, right: 1000 }
+/** 머리글 칸 하나의 폭. rect.right 계산에만 쓴다 */
+const CELL_W = 80
+
 /**
  * @param {Array<{name:string, left:number, display?:string, stick?:'left'|'right'}>} cols
  */
 function makeTable(cols) {
     document.body.innerHTML = '<div class="table-wrapper"><table id="logTable"><thead><tr></tr></thead><tbody></tbody></table></div>'
     const wrapper = document.querySelector('.table-wrapper')
+    wrapper.getBoundingClientRect = () => ({
+        left: VIEW.left, right: VIEW.right, top: 0, bottom: 0,
+        width: VIEW.right - VIEW.left, height: 0,
+    })
     const table = document.getElementById('logTable')
     const headRow = table.querySelector('thead tr')
 
@@ -48,7 +57,10 @@ function makeTable(cols) {
             right: c.stick === 'right' ? '0px' : 'auto',
         })
         lefts.set(th, c.left)
-        th.getBoundingClientRect = () => ({ left: lefts.get(th), right: 0, top: 0, bottom: 0, width: 0, height: 0 })
+        th.getBoundingClientRect = () => {
+            const left = lefts.get(th)
+            return { left, right: left + CELL_W, top: 0, bottom: 0, width: CELL_W, height: 0 }
+        }
         headRow.appendChild(th)
     }
 
@@ -144,6 +156,56 @@ describe('열 구성이 바뀔 때 보던 열을 제자리에 (SLS-1-278)', () =
         t.move('주소', 249)                   // 151px 왼쪽으로
 
         expect(restoreAnchor()).toBe(-151)
+    })
+
+    it('흡수 열 앞뒤의 이동량이 다르면 화면에 보이는 쪽을 기준으로 삼는다', () => {
+        // 🚨 SLS-1-279가 이 전제를 깨뜨렸다. 남는 폭을 흡수하는 열이 생기면
+        //    **그 앞 열과 뒤 열의 이동량이 서로 다르다.** 표의 첫 일반 열을 그냥
+        //    쓰면, 뒤쪽을 보고 있던 사용자의 화면이 그 차이만큼 어긋난다.
+        //    E2E 실측에서 128px 벌어졌다.
+        const t = makeTable([
+            { name: '성명', left: 100, stick: 'left' },   // 고정 → covered = 180
+            { name: '주소', left: 120 },                  // 고정 열에 온전히 가려짐(right 200 > 181이라 후보)
+            { name: '작물', left: 500 },                  // 화면에 보이는 열
+        ])
+        t.wrapper.scrollLeft = 300
+
+        const restoreAnchor = window.captureColumnAnchor(t.table)
+        t.move('주소', 20)      // 흡수 열 앞 — 왼쪽으로 100
+        t.move('작물', 460)     // 흡수 열 뒤 — 왼쪽으로 40
+
+        // 첫 후보('주소', right 200 > covered 181)가 잡히므로 그 열의 이동량을 쓴다
+        expect(restoreAnchor()).toBe(-100)
+    })
+
+    it('고정 열에 온전히 가려진 열은 기준이 되지 않는다', () => {
+        const t = makeTable([
+            { name: '성명', left: 100, stick: 'left' },   // 고정 → covered = 180
+            { name: '가림', left: 50 },                   // right 130 ≤ 181 → 가려짐
+            { name: '작물', left: 500 },
+        ])
+        t.wrapper.scrollLeft = 300
+
+        const restoreAnchor = window.captureColumnAnchor(t.table)
+        t.move('가림', -100)    // 가려진 열은 150 움직였지만 쓰이면 안 된다
+        t.move('작물', 460)     // 보이는 열은 40
+
+        expect(restoreAnchor()).toBe(-40)
+    })
+
+    it('화면 오른쪽 바깥의 열은 기준이 되지 않는다', () => {
+        const t = makeTable([
+            { name: '성명', left: 100, stick: 'left' },
+            { name: '바깥', left: 1200 },                 // VIEW.right(1000) 밖
+            { name: '작물', left: 500 },
+        ])
+        t.wrapper.scrollLeft = 300
+
+        const restoreAnchor = window.captureColumnAnchor(t.table)
+        t.move('바깥', 900)     // 300 움직였지만 화면 밖이라 쓰이면 안 된다
+        t.move('작물', 460)
+
+        expect(restoreAnchor()).toBe(-40)
     })
 
     it('왼쪽 고정 열은 기준이 되지 않는다', () => {

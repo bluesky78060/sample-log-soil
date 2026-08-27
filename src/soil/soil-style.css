@@ -984,8 +984,13 @@ tr.farm-separator:hover {
 
 /* 관리(수정·삭제)는 오른쪽 끝에 고정한다.
    왼쪽 열들과 달리 앞 열 폭을 더할 필요가 없다 — 항상 마지막 열이라
-   right:0 하나로 끝나고, 아래 공익직불제 오프셋 재계산에도 얽히지 않는다. */
-.data-table .col-action     { right: 0; min-width: 140px; border-left: 2px solid #e2d9c8; }
+   right:0 하나로 끝나고, 아래 공익직불제 오프셋 재계산에도 얽히지 않는다.
+
+   🚨 경계선 색은 다른 열과 **같아야 한다** (SLS-1-279). 예전에는 #e2d9c8(연한
+      베이지)이라 일반 열 경계(#d0d7de)보다 눈에 띄게 약했다. 이 열은 오른쪽에
+      고정돼 **스크롤되는 내용 위에 떠 있으므로** 경계가 오히려 더 분명해야 하는데
+      정반대였다. 사용자가 실기에서 "발송일자와 관리의 라인 구분선이 약하다"고 알렸다. */
+.data-table .col-action     { right: 0; min-width: 140px; border-left: 2px solid #d0d7de; }
 
 /* 경지구분 숨김 (SLS-1-261).
    목록은 #landClass1Tab으로 이미 걸러진다 — 탭에 '전체'가 없고
@@ -1067,7 +1072,7 @@ tr.farm-separator:hover {
 }
 
 [data-theme="dark"] .data-table .col-action {
-    border-left-color: #44403c;
+    border-left-color: #57534E;
 }
 
 /* 좁은 화면에서는 관리 고정을 푼다.

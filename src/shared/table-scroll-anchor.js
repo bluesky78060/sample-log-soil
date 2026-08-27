@@ -55,6 +55,17 @@
         if (!head) return noop;
 
         const startScrollLeft = wrapper.scrollLeft;
+        const wrapRect = wrapper.getBoundingClientRect();
+
+        // 왼쪽 고정 열이 덮고 있는 영역의 오른쪽 끝. 그 왼쪽은 사용자에게 안 보인다.
+        let coveredUntil = wrapRect.left;
+        for (const th of head.cells) {
+            const cs = window.getComputedStyle(th);
+            if (cs.display === 'none') continue;
+            if (cs.left !== 'auto' && cs.right === 'auto') {
+                coveredUntil = Math.max(coveredUntil, th.getBoundingClientRect().right);
+            }
+        }
 
         /** @type {Array<{th: HTMLTableCellElement, left: number}>} */
         const anchors = [];
@@ -62,7 +73,26 @@
             const cs = window.getComputedStyle(th);
             if (cs.display === 'none') continue;
             if (isHorizontallyStuck(cs)) continue;
-            anchors.push({ th, left: th.getBoundingClientRect().left });
+
+            // 🚨 **지금 화면에 보이는** 열만 기준이 된다 (SLS-1-279).
+            //
+            //    처음에는 표의 첫 일반 열을 그냥 썼다. 그때는 일반 열이 전부 같은 양만큼
+            //    움직여서(실측 +151px) 어느 것을 잡아도 결과가 같았다.
+            //
+            //    **남는 폭을 흡수하는 열이 생기면서 그 전제가 깨졌다.** 그 열은 자기 폭이
+            //    변하므로, 앞에 있는 열과 뒤에 있는 열의 이동량이 서로 다르다.
+            //    앞의 열을 기준으로 삼으면 뒤를 보고 있던 사용자의 화면이 어긋난다
+            //    (E2E 실측: 128px). 사용자가 실제로 보고 있는 열을 잡아야 한다.
+            //    ⚠️ 고정 열에 **일부만** 가린 열은 후보로 남긴다. 오른쪽 끝자락이라도
+            //       보이면 사용자에게 보이는 것이고, 어차피 같은 무리의 열은 이동량이
+            //       같아 결과가 다르지 않다 (codex 코드 리뷰에서 확인).
+            //    ⚠️ 화면 밖 열에서 `break`하지 않는다 — DOM 순서와 화면 좌→우 순서가
+            //       늘 같다는 전제에 기대게 된다. 22열을 끝까지 보는 비용은 무시할 만하다.
+            const rect = th.getBoundingClientRect();
+            if (rect.right <= coveredUntil + 1) continue;   // 고정 열에 온전히 가려진 자리
+            if (rect.left >= wrapRect.right) continue;      // 화면 오른쪽 바깥
+
+            anchors.push({ th, left: rect.left });
         }
         if (anchors.length === 0) return noop;
 

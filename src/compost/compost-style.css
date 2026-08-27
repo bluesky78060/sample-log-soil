@@ -1794,8 +1794,12 @@ div.animal-type-options label.checkbox-card.small div.checkbox-content {
 .data-table .col-farm-name  { left: 460px; min-width: 90px; }
 .data-table .col-name       { left: 550px; min-width: 70px; border-right: 2px solid #bbf7d0; }
 
-/* 관리(수정·삭제)는 오른쪽 끝에 고정. 마지막 열이라 right:0 하나면 된다. */
-.data-table .col-action     { right: 0; min-width: 140px; border-left: 2px solid #bbf7d0; }
+/* 관리(수정·삭제)는 오른쪽 끝에 고정. 마지막 열이라 right:0 하나면 된다.
+
+   🚨 경계선 색은 다른 열과 **같아야 한다** (SLS-1-279). 예전에는 #bbf7d0(연한
+      초록)이라 일반 열 경계(#d0d7de)보다 약했다. 이 열은 스크롤되는 내용 위에
+      떠 있어 경계가 오히려 더 분명해야 한다. 토양도 같이 맞췄다. */
+.data-table .col-action     { right: 0; min-width: 140px; border-left: 2px solid #d0d7de; }
 
 /* 고정 컬럼 행 배경 (tbody) */
 .data-table tbody td.sticky-col {
@@ -1832,7 +1836,7 @@ div.animal-type-options label.checkbox-card.small div.checkbox-content {
 }
 
 [data-theme="dark"] .data-table .col-action {
-    border-left-color: #14532d;
+    border-left-color: #57534E;
 }
 
 /* 좁은 화면에서는 관리 고정을 푼다.

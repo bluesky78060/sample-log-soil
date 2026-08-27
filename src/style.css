@@ -2657,10 +2657,59 @@ input[type="number"] {
     overflow: auto;
     max-height: calc(100vh - 200px);
     transition: var(--transition);
+    /* 세로 스크롤바가 생기고 사라지며 표 폭이 튀는 것을 막는다 (SLS-1-276).
+       macOS는 겹쳐 그리는 스크롤바라 2px뿐이지만 Windows는 15px 이상이라,
+       마지막 페이지처럼 행이 적어져 스크롤바가 사라지면 표가 그만큼 넓어진다. */
+    scrollbar-gutter: stable;
 }
 
 .table-wrapper:hover {
     box-shadow: var(--shadow-md);
+}
+
+/* ── 페이지 넘김 (SLS-1-276) ───────────────────────────────── */
+
+/* 마지막 페이지가 짧을 때 높이를 채우는 빈 줄.
+   내용을 지우지 않고 투명하게만 둔다 — 데이터 행과 같은 높이를 갖게 하기 위해서다. */
+.data-table tbody tr.page-filler {
+    pointer-events: none;
+}
+
+.data-table tbody tr.page-filler td {
+    color: transparent;
+}
+
+/* 넘긴 방향으로 짧게 밀어 넣는다.
+   🚨 `transform`은 **세로로만** 쓴다. sticky-columns.js는 `offsetLeft`로 재
+      transform의 영향을 받지 않지만(그래서 getBoundingClientRect를 일부러 피했다),
+      가로 변위는 애초에 만들지 않는다. 세로 8px은 고정 열 좌표와 무관하다.
+   🚨 이름은 이 파일에서 새로 만든다. 키프레임 이름에는 범위가 없어 페이지 CSS가
+      같은 이름을 재정의하면 통째로 덮인다 (SLS-1-263).
+      tests/unit/keyframes-collision.test.js가 지켜본다. */
+@keyframes listPageInNext {
+    from { opacity: 0.25; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes listPageInPrev {
+    from { opacity: 0.25; transform: translateY(-8px); }
+    to { opacity: 1; transform: none; }
+}
+
+.data-table tbody.page-in-next {
+    animation: listPageInNext 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.data-table tbody.page-in-prev {
+    animation: listPageInPrev 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .data-table tbody.page-in-next,
+    .data-table tbody.page-in-prev {
+        animation: none;
+    }
 }
 
 /* 전체 보기/기본 보기 토글 버튼 */

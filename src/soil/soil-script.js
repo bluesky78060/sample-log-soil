@@ -17,6 +17,16 @@ const STORAGE_KEY = 'soilSampleLogs';
 const AUTO_SAVE_FILE = 'soil-autosave.json';
 
 /**
+ * 기본 화면에서 목록 표에 보이는 열 수 (SLS-1-276).
+ *
+ * 표가 화면에 없어 폭을 잴 수 없을 때만 쓰는 폴백이다 — 평소에는
+ * `_visibleColumnCount()`가 실제로 세어 쓴다. 참고로 머리글은 모두 22열이고,
+ * 기본 화면은 경지구분·공익직불제 전용 3열이 빠져 19열이 보인다.
+ * @type {number}
+ */
+const SOIL_DEFAULT_COLUMN_COUNT = 19;
+
+/**
  * 시·도 탐지 폴백 정규식 — constants.js의 SIDO_PATTERN(window.SIDO_PATTERN) SSOT가
  * 미로드일 때만 사용. 실제 사용처는 항상 `window.SIDO_PATTERN || SIDO_DETECT_FALLBACK`로
  * 호출 시점에 lazy 해석하므로 로드 순서 영향 없음. (특별자치도 표기 포함, 전체 명칭)
@@ -3738,7 +3748,7 @@ class SoilSampleManager extends window.BaseSampleManager {
     // 페이지네이션
     // ========================================
 
-    renderCurrentPage() {
+    renderCurrentPage(direction = 0) {
         if (!this.tableBody) return;
         this.tableBody.innerHTML = '';
 
@@ -3757,28 +3767,95 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         const fragment = document.createDocumentFragment();
         let prevName = startIndex > 0 ? (this.currentFlatRows[startIndex - 1]?.name || null) : null;
+        const columnCount = this._visibleColumnCount();
 
         pageRows.forEach((row) => {
             if (prevName !== null && row.name !== prevName) {
-                fragment.appendChild(this._buildFarmSeparatorRow(gongikOn));
+                fragment.appendChild(this._buildFarmSeparatorRow(columnCount));
             }
             prevName = row.name;
             fragment.appendChild(this._buildLogTableRow(row));
         });
 
+        // 마지막 페이지가 짧아도 표 높이를 지킨다 (SLS-1-276). 안 그러면 5건짜리 끝 페이지에서
+        // 표가 반토막 나고(실측 −334px) 아래 페이지 단추가 그만큼 따라 올라온다.
+        // ⚠️ 페이지가 하나뿐이면 채우지 않는다 — 5건인데 페이지당 100건이면 빈 줄 95개가 생긴다.
+        if (this.totalPages > 1) {
+            for (let i = pageRows.length; i < this.itemsPerPage; i++) {
+                fragment.appendChild(this._buildPageFillerRow(columnCount));
+            }
+        }
+
         this.tableBody.appendChild(fragment);
+        this._playPageTransition(direction);
         this.updatePaginationUI();
     }
 
-    // 농가(성명) 경계에 삽입하는 구분선 행 — colSpan은 모드별 표시 컬럼 수에 맞춘다
-    _buildFarmSeparatorRow(gongikOn) {
+    /**
+     * 지금 화면에 보이는 열 수 (SLS-1-276).
+     *
+     * 숨긴 열은 빼고 센다. 경지구분(기본 숨김), 우편번호, 공익직불제 전용 열,
+     * 전체 보기로만 나오는 열이 모드마다 달라진다.
+     *
+     * 🚨 예전에는 `gongikOn ? 18 : 19`를 손으로 적어 두었다. 값은 맞았지만 열이 하나
+     *    늘 때마다 고쳐야 하는 자리였고, 채움 행이 따로 세면 구분선과 폭이 갈라진다
+     *    (codex 플랜 리뷰 지적). **구분선과 채움 행이 이 하나를 함께 쓴다.**
+     *
+     * 🚨 폭(`offsetWidth`)으로 재면 안 된다. 이 함수는 목록을 다시 그리는 도중에
+     *    불리는데, **tbody를 비우면 표가 통째로 폭 0으로 접힌다**(실측: 표 전체
+     *    `offsetWidth`가 0). 그러면 보이는 열이 하나도 없다고 나와 폴백으로 떨어진다.
+     *    계산된 `display`는 레이아웃과 무관하게 옳은 값을 준다.
+     */
+    _visibleColumnCount() {
+        const head = this.logTable?.tHead?.rows[0];
+        if (!head) return SOIL_DEFAULT_COLUMN_COUNT;
+        let count = 0;
+        for (const th of head.cells) {
+            if (window.getComputedStyle(th).display !== 'none') count++;
+        }
+        return count || SOIL_DEFAULT_COLUMN_COUNT;
+    }
+
+    // 농가(성명) 경계에 삽입하는 구분선 행 — colSpan은 지금 보이는 열 수에 맞춘다
+    _buildFarmSeparatorRow(columnCount) {
         const separatorTr = document.createElement('tr');
         separatorTr.className = 'farm-separator';
         const separatorTd = document.createElement('td');
-        // 19=기본, 공익직불제 ON: +3(경영체·차수·기준년도) −4(목적·수령방법·비고·발송일자)=18
-        separatorTd.colSpan = gongikOn ? 18 : 19;
+        separatorTd.colSpan = columnCount;
         separatorTr.appendChild(separatorTd);
         return separatorTr;
+    }
+
+    /**
+     * 마지막 페이지가 짧을 때 표 높이를 채우는 빈 줄 (SLS-1-276).
+     *
+     * 🚨 체크박스도 `data-id`도 넣지 않는다. 선택·삭제·내보내기·주소 검증이
+     *    `.row-checkbox`와 `tr[data-id]`로 행을 찾으므로, 둘 중 하나라도 붙이면
+     *    **빈 줄이 처리 대상에 섞인다.**
+     */
+    _buildPageFillerRow(columnCount) {
+        const tr = document.createElement('tr');
+        tr.className = 'page-filler';
+        tr.setAttribute('aria-hidden', 'true');   // 스크린리더가 빈 줄을 읽지 않게
+        const td = document.createElement('td');
+        td.colSpan = columnCount;
+        td.textContent = ' ';                 // 데이터 행과 같은 높이를 갖게 한다
+        tr.appendChild(td);
+        return tr;
+    }
+
+    /**
+     * 넘긴 방향으로 짧게 밀어 넣는다 (SLS-1-276).
+     *
+     * 🚨 클래스를 지웠다가 다시 붙이는 사이에 리플로우를 한 번 강제해야 한다.
+     *    같은 방향을 연달아 누르면(1→2→3) 클래스에 변화가 없어 CSS 애니메이션이
+     *    두 번째부터 재생되지 않는다 (codex 플랜 리뷰 지적).
+     */
+    _playPageTransition(direction) {
+        if (!direction || !this.tableBody) return;
+        this.tableBody.classList.remove('page-in-next', 'page-in-prev');
+        void this.tableBody.offsetWidth;
+        this.tableBody.classList.add(direction > 0 ? 'page-in-next' : 'page-in-prev');
     }
 
     // 로그 한 건을 표 행(<tr>)으로 생성한다 (셀 구성·주소 복사 핸들러 포함)
@@ -4120,10 +4197,21 @@ class SoilSampleManager extends window.BaseSampleManager {
 
     goToPage(page) {
         if (page < 1 || page > this.totalPages || page === this.currentPage) return;
+        const direction = Math.sign(page - this.currentPage);
         this.currentPage = page;
-        this.renderCurrentPage();
-        const tableContainer = document.querySelector('.table-container');
-        if (tableContainer) tableContainer.scrollTop = 0;
+        this.renderCurrentPage(direction);
+
+        // 🚨 예전에는 `.table-container`를 찾았는데 **그런 요소는 이 저장소에 없다**
+        //    (SLS-1-276). HTML에도 CSS에도 없고 그 한 줄이 유일한 등장이었다.
+        //    `if`로 감싸 놓아 오류도 나지 않아, 페이지를 넘겨도 **표가 그 자리에 그대로
+        //    남았다** — 아래쪽을 보다가 다음 페이지를 누르면 새 페이지의 한가운데부터
+        //    보였다. 실측(1440×900, 45건/20건씩): 300px 내린 뒤 넘겨도 300 그대로.
+        //
+        // ⚠️ `behavior: 'smooth'`는 쓰지 않는다. 표 안쪽 스크롤을 부드럽게 하면 새 행이
+        //    이미 그려진 채 옛 위치에서 천천히 올라와 오히려 반응이 늦게 느껴진다.
+        //    자리는 즉시 잡고, 내용만 짧게 넣는다(`_playPageTransition`).
+        const tableWrapper = document.querySelector('.table-wrapper');
+        if (tableWrapper) tableWrapper.scrollTop = 0;
     }
 
     // ========================================

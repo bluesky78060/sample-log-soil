@@ -833,8 +833,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.tableBody.innerHTML = '';
 
         // 공익직불제 탭 선택 시 경영체등록번호·BASEPNU 컬럼 표시
-        const gongikOn = this.currentSearchFilter?.landClass1 === '공익직불제';
-        document.getElementById('logTable')?.classList.toggle('gongik-on', gongikOn);
+        this._syncTableModeClasses();
         this._syncGongikBulkBar();
 
         this.updateRecordCount();
@@ -867,6 +866,29 @@ class SoilSampleManager extends window.BaseSampleManager {
         if (this.currentPage < 1) this.currentPage = 1;
 
         this.renderCurrentPage();
+    }
+
+    /**
+     * SLS-1-277: 목록 표의 **모드 클래스를 한 자리에서** 맞춘다.
+     *
+     * `gongik-on`(공익직불제 전용 열)과 `allclass-on`(전체 경지구분 탭)은 항상 함께
+     * 갱신되어야 한다. 예전에는 두 줄이 `renderLogs`와 `renderCurrentPage`에 그대로
+     * 복사돼 있어, 모드가 하나 더 늘면 한쪽만 고치는 사고가 나기 쉬웠다.
+     *
+     * ⚠️ `allclass-on`은 **경지구분 열을 되살리는** 클래스다. 평소 그 열을 감추는
+     *    근거(SLS-1-261)는 "탭이 이미 현재 구분을 보여 준다"인데, 그 전제가
+     *    '전체 경지구분' 탭에서는 깨진다 — 12개 구분의 행이 섞이고 채번이 구분
+     *    단위로 독립이라(`reception-number.js`) 같은 접수번호가 여러 줄로 보인다.
+     *
+     * @returns {boolean} 공익직불제 모드 여부
+     */
+    _syncTableModeClasses() {
+        const filter = this.currentSearchFilter?.landClass1;
+        const gongikOn = filter === '공익직불제';
+        const table = this.logTable || document.getElementById('logTable');
+        table?.classList.toggle('gongik-on', gongikOn);
+        table?.classList.toggle('allclass-on', !filter);
+        return gongikOn;
     }
 
     /** 공익직불제 탭일 때만 차수·기준년도 일괄 적용 바 표시 */
@@ -3752,8 +3774,7 @@ class SoilSampleManager extends window.BaseSampleManager {
         this.tableBody.innerHTML = '';
 
         // 공익직불제 탭 선택 시 경영체등록번호·BASEPNU 컬럼 표시
-        const gongikOn = this.currentSearchFilter?.landClass1 === '공익직불제';
-        document.getElementById('logTable')?.classList.toggle('gongik-on', gongikOn);
+        this._syncTableModeClasses();
 
         if (this.currentFlatRows.length === 0) {
             this.updatePaginationUI();

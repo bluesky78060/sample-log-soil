@@ -188,4 +188,50 @@ test.describe('토양 목록 경지구분 열 숨김', () => {
                 `${tab.name}: 전체 보기인데 경지구분이 안 보인다`).toBe(true);
         });
     }
+
+    // 🚨 SLS-1-277: '전체 경지구분' 탭은 감춤의 전제가 성립하지 않는다.
+    //
+    //    이 파일 위쪽(SLS-1-261)이 적은 근거 — "탭이 이미 현재 구분을 보여 준다" — 는
+    //    탭이 구분 **하나**를 가리킬 때만 참이다. `populateLandClass1Options()`가
+    //    만드는 `value=''` 옵션에서는 12개 구분의 행이 한 화면에 섞이고, 채번이
+    //    경지구분 단위로 독립이라(reception-number.js) **같은 접수번호가 여러 줄로
+    //    보인다.** 그 이유를 설명하는 것이 바로 이 열이다.
+    test("'전체 경지구분' 탭에서는 감추지 않는다", async ({ page }) => {
+        await setTab(page, '');
+        expect(await page.evaluate(
+            () => document.getElementById('logTable')?.classList.contains('allclass-on')
+        ), "'전체 경지구분' 탭인데 allclass-on이 안 붙었다").toBe(true);
+        // 머리글만 보고 끝내지 않는다 — 담당자가 읽는 것은 **행의 값**이다 (독립 리뷰 지적)
+        expect(await visibility(page),
+            "'전체 경지구분' 탭인데 경지구분이 감춰져 있다 — 어느 행이 어느 구분인지 알 수 없다")
+            .toEqual({ th: true, td: true });
+
+        // 구분 하나를 고르면 다시 접힌다
+        await setTab(page, '농가의뢰');
+        expect(await page.evaluate(
+            () => document.getElementById('logTable')?.classList.contains('allclass-on')
+        ), '구분을 골랐는데 allclass-on이 남아 있다').toBe(false);
+        expect(await visibility(page),
+            '구분을 골랐는데 경지구분이 그대로 보인다').toEqual({ th: false, td: false });
+    });
+
+    // 결과가 0건이면 renderLogs가 조기 반환해 renderCurrentPage에 닿지 않는다 —
+    // 그 경로는 renderLogs 쪽 호출만이 덮는다. 두 호출 지점이 모두 필요한 이유다.
+    test('결과가 0건이어도 모드 클래스가 맞는다', async ({ page }) => {
+        await setTab(page, '');
+        await page.evaluate(() => {
+            const mgr = /** @type {any} */ (window).soilManager;
+            mgr.sampleLogs = [];
+            mgr.filterAndRenderLogs();
+        });
+        expect(await page.evaluate(
+            () => document.getElementById('logTable')?.classList.contains('allclass-on')
+        ), '0건 경로에서 allclass-on이 풀렸다').toBe(true);
+        // ⚠️ 0건이면 표가 통째로 감춰지고 빈 상태 안내가 대신 뜬다 — 화면에 그려졌는지가 아니라
+        //    **규칙이 적용되었는지**를 본다.
+        expect(await page.evaluate(() => {
+            const th = document.querySelector('#logTable th.col-landclass1');
+            return th ? getComputedStyle(th).display : null;
+        })).toBe('table-cell');
+    });
 });

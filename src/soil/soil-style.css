@@ -981,6 +981,11 @@ tr.farm-separator:hover {
    두 고정 열이 70px만큼 포개진다. */
 .data-table .col-name       { left: 365px; min-width: 70px; border-right: 2px solid #e2d9c8; }
 .data-table.full-view .col-name { left: 435px; }
+/* SLS-1-277: '전체 경지구분' 탭에서도 그 열이 보이므로 성명이 원래 자리로 돌아간다.
+   빠뜨리면 두 고정 열이 70px만큼 포개진다 — 위 full-view와 같은 이유다.
+   ⚠️ 첫 페인트 바닥값일 뿐이고 실제 자리는 sticky-columns.js가 다시 잰다. 그래도
+      **자연 위치보다 작아야** 무해하다. 큰 값은 scrollLeft 0에서도 열을 밀어낸다. */
+.data-table.allclass-on .col-name { left: 435px; }
 
 /* 관리(수정·삭제)는 오른쪽 끝에 고정한다.
    왼쪽 열들과 달리 앞 열 폭을 더할 필요가 없다 — 항상 마지막 열이라
@@ -992,15 +997,31 @@ tr.farm-separator:hover {
       정반대였다. 사용자가 실기에서 "발송일자와 관리의 라인 구분선이 약하다"고 알렸다. */
 .data-table .col-action     { right: 0; min-width: 140px; border-left: 2px solid #d0d7de; }
 
-/* 경지구분 숨김 (SLS-1-261).
-   목록은 #landClass1Tab으로 이미 걸러진다 — 탭에 '전체'가 없고
-   currentSearchFilter.landClass1이 '농가의뢰'로 시작해 절대 비지 않으므로,
-   **보이는 모든 행의 경지구분은 탭과 같은 값 하나**다. 같은 글자를 반복해
-   폭만 차지하던 열이다. 지우지 않고 숨기기만 해서 전체 보기로 확인할 수 있다
-   (우편번호 col-zipcode와 같은 방식 — style.css의 숨김 컬럼 규칙). */
+/* 경지구분 숨김 (SLS-1-261, SLS-1-277에서 예외 추가).
+   목록은 #landClass1Tab으로 걸러진다 — 탭이 구분 하나를 가리키면 **보이는 모든 행의
+   경지구분은 그 값 하나**다. 같은 글자를 반복해 폭만 차지하던 열이라 감춘다.
+   지우지 않고 숨기기만 해서 전체 보기로 확인할 수 있다
+   (우편번호 col-zipcode와 같은 방식 — style.css의 숨김 컬럼 규칙).
+
+   🚨 **'전체 경지구분' 탭은 예외다** (아래 `allclass-on`).
+      SLS-1-261 주석은 "탭에 '전체'가 없고 landClass1이 절대 비지 않는다"고 적었지만
+      **사실이 아니었다** — `populateLandClass1Options()`가 `value=''`인
+      '전체 경지구분' 옵션을 실제로 만든다. 그 탭에서는 12개 구분의 행이 한 화면에
+      섞이는데 탭 표시값은 "전체 경지구분"뿐이라 행마다의 구분을 알 길이 없다.
+      게다가 채번이 경지구분 단위로 독립이라(`reception-number.js`)
+      **같은 접수번호가 여러 줄로 보이고**, 그 이유를 설명하는 것이 이 열이다.
+      (메인 저장소 SAMPL-1-173에서 독립 리뷰가 같은 결함을 잡았다.)
+
+   ⚠️ `!important`를 쓰지 않는다. 아래 두 규칙(0,3,1)이 숨김(0,2,1)을 명시도만으로
+      이미 이긴다. 달아 두면 앞으로 어떤 모드도 이 열을 숨길 수 없어진다. */
 .data-table th.col-landclass1,
 .data-table td.col-landclass1 {
     display: none;
+}
+
+.data-table.allclass-on th.col-landclass1,
+.data-table.allclass-on td.col-landclass1 {
+    display: table-cell;
 }
 
 .data-table.full-view th.col-landclass1,

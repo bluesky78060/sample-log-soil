@@ -145,13 +145,27 @@ test.describe('목록 페이지 넘김 안정화 (SLS-1-276)', () => {
             const body = document.getElementById('logTableBody');
             const filler = body.querySelector('tr.page-filler td');
             const separator = body.querySelector('tr.farm-separator td');
-            const visible = [...document.querySelectorAll('#logTable thead th')]
-                .filter((th) => th.offsetWidth > 0).length;
-            return { filler: filler?.colSpan, separator: separator?.colSpan, visible };
+            const heads = [...document.querySelectorAll('#logTable thead th')];
+            return {
+                filler: filler?.colSpan,
+                separator: separator?.colSpan,
+                visible: heads.filter((th) => th.offsetWidth > 0).length,
+                headerCells: heads.length,
+            };
         });
 
         expect(spans.separator, '이름을 섞었는데 구분선이 없다').toBeGreaterThan(0);
-        expect(spans.filler).toBe(spans.visible);
+
+        // ⚠️ **보이는 열 수가 아니라 머리글 칸 수(숨김 포함)다** (SLS-1-280, 시험은 SLS-1-281).
+        //    전체 보기 토글은 목록을 다시 그리지 않고 표의 class만 바꾼다. "지금 보이는 열만
+        //    정확히" 세면 그때 만들어진 행이 옛 값에 머물러 **끝 열에 닿지 않는다**
+        //    (실측: 17로 남아 `발송일자`·`관리`가 빈다). colSpan은 남는 쪽과 모자라는 쪽이
+        //    대칭이 아니다 — 남으면 브라우저가 잘라 주고, 모자라면 화면에 그대로 드러난다.
+        expect(spans.filler, 'colSpan이 머리글 칸 수와 다르다').toBe(spans.headerCells);
+        // 위 단정만 두면 "22와 같다"는 상수 확인에 그친다. 이 줄이 **고장 자체**를 본다.
+        expect(spans.filler, '보이는 열보다 모자라 끝 열에 닿지 않는다')
+            .toBeGreaterThanOrEqual(spans.visible);
+        // SLS-1-276의 본래 목적 — 두 행이 계산을 갈라 쓰지 않는다
         expect(spans.filler).toBe(spans.separator);
     });
 });

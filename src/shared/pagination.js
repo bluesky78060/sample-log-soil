@@ -182,21 +182,19 @@
         }
 
         /**
-         * 지금 화면에 보이는 열 수. 숨긴 열은 빼고 센다.
+         * 채움 행이 표 끝까지 닿을 `colSpan`.
          *
-         * 🚨 폭(`offsetWidth`)으로 재면 안 된다 — 이 함수는 목록을 다시 그리는 도중에
-         *    불리는데, tbody가 비면 표가 통째로 폭 0으로 접혀 보이는 열이 하나도 없다고
-         *    나온다. 계산된 `display`는 레이아웃과 무관하게 옳은 값을 준다.
+         * 🚨 **지금 보이는 열만 세면 안 된다** (SLS-1-280). 전체 보기 토글은 목록을
+         *    다시 그리지 않으므로, 기본 보기에서 만들어진 행은 그때의 값을 그대로
+         *    갖는다. 열이 늘면 끝 열에 닿지 못한다.
+         *
+         * 이 표가 가질 수 있는 전체 열 수를 쓴다. 남는 쪽은 브라우저가 실제 열 수로
+         * 잘라 준다 — 모자라는 것과 남는 것은 대칭이 아니다.
          * @returns {number}
          */
         getColumnCount() {
             const head = this.elements.tableBody?.closest('table')?.tHead?.rows[0];
-            if (!head) return 1;
-            let count = 0;
-            for (const th of head.cells) {
-                if (window.getComputedStyle(th).display !== 'none') count++;
-            }
-            return count || 1;
+            return head?.cells.length || 1;
         }
 
         /**

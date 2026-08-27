@@ -13,9 +13,9 @@ import { join } from 'node:path'
 //      따로 세면 열이 하나 늘 때 폭이 갈라진다.
 //    · 같은 방향을 연달아 눌러도 애니메이션이 다시 재생된다.
 //
-// 보이는 열은 폭이 아니라 **계산된 display**로 센다. 목록을 다시 그리는 도중에는
-// tbody가 비어 표가 통째로 폭 0으로 접히기 때문이다(실측). jsdom도 인라인 style의
-// display는 getComputedStyle에 그대로 반영하므로 그대로 시험할 수 있다.
+// 🚨 `colSpan`은 **머리글 전체 칸 수**를 쓴다 (SLS-1-280). 지금 보이는 열만 세면,
+//    전체 보기 토글이 목록을 다시 그리지 않는 탓에 기본 보기에서 만들어진 행이
+//    끝 열에 닿지 못한다.
 
 beforeAll(async () => {
     await import('../../src/shared/BaseSampleManager.js')
@@ -69,39 +69,64 @@ function makeSoilManager(shown = [true, true, true, true, true]) {
 const rows = (n, name = '홍길동') =>
     Array.from({ length: n }, (_, i) => ({ id: 'r' + i, name }))
 
-describe('보이는 열 수 (SLS-1-276)', () => {
-    it('숨겨진 열은 빼고 센다', () => {
+describe('colSpan (SLS-1-280)', () => {
+    it('숨긴 열까지 세어 머리글 전체 칸 수를 쓴다', () => {
+        // 🚨 보이는 열만 세면 전체 보기에서 모자란다. 토글은 목록을 다시 그리지
+        //    않으므로 기본 보기에서 만들어진 행이 그 값을 그대로 갖기 때문이다.
         const m = makeSoilManager([true, false, true, false, true])
-        expect(m._visibleColumnCount()).toBe(3)
+        expect(m._columnSpan()).toBe(5)
     })
 
-    it('모든 열이 숨겨져 있으면 기본 모드 열 수로 떨어진다', () => {
+    it('모든 열이 숨겨져 있어도 머리글 칸 수 그대로다', () => {
         const m = makeSoilManager([false, false, false])
-        expect(m._visibleColumnCount()).toBe(19)
+        expect(m._columnSpan()).toBe(3)
     })
 
-    it('목록을 다시 그리는 도중(tbody가 빈 상태)에도 옳게 센다', () => {
-        // 🚨 폭으로 재던 초안은 여기서 무너졌다. tbody를 비우면 표가 통째로
-        //    폭 0으로 접혀 "보이는 열 0개"가 되고 폴백 19로 떨어졌다.
-        //    실기에서 채움 행 colSpan이 17이어야 할 자리에 19가 찍혔다.
+    it('목록을 다시 그리는 도중(tbody가 빈 상태)에도 같다', () => {
         const m = makeSoilManager([true, false, true, true])
         m.tableBody.innerHTML = ''
-        expect(m._visibleColumnCount()).toBe(3)
+        expect(m._columnSpan()).toBe(4)
     })
 
-    it('표가 아예 없으면 기본 모드 열 수로 떨어진다', () => {
+    it('표가 아예 없으면 폴백을 쓴다', () => {
         const m = makeSoilManager()
         m.logTable = null
-        expect(m._visibleColumnCount()).toBe(19)
+        expect(m._columnSpan()).toBe(22)
+    })
+
+    it('머리글 행이 비어 있으면 폴백을 쓴다', () => {
+        // codex 코드 리뷰 제안 — "머리글 없음"과 "빈 머리글"을 갈라 둔다
+        const m = makeSoilManager()
+        m.logTable.tHead.rows[0].replaceChildren()
+        expect(m._columnSpan()).toBe(22)
     })
 
     it('구분선과 채움 행이 같은 값을 쓴다', () => {
         // 🚨 예전에는 구분선만 `gongikOn ? 18 : 19`를 손으로 적었다.
         //    열이 하나 늘면 한쪽만 고쳐져 폭이 갈라진다.
         const m = makeSoilManager([true, true, true, true, true])
-        const count = m._visibleColumnCount()
+        const count = m._columnSpan()
         expect(m._buildFarmSeparatorRow(count).cells[0].colSpan).toBe(count)
         expect(m._buildPageFillerRow(count).cells[0].colSpan).toBe(count)
+    })
+
+    it('열이 숨겨졌다 드러나도 이미 그린 행이 끝까지 덮는다', () => {
+        // 🚨 이 티켓의 핵심. 기본 보기에서 그린 뒤 전체 보기를 켜는 상황이다.
+        //    행을 다시 그리지 않으므로 그때 정한 colSpan이 그대로 남는다.
+        const m = makeSoilManager([true, false, false, true, true])   // 보이는 열 3개
+        m.itemsPerPage = 10
+        m.currentFlatRows = rows(25)
+        m.totalPages = 3
+        m.currentPage = 3
+        m.renderCurrentPage()
+
+        const filler = m.tableBody.querySelector('tr.page-filler td')
+        expect(filler.colSpan).toBe(5)   // 보이는 3개가 아니라 머리글 전체 5개
+
+        // 전체 보기를 켠 셈 — 숨겼던 열이 드러난다
+        for (const th of m.logTable.tHead.rows[0].cells) th.style.display = ''
+        expect(m._columnSpan()).toBe(5)
+        expect(filler.colSpan, '이미 그린 행이 늘어난 열까지 덮어야 한다').toBe(5)
     })
 })
 
@@ -384,13 +409,14 @@ describe('공용 페이지네이션 — 퇴비 (SLS-1-276)', () => {
         expect(pm.elements.tableBody.querySelectorAll('tr')).toHaveLength(0)
     })
 
-    it('채움 행의 colSpan이 보이는 열 수와 같다', () => {
+    it('채움 행의 colSpan이 머리글 전체 칸 수와 같다', () => {
+        // 숨긴 열까지 센다 — 전체 보기로 드러나도 끝까지 덮어야 하기 때문이다
         const pm = makePaginationManager([true, false, true])   // 가운데 열은 숨김
         pm.itemsPerPage = 10
         pm.setData(rows(25))
         pm.goToPage(3)
 
         const filler = pm.elements.tableBody.querySelector('tr.page-filler')
-        expect(filler.cells[0].colSpan).toBe(2)
+        expect(filler.cells[0].colSpan).toBe(3)
     })
 })

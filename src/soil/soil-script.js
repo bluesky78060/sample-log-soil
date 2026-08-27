@@ -17,14 +17,13 @@ const STORAGE_KEY = 'soilSampleLogs';
 const AUTO_SAVE_FILE = 'soil-autosave.json';
 
 /**
- * 기본 화면에서 목록 표에 보이는 열 수 (SLS-1-276).
+ * 목록 표의 머리글 칸 수 (숨긴 열 포함).
  *
- * 표가 화면에 없어 폭을 잴 수 없을 때만 쓰는 폴백이다 — 평소에는
- * `_visibleColumnCount()`가 실제로 세어 쓴다. 참고로 머리글은 모두 22열이고,
- * 기본 화면은 경지구분·공익직불제 전용 3열이 빠져 19열이 보인다.
+ * 구분선·채움 행의 `colSpan` 폴백이다 — 평소에는 `_columnSpan()`이 머리글에서 직접
+ * 센다. 표를 찾지 못했을 때만 쓴다.
  * @type {number}
  */
-const SOIL_DEFAULT_COLUMN_COUNT = 19;
+const SOIL_TOTAL_COLUMN_COUNT = 22;
 
 /**
  * 시·도 탐지 폴백 정규식 — constants.js의 SIDO_PATTERN(window.SIDO_PATTERN) SSOT가
@@ -3767,7 +3766,7 @@ class SoilSampleManager extends window.BaseSampleManager {
 
         const fragment = document.createDocumentFragment();
         let prevName = startIndex > 0 ? (this.currentFlatRows[startIndex - 1]?.name || null) : null;
-        const columnCount = this._visibleColumnCount();
+        const columnCount = this._columnSpan();
 
         pageRows.forEach((row) => {
             if (prevName !== null && row.name !== prevName) {
@@ -3792,31 +3791,35 @@ class SoilSampleManager extends window.BaseSampleManager {
     }
 
     /**
-     * 지금 화면에 보이는 열 수 (SLS-1-276).
+     * 표 끝까지 닿는 `colSpan`. 구분선 행과 채움 행이 **이 하나를 함께 쓴다.**
      *
-     * 숨긴 열은 빼고 센다. 경지구분(기본 숨김), 우편번호, 공익직불제 전용 열,
-     * 전체 보기로만 나오는 열이 모드마다 달라진다.
+     * 🚨 **지금 보이는 열만 세면 안 된다** (SLS-1-280).
+     *    전체 보기 토글은 **목록을 다시 그리지 않는다** — 표의 class만 바꾼다.
+     *    그래서 기본 보기에서 만들어진 행은 그때의 값을 그대로 갖고 있고, 전체 보기로
+     *    열이 늘면 **끝 열에 닿지 못한다.**
      *
-     * 🚨 예전에는 `gongikOn ? 18 : 19`를 손으로 적어 두었다. 값은 맞았지만 열이 하나
-     *    늘 때마다 고쳐야 하는 자리였고, 채움 행이 따로 세면 구분선과 폭이 갈라진다
-     *    (codex 플랜 리뷰 지적). **구분선과 채움 행이 이 하나를 함께 쓴다.**
+     *    실측(1500px): 기본 보기 17열에서 그린 구분선이 전체 보기 19열에서도 17칸만
+     *    덮어, 마지막 `발송일자`·`관리`에 미치지 않았다. 사용자가 실기에서 발견했다.
      *
-     * 🚨 폭(`offsetWidth`)으로 재면 안 된다. 이 함수는 목록을 다시 그리는 도중에
-     *    불리는데, **tbody를 비우면 표가 통째로 폭 0으로 접힌다**(실측: 표 전체
-     *    `offsetWidth`가 0). 그러면 보이는 열이 하나도 없다고 나와 폴백으로 떨어진다.
-     *    계산된 `display`는 레이아웃과 무관하게 옳은 값을 준다.
+     *    ⚠️ SLS-1-276에서 "정확히" 세도록 바꾸며 들어온 회귀다. 그 전의 하드코딩
+     *       `gongikOn ? 18 : 19`는 역설적으로 두 모드를 모두 덮고 있었다 — 기본
+     *       보기에는 초과라 잘리고 전체 보기에는 딱 맞았다.
+     *
+     * 이 표가 **가질 수 있는 전체 열 수**를 쓴다. 숨긴 열까지 세므로 어떤 모드에서도
+     * 모자라지 않는다. 남는 쪽은 브라우저가 실제 열 수로 잘라 준다 —
+     * **모자라는 것과 남는 것은 대칭이 아니다.**
+     *
+     * ⚠️ 앞으로 머리글에 `colspan`이 들어가거나 머리글 행이 여럿이 되면 이 값이
+     *    실제 그리드 열 수와 어긋난다. 그때는 그리드를 세는 방식으로 바꿔야 한다
+     *    (codex 플랜 리뷰 지적). 지금은 22개 셀이 한 행에 나란히 있다.
      */
-    _visibleColumnCount() {
+    _columnSpan() {
         const head = this.logTable?.tHead?.rows[0];
-        if (!head) return SOIL_DEFAULT_COLUMN_COUNT;
-        let count = 0;
-        for (const th of head.cells) {
-            if (window.getComputedStyle(th).display !== 'none') count++;
-        }
-        return count || SOIL_DEFAULT_COLUMN_COUNT;
+        return head?.cells.length || SOIL_TOTAL_COLUMN_COUNT;
     }
 
-    // 농가(성명) 경계에 삽입하는 구분선 행 — colSpan은 지금 보이는 열 수에 맞춘다
+    // 농가(성명) 경계에 삽입하는 구분선 행 — colSpan은 `_columnSpan()`이 정한다
+    // (숨긴 열까지 센 값이라 전체 보기로 열이 드러나도 끝까지 덮는다)
     _buildFarmSeparatorRow(columnCount) {
         const separatorTr = document.createElement('tr');
         separatorTr.className = 'farm-separator';

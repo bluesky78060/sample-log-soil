@@ -291,6 +291,97 @@ test.describe('행 사이 가로 구분선 (SLS-1-279)', () => {
     });
 });
 
+test.describe('구분선·채움 행이 끝 열까지 닿는다 (SLS-1-280)', () => {
+    test.use({ viewport: { width: 1500, height: 900 } });
+
+    /**
+     * 🚨 전체 보기 토글은 **목록을 다시 그리지 않는다** — 표의 class만 바꾼다.
+     *    그래서 기본 보기에서 만들어진 행은 그때의 colSpan을 그대로 갖는다.
+     *    "지금 보이는 열만" 세면 전체 보기에서 끝 열에 닿지 못한다.
+     *    실측: 기본 17열에서 그린 구분선이 전체 보기 19열에서도 17칸만 덮어
+     *    `발송일자`·`관리`에 미치지 않았다.
+     */
+    const spans = (page) => page.evaluate(() => {
+        const ths = [...document.querySelectorAll('#logTable thead th')];
+        const sep = document.querySelector('#logTableBody tr.farm-separator td');
+        const filler = document.querySelector('#logTableBody tr.page-filler td');
+        return {
+            headCells: ths.length,
+            visible: ths.filter((t) => getComputedStyle(t).display !== 'none').length,
+            separator: sep ? sep.colSpan : null,
+            filler: filler ? filler.colSpan : null,
+        };
+    });
+
+    const mixedNames = (n) =>
+        makeSoilLogs(n).map((l, i) => ({ ...l, name: ['김영수', '이정민', '박상호'][i % 3] }));
+
+    test('기본 보기로 그린 뒤 전체 보기를 켜도 구분선이 끝까지 덮는다', async ({ page }) => {
+        // codex 제안대로 **기존 행**의 colSpan을 본다 — 다시 그리지 않는 것이 핵심이다
+        await seedSoil(page, mixedNames(12));
+
+        const before = await spans(page);
+        expect(before.separator, '농가 구분선이 없다').not.toBeNull();
+        expect(before.separator).toBe(before.headCells);
+
+        // 토글이 우연히 목록을 다시 그리면 이 시험의 의미가 사라진다 —
+        // **같은 DOM 행**이 남아 있는지 표시를 남겨 확인한다 (codex 코드 리뷰 제안)
+        await page.evaluate(() => {
+            document.querySelector('#logTableBody tr.farm-separator').dataset.probe = 'kept';
+        });
+
+        await toggleFullView(page);
+
+        const kept = await page.evaluate(() =>
+            document.querySelector('#logTableBody tr.farm-separator')?.dataset.probe === 'kept');
+        expect(kept, '토글이 목록을 다시 그렸다면 이 시험은 회귀를 못 잡는다').toBe(true);
+
+        const after = await spans(page);
+        expect(after.visible, '전체 보기에서 열이 늘어야 한다').toBeGreaterThan(before.visible);
+        // 🚨 고치기 전에는 여기서 17이 남아 마지막 두 열에 닿지 않았다
+        expect(after.separator).toBe(after.headCells);
+        expect(after.separator).toBeGreaterThanOrEqual(after.visible);
+    });
+
+    test('채움 행도 끝까지 덮는다', async ({ page }) => {
+        await seedSoil(page, mixedNames(12));
+        await page.evaluate(() => {
+            window.soilManager.itemsPerPage = 8;
+            window.soilManager.filterAndRenderLogs();
+        });
+        await page.waitForFunction(() => window.soilManager.totalPages > 1);
+        await page.evaluate(() => window.soilManager.goToPage(window.soilManager.totalPages));
+
+        const before = await spans(page);
+        expect(before.filler, '채움 행이 없다').not.toBeNull();
+
+        await toggleFullView(page);
+
+        const after = await spans(page);
+        expect(after.filler).toBe(after.headCells);
+        expect(after.filler).toBeGreaterThanOrEqual(after.visible);
+    });
+
+    test('공익직불제 탭에서도 끝까지 덮는다', async ({ page }) => {
+        await seedSoil(page, mixedNames(12).map((l) => ({ ...l, landClass1: '공익직불제' })),
+            { waitRows: false });
+        await page.evaluate(() => {
+            const el = document.getElementById('landClass1Tab');
+            el.value = '공익직불제';
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.waitForFunction(() =>
+            document.getElementById('logTable').classList.contains('gongik-on')
+            && document.querySelectorAll('#logTableBody tr[data-id]').length > 0);
+
+        await toggleFullView(page);
+
+        const after = await spans(page);
+        expect(after.separator).toBe(after.headCells);
+        expect(after.separator).toBeGreaterThanOrEqual(after.visible);
+    });
+});
+
 test.describe('좁은 화면에서 관리 열 고정 해제 (SLS-1-260 회귀)', () => {
     test.use({ viewport: { width: 1000, height: 900 } });
 

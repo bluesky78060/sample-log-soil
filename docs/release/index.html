@@ -614,6 +614,40 @@
 
                  ⚠️ "자료를 확인하십시오" 같은 문구는 넣지 않는다 — 그 조합으로 접수한 건이
                  없다고 사용자가 확인했다(2026-08-20). 없는 사고를 알리면 불필요한 점검만 하게 된다. -->
+            <!-- v1.14.16 -->
+            <!-- data-popup: 붙이지 않는다. v1.14.15와 같은 이유다 — 화면이 보이는 방식만
+                 좋아지고 사용자가 확인하거나 손볼 것이 없다. 게다가 이 증상은 **아주 넓은
+                 화면(4K 등)에서만** 보였다. 해당하지 않는 대다수에게 팝업을 띄우면
+                 "나와 상관없는 알림"이 되어, 정작 중요할 때 읽지 않는 습관만 만든다. -->
+            <div class="version-entry">
+                <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.16</span>
+                                <span class="version-date">2026-08-28</span>
+                            </div>
+                            <div class="version-title">🧪 퇴·액비 목록도 전체 보기에서 열이 흔들리지 않습니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>퇴·액비 목록에서 &lsquo;전체 보기&rsquo;를 켤 때 열 폭이 흔들리던 것을 고쳤습니다.</strong>
+                            화면이 아주 넓으면(4K 등) 숨어 있던 열이 나타나면서
+                            <strong>나머지 열이 전부 조금씩 줄어들어</strong> 표가 한 번 움찔했습니다.
+                            이제 &lsquo;농장주소&rsquo; 열만 넓어지고 좁아집니다.
+                            <br>토양 목록은 <strong>v1.14.15</strong>에서 이미 같은 손질을 했습니다.</li>
+                        <li><strong>넓은 화면에서 긴 농장주소가 한 줄로 들어갑니다.</strong>
+                            그동안은 화면이 남아도 250칸에 묶여 두 줄로 접혔습니다.
+                            <br>화면이 좁아 표가 옆으로 넘칠 때는 <strong>예전과 똑같습니다</strong> —
+                            주소가 표를 밀지 않도록 하는 원래 규칙은 그대로입니다.</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- v1.14.15 -->
             <!-- data-popup: 붙이지 않는다. 전부 **화면이 보이는 방식**이 좋아지는 변화이고,
                  자료가 잘못 저장되거나 밖으로 나간 것이 없다. 켜면 저절로 그렇게 되므로
@@ -625,7 +659,7 @@
                  "확인하십시오" 문구를 넣으면 없는 사고를 점검하게 만든다
                  (v1.14.11·13의 판단과 같은 이유). -->
             <div class="version-entry">
-                <div class="version-dot latest"></div>
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -634,9 +668,6 @@
                                 <span class="version-date">2026-08-27</span>
                             </div>
                             <div class="version-title">📋 목록을 넘기고 펼칠 때 보던 자리를 잃지 않습니다</div>
-                        </div>
-                        <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

@@ -129,3 +129,6 @@ docs/03-code-review/
 
 # 코드베이스 분석 도구 산출물
 .understand-anything/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/

@@ -23,11 +23,9 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Clean npm cache
-        run: npm cache clean --force
-
+      # lock과 package.json이 어긋나면 재해석하지 않고 실패한다 (SLS-1-286)
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       # VWORLD_API_KEY는 렌더러 번들에 노출되면 안 되므로 network-config.js에 넣지 않는다.
       # 좌표 검증은 main process(process.env.VWORLD_API_KEY, IPC)에서만 수행한다 (SLS-1-43).

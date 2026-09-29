@@ -416,6 +416,11 @@ git -c http.postBuffer=524288000 push origin main
 빌드 전 `network-config.example.js` → `network-config.js` 복사 필요.
 GitHub Actions에서는 워크플로우의 "Create network-config with secrets" 스텝이 자동 생성.
 
+### graft 코드 그래프
+
+graft 훅은 **전역 `~/.claude/settings.json`에만** 둔다(SLS-1-288). 프로젝트에 두면 `.claude/helpers/`가 커밋되지 않아 새 워크트리·clone에서 없는 파일을 부른다.
+커밋된 `docs/` 번들까지 색인되므로 질의는 `graft ask --in src/ "…"`로 범위를 좁힌다.
+
 ### 메인 프로젝트와의 관계
 
 - `src/shared/`는 메인 프로젝트와 동일 코드 기반에서 시작했으나 이후 독립 진화

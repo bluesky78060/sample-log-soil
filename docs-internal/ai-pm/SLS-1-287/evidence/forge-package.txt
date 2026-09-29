@@ -1,0 +1,29 @@
+❯ Checking your system
+❯ Checking package manager version
+✔ Found npm@10.9.8
+✔ Checking your system
+[?25h❯ Preparing to package application
+✔ Preparing to package application
+❯ Running packaging hooks
+❯ Running generateAssets hook
+✔ Running generateAssets hook
+❯ Running prePackage hook
+✔ Running prePackage hook
+✔ Running packaging hooks
+❯ Packaging application
+› Determining targets...
+❯ Packaging for arm64 on darwin
+❯ Copying files
+❯ Preparing native dependencies
+❯ Finalizing package
+✔ Copying files
+✔ Preparing native dependencies
+✔ Finalizing package
+✔ Packaging for arm64 on darwin
+✔ Packaging application
+❯ Running postPackage hook
+❯ Running postPackage hook from forgeConfig
+Icon copied to: /Users/leechanhee/orca/workspaces/sample-log-soil/sls-287-devdeps/out/soil-sample-log-darwin-arm64/soil-sample-log.app/Contents/Resources/electron.icns
+✔ Running postPackage hook from forgeConfig
+✔ Running postPackage hook
+[?25hexit=0

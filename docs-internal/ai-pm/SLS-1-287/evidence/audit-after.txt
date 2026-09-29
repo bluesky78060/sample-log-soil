@@ -1,0 +1,115 @@
+# npm audit report
+
+esbuild  <=0.24.2
+Severity: moderate
+esbuild enables any website to send any requests to the development server and read the response - https://github.com/advisories/GHSA-67mh-4wv8-2f99
+fix available via `npm audit fix --force`
+Will install vite@8.3.1, which is a breaking change
+node_modules/esbuild
+  vite  <=6.4.2
+  Depends on vulnerable versions of esbuild
+  node_modules/vite
+
+extract-zip  *
+Severity: high
+extract-zip unvalidated symlink path traversal - https://github.com/advisories/GHSA-jmr9-qjv8-65gv
+extract-zip allows arbitrary file writes through symlink archive entries - https://github.com/advisories/GHSA-7pqw-9j4j-h8q3
+fix available via `npm audit fix --force`
+Will install electron@44.4.5, which is a breaking change
+node_modules/extract-zip
+  @electron/packager  18.0.0 - 20.0.0
+  Depends on vulnerable versions of extract-zip
+  node_modules/@electron/packager
+    @electron-forge/core  7.0.0 - 8.0.0-alpha.8
+    Depends on vulnerable versions of @electron-forge/core-utils
+    Depends on vulnerable versions of @electron-forge/maker-base
+    Depends on vulnerable versions of @electron-forge/plugin-base
+    Depends on vulnerable versions of @electron-forge/publisher-base
+    Depends on vulnerable versions of @electron-forge/shared-types
+    Depends on vulnerable versions of @electron-forge/template-base
+    Depends on vulnerable versions of @electron-forge/template-vite
+    Depends on vulnerable versions of @electron-forge/template-vite-typescript
+    Depends on vulnerable versions of @electron-forge/template-webpack
+    Depends on vulnerable versions of @electron-forge/template-webpack-typescript
+    Depends on vulnerable versions of @electron/packager
+    node_modules/@electron-forge/core
+      @electron-forge/cli  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/core
+      Depends on vulnerable versions of @electron-forge/core-utils
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/cli
+    @electron-forge/shared-types  7.0.0 - 8.0.0-alpha.8
+    Depends on vulnerable versions of @electron/packager
+    node_modules/@electron-forge/shared-types
+      @electron-forge/core-utils  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/core-utils
+        @electron-forge/template-base  7.0.0 - 8.0.0-alpha.8
+        Depends on vulnerable versions of @electron-forge/core-utils
+        Depends on vulnerable versions of @electron-forge/shared-types
+        node_modules/@electron-forge/template-base
+      @electron-forge/maker-base  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/maker-base
+      @electron-forge/maker-deb  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/maker-base
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/maker-deb
+      @electron-forge/maker-rpm  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/maker-base
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/maker-rpm
+      @electron-forge/maker-squirrel  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/maker-base
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/maker-squirrel
+      @electron-forge/maker-zip  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/maker-base
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/maker-zip
+      @electron-forge/plugin-auto-unpack-natives  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/plugin-base
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/plugin-auto-unpack-natives
+      @electron-forge/plugin-base  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/plugin-base
+      @electron-forge/plugin-fuses  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/plugin-base
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/plugin-fuses
+      @electron-forge/publisher-base  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/shared-types
+      node_modules/@electron-forge/publisher-base
+        @electron-forge/publisher-github  <=6.0.0-beta.75 || 7.0.0 - 8.0.0-alpha.8
+        Depends on vulnerable versions of @electron-forge/publisher-base
+        Depends on vulnerable versions of @electron-forge/shared-types
+        node_modules/@electron-forge/publisher-github
+      @electron-forge/template-vite  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/shared-types
+      Depends on vulnerable versions of @electron-forge/template-base
+      node_modules/@electron-forge/template-vite
+      @electron-forge/template-vite-typescript  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/shared-types
+      Depends on vulnerable versions of @electron-forge/template-base
+      node_modules/@electron-forge/template-vite-typescript
+      @electron-forge/template-webpack  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/shared-types
+      Depends on vulnerable versions of @electron-forge/template-base
+      node_modules/@electron-forge/template-webpack
+      @electron-forge/template-webpack-typescript  7.0.0 - 8.0.0-alpha.8
+      Depends on vulnerable versions of @electron-forge/shared-types
+      Depends on vulnerable versions of @electron-forge/template-base
+      node_modules/@electron-forge/template-webpack-typescript
+  electron  1.3.1 - 40.10.2 || 41.0.0-alpha.1 - 41.7.1 || 42.0.0-alpha.1 - 42.3.3 || 43.0.0-alpha.1 - 43.0.0-beta.8
+  Depends on vulnerable versions of extract-zip
+  node_modules/electron
+
+
+24 vulnerabilities (1 moderate, 23 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force

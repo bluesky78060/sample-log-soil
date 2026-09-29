@@ -1,0 +1,3 @@
+# npx playwright test --reporter=line (docs/ 대상) — 진행 줄은 생략, ANSI 제거. 실패·재시도 0
+  496 passed (5.6m)
+e2e exit=0

@@ -1,0 +1,126 @@
+
+> soil-sample-log@1.14.17 build
+> npm run build:css && npm run sync-version && node scripts/extract-whatsnew.js && node scripts/embed-soil-template.js && npx vite build
+
+
+> soil-sample-log@1.14.17 build:css
+> tailwindcss -i src/styles/input.css -o src/shared/tailwind-output.css --minify
+
+Browserslist: caniuse-lite is outdated. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+Rebuilding...
+
+warn - No utility classes were detected in your source files. If this is unexpected, double-check the `content` option in your Tailwind CSS configuration.
+warn - https://tailwindcss.com/docs/content-configuration
+
+Done in 1344ms.
+
+> soil-sample-log@1.14.17 sync-version
+> node scripts/sync-version.js
+
+[sync-version] 버전 동기화 시작: 1.14.17
+  ⏭️  constants.js (이미 최신)
+  ⏭️  index.html (이미 최신)
+  ⏭️  manual/index.html (이미 최신)
+[sync-version] 완료: 0개 파일 업데이트, 버전 1.14.17
+[extract-whatsnew] 1.14.17 기준 — 버전 7건 / 항목 11건
+[embed-soil-template] 14,045바이트 · sha256 86f0c2868788…
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+vite v5.4.21 building for production...
+transforming...
+✓ 136 modules transformed.
+rendering chunks...
+computing gzip size...
+../docs/landing/index.html                                14.57 kB │ gzip:   5.27 kB
+../docs/compost-analysis/index.html                       15.26 kB │ gzip:   4.59 kB
+../docs/feedback-admin/index.html                         18.78 kB │ gzip:   6.11 kB
+../docs/heuktoram/index.html                              18.91 kB │ gzip:   5.10 kB
+../docs/feedback/index.html                               19.20 kB │ gzip:   5.36 kB
+../docs/settings/index.html                               31.43 kB │ gzip:   7.84 kB
+../docs/label-print/index.html                            34.38 kB │ gzip:   6.11 kB
+../docs/soil/index.html                                   42.64 kB │ gzip:   8.26 kB
+../docs/index.html                                        44.88 kB │ gzip:   8.90 kB
+../docs/assets/soil-CrsDsO1l.svg                          46.64 kB │ gzip:  15.95 kB
+../docs/compost/index.html                                52.82 kB │ gzip:   9.04 kB
+../docs/assets/step-07-label-DusZd8hk.png                 52.98 kB
+../docs/manual/firebase-setup.html                        54.55 kB │ gzip:  12.06 kB
+../docs/assets/04-soil-list-yYze5Z4c.png                  70.94 kB
+../docs/manual/index.html                                 79.29 kB │ gzip:  27.23 kB
+../docs/release/index.html                               114.72 kB │ gzip:  28.95 kB
+../docs/assets/step-09-heuktoram-list-CKX_90KZ.png       123.61 kB
+../docs/assets/compost-DGpQB2T7.svg                      123.98 kB │ gzip:  44.35 kB
+../docs/assets/02-soil-register-BNO4h-w1.png             146.03 kB
+../docs/assets/step-15-compost-list-DYQkvhwZ.png         161.37 kB
+../docs/assets/step-10-heuktoram-input-BDKfkvrd.png      161.48 kB
+../docs/assets/step-08-settings-CMz7UedE.png             170.41 kB
+../docs/assets/08-firestore-version-CBqrllzW.png         182.17 kB
+../docs/assets/step-13-import-modal-CszL9QCR.png         183.63 kB
+../docs/assets/step-14-compost-register-C4IqnUdJ.png     188.44 kB
+../docs/assets/step-04-list-DHARZT3k.png                 218.91 kB
+../docs/assets/step-12-landclass1-tab-Be55n_yA.png       222.55 kB
+../docs/assets/step-03-submit-DJDz6FoA.png               239.09 kB
+../docs/assets/step-11-landclass1-field-aPNjt94W.png     240.14 kB
+../docs/assets/step-06-data-mgmt-CNTAo4RV.png            240.25 kB
+../docs/assets/step-05-heuktoram-0BWnDWZJ.png            240.55 kB
+../docs/assets/step-02-register-fields-Dq0YAN81.png      243.52 kB
+../docs/assets/10-project-settings-BiyXK1oK.png          254.47 kB
+../docs/assets/09-label-print-vAvW0jJF.png               255.39 kB
+../docs/assets/12-firestore-rules-C5YuJMKP.png           296.31 kB
+../docs/assets/09-auth-anonymous-CJNJD_Mf.png            300.89 kB
+../docs/assets/05-project-ready-BdKwgtIK.png             324.36 kB
+../docs/assets/11-web-app-config-BJNi0Bmn.png            356.04 kB
+../docs/assets/01-project-name-BaJOzrBn.png              366.16 kB
+../docs/assets/06-dashboard-CXLqAeC4.png                 371.12 kB
+../docs/assets/04-analytics-config-H--Fq1DS.png          395.13 kB
+../docs/assets/03-analytics-Cs8WeMxw.png                 422.36 kB
+../docs/assets/heuktoram-excel-modal-rTLo_hh0.png        441.45 kB
+../docs/assets/02-gemini-settings-DDytnUi0.png           473.16 kB
+../docs/assets/step-01-main-CDGXsqqX.png                 577.72 kB
+../docs/assets/07-firestore-start-BzjzcY0U.png           975.40 kB
+../docs/assets/13-app-settings-page-C6SCdWfs.png       1,241.56 kB
+../docs/assets/main-with-stats-DpWjyMJR.png            4,388.25 kB
+../docs/assets/compostAnalysis-BDIqJWdU.css                3.46 kB │ gzip:   1.08 kB
+../docs/assets/labelPrint-DMe07K5X.css                     4.06 kB │ gzip:   1.13 kB
+../docs/assets/tailwind-output-uplGniQ-.css                4.76 kB │ gzip:   1.43 kB
+../docs/assets/heuktoram-BHB3h2uX.css                     10.15 kB │ gzip:   2.39 kB
+../docs/assets/heuktoram-result-importer-1_VnID7a.css     14.03 kB │ gzip:   3.00 kB
+../docs/assets/soil-CKFgbNJG.css                          24.74 kB │ gzip:   3.98 kB
+../docs/assets/compost-u6ef3rXD.css                       38.51 kB │ gzip:   6.48 kB
+../docs/assets/address-parser-CThkkzFW.css               109.95 kB │ gzip:  18.22 kB
+../docs/assets/notice-date-CpCNTsCR.js                     0.21 kB │ gzip:   0.18 kB
+../docs/assets/toast-CYVUzQgW.js                           0.73 kB │ gzip:   0.45 kB
+../docs/assets/frame-guard-BIL41LH3.js                     0.88 kB │ gzip:   0.47 kB
+../docs/assets/constants-wFEAoI5d.js                       1.28 kB │ gzip:   0.89 kB
+../docs/assets/soil-log-record-D2hb6wT2.js                 1.86 kB │ gzip:   0.86 kB
+../docs/assets/cache-manager-ByTTmbN8.js                   2.43 kB │ gzip:   1.27 kB
+../docs/assets/compost-fields-BVIU25OO.js                  2.45 kB │ gzip:   1.18 kB
+../docs/assets/feedback-firebase-B6kONoGL.js               2.68 kB │ gzip:   1.43 kB
+../docs/assets/feedback-store-D6LKtQCM.js                  4.39 kB │ gzip:   1.83 kB
+../docs/assets/feedback-BY1jaMhd.js                        7.83 kB │ gzip:   3.22 kB
+../docs/assets/logger-CI8lfjpg.js                          8.71 kB │ gzip:   3.35 kB
+../docs/assets/address-DiqtS57t.js                        10.33 kB │ gzip:   3.39 kB
+../docs/assets/address-parser-DmQJx3TV.js                 14.37 kB │ gzip:   5.74 kB
+../docs/assets/feedbackAdmin-D3xpbUhF.js                  14.75 kB │ gzip:   6.12 kB
+../docs/assets/main-rdguTuXi.js                           15.06 kB │ gzip:   7.07 kB
+../docs/assets/labelPrint-BsYUmEo7.js                     16.01 kB │ gzip:   6.45 kB
+../docs/assets/storage-manager-NkZUqJOM.js                16.54 kB │ gzip:   5.83 kB
+../docs/assets/compostAnalysis-zv07sKU9.js                19.80 kB │ gzip:   8.92 kB
+../docs/assets/settings-7T0x-srz.js                       24.56 kB │ gzip:   8.49 kB
+../docs/assets/purify.es-Bszxp-Ae.js                      29.04 kB │ gzip:  11.17 kB
+../docs/assets/reception-number-BzDVe3FS.js               39.87 kB │ gzip:  10.91 kB
+../docs/assets/sticky-columns-qrG0ub8j.js                 50.39 kB │ gzip:  16.07 kB
+../docs/assets/compost-hQKZwgJI.js                        63.06 kB │ gzip:  18.13 kB
+../docs/assets/heuktoram-result-importer-Buh1tOI_.js     126.70 kB │ gzip:  40.27 kB
+../docs/assets/heuktoram-BhLevDul.js                     135.42 kB │ gzip:  45.66 kB
+../docs/assets/soil-BKUYnknP.js                          198.89 kB │ gzip:  68.57 kB
+../docs/assets/xlsx-DqDnpwVQ.js                          499.60 kB │ gzip: 163.10 kB
+../docs/assets/xlsx.min-VMp2aTeW.js                      627.83 kB │ gzip: 323.15 kB
+../docs/assets/index.esm-k5uDoaEq.js                     706.04 kB │ gzip: 162.55 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 5.94s

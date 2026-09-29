@@ -1,0 +1,5 @@
+tar(node-gyp) version 7.5.22 extract: function x: function
+tar results file/filter/stream/x: true,true,true,true filterCount 4 warns 0
+tmp version 0.2.7
+tmp results create/cleanup: true true /private/var/folders/1j/qv33fpjs4cx3l3w1pd8381h40000gn/T/tmp-93812-PFAJpWEqnsky-.txt
+SMOKE OK

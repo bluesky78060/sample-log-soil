@@ -1,0 +1,5 @@
+## concurrently 9.2.4 / wait-on 9.0.4 / joi 18.2.9 / shell-quote 1.9.0
+[0] node -e "setTimeout(()=>require('fs').writeFileSync('$S/cw.s5Rt/ready','1'),500)" exited with code 0
+[1] WAITON_OK
+[1] npx wait-on -t 10000 file:$S/cw.s5Rt/ready && echo WAITON_OK exited with code 0
+exit=0

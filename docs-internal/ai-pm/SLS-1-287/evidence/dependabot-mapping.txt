@@ -1,0 +1,19 @@
+@vitest/mocker               alerts 1 stillVulnerable 0 lock: 4.1.11
+@xmldom/xmldom               alerts 10 stillVulnerable 0 lock: 0.9.12
+baseline-browser-mapping     alerts 1 stillVulnerable 0 lock: 2.11.26
+brace-expansion              alerts 3 stillVulnerable 0 lock: 2.1.7,5.0.12,1.1.21
+browserslist                 alerts 1 stillVulnerable 0 lock: 4.29.2
+esbuild                      alerts 1 stillVulnerable 1 lock: 0.21.5,0.28.2
+extract-zip                  alerts 2 stillVulnerable 2 lock: 2.0.1
+fast-uri                     alerts 7 stillVulnerable 0 lock: 3.1.8
+ip-address                   alerts 5 stillVulnerable 0 lock: 10.7.2
+joi                          alerts 2 stillVulnerable 0 lock: 18.2.9
+postcss                      alerts 2 stillVulnerable 0 lock: 8.5.28
+postcss-selector-parser      alerts 1 stillVulnerable 0 lock: 6.1.4,6.0.10
+shell-quote                  alerts 1 stillVulnerable 0 lock: 1.9.0
+tar                          alerts 8 stillVulnerable 0 lock: 7.5.22
+tmp                          alerts 2 stillVulnerable 0 lock: 0.2.7
+undici                       alerts 5 stillVulnerable 0 lock: 7.30.0
+vite                         alerts 3 stillVulnerable 3 lock: 5.4.21,8.3.1
+vitest                       alerts 1 stillVulnerable 0 lock: 4.1.11
+TOTAL non-electron dev alerts 56 still vulnerable 6

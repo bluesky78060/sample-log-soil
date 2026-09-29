@@ -392,7 +392,7 @@ npm run capture:manual # src/manual/images/ 13개 갱신
 - **Runner**: windows-latest, Node 22
 
 **Secrets 필요**:
-- `ALLOWED_GATEWAY` — 게이트웨이 IP (빈 값이면 웹 접근 제한 없음)
+- `ALLOWED_GATEWAY` — 게이트웨이 IP. **빈 값이면 웹에서 접근 거부**(Firebase 없이 로컬 모드) — `network-access.js`의 `checkAccess()`
 - `VWORLD_API_KEY` — VWORLD 지번 지오코딩 API 키
 
 ### GitHub Pages

@@ -1,4 +1,4 @@
-// 사용: node cdp-check.cjs <port> — 패키징 앱 메인 창에 붙어 런타임 신호(①③④⑤)를 확인한다
+// 사용: node cdp-check.cjs <port> — 패키징 앱 메인 창에 붙어 런타임 신호(①의 UA·③④⑤)를 확인한다
 const { chromium } = require(process.env.PW_PATH || 'playwright');
 const probe = async () => {
   const v = [];
@@ -41,5 +41,5 @@ const probe = async () => {
   if (popup) { await popup.waitForLoadState('load'); pop = await popup.evaluate(probe); }
   await page.waitForTimeout(1500);
   console.log(JSON.stringify({ main, nav, popup: pop, consoleErrors: errs }, null, 2));
-  process.exit(0);
+  process.exit(nav && pop ? 0 : 2);
 })().catch(e => { console.error('CDP_FAIL', e); process.exit(1); });

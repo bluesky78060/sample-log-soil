@@ -3,4 +3,4 @@ const keys=new Set([...Object.keys(a),...Object.keys(b)]);
 for(const k of keys){const x=a[k],y=b[k];
  if(!x) console.log('ADDED',k,y.version);
  else if(!y) console.log('REMOVED',k,x.version);
- else if(x.version!==y.version||x.integrity!==y.integrity||x.resolved!==y.resolved) console.log('CHANGED',k,x.version,'->',y.version);}
+ else if(JSON.stringify(x)!==JSON.stringify(y)) console.log('CHANGED',k||'(root)',x.version,'->',y.version);}

@@ -7,7 +7,7 @@
 
 | 카테고리 | 확정 내용 |
 | --- | --- |
-| 목표(Why) | Dependabot electron 알림 17건(high 5, medium 8, low 4) 해소. `devDependencies`지만 설치본에 실리는 런타임이다 |
+| 목표(Why) | Dependabot electron 알림 해소. `devDependencies`지만 설치본에 실리는 런타임이다. 지시문의 17건(high 5, medium 8, low 4)은 1차분(#10~#28)만 센 것이고, 실측 열린 알림은 **32건(high 8, medium 18, low 6)**, 전부 `first_patched_version` ≤ 39.8.10 (코드리뷰에서 정정) |
 | 사용자(Who) | 전국 농업기술센터 Windows 설치본 사용자. 자동 업데이트로 받는다 |
 | 범위(What) | `package.json` `"electron": "39.8.10"` 정확 고정, `package-lock.json`, `docs/` 재빌드. `src/`는 건드리지 않는다 |
 | 제약 | 같은 메이저(39) 안에서만. lock 재생성 금지 — `npm install --save-exact electron@39.8.10`로 대상만. electron 외 패키지가 바뀌면 멈춘다 |

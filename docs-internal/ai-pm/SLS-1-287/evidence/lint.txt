@@ -1,0 +1,17 @@
+
+> soil-sample-log@1.14.17 lint
+> eslint src --max-warnings 6
+
+
+/Users/leechanhee/orca/workspaces/sample-log-soil/sls-287-devdeps/src/compost/compost-script.js
+   269:5  warning  Method 'buildTableRow' has too many lines (185). Maximum allowed is 100            max-lines-per-function
+   737:5  warning  Method 'setupTypeSpecificEvents' has too many lines (113). Maximum allowed is 100  max-lines-per-function
+  1569:5  warning  Method 'showStatistics' has too many lines (129). Maximum allowed is 100           max-lines-per-function
+  2274:5  warning  Method 'setupExcelImport' has too many lines (158). Maximum allowed is 100         max-lines-per-function
+
+/Users/leechanhee/orca/workspaces/sample-log-soil/sls-287-devdeps/src/soil/soil-result-importer.js
+   738:5  warning  Function 'computePreview' has too many lines (116). Maximum allowed is 100      max-lines-per-function
+  1147:5  warning  Function 'soilModalInnerHtml' has too many lines (109). Maximum allowed is 100  max-lines-per-function
+
+✖ 6 problems (0 errors, 6 warnings)
+

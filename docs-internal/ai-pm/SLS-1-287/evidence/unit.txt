@@ -1,0 +1,19 @@
+
+> soil-sample-log@1.14.17 test:unit
+> vitest run
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.js:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.11 /Users/leechanhee/orca/workspaces/sample-log-soil/sls-287-devdeps
+
+[extract-whatsnew] package.json 버전(1.15.0) 항목이 릴리스 노트에 없습니다.
+  src/release/index.html에 새 버전 항목을 먼저 추가하세요 (CLAUDE.md 규칙).
+  릴리스 노트의 최신 버전: 1.14.3
+
+ Test Files  60 passed (60)
+      Tests  925 passed (925)
+   Start at  20:05:59
+   Duration  24.98s (transform 3.46s, setup 2.62s, import 4.64s, tests 24.25s, environment 159.03s)
+

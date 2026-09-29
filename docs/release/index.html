@@ -614,13 +614,45 @@
 
                  ⚠️ "자료를 확인하십시오" 같은 문구는 넣지 않는다 — 그 조합으로 접수한 건이
                  없다고 사용자가 확인했다(2026-08-20). 없는 사고를 알리면 불필요한 점검만 하게 된다. -->
+            <!-- v1.14.17 -->
+            <!-- data-popup: 붙이지 않는다. 화면·기능이 바뀌지 않고 사용자가 확인하거나
+                 손볼 것이 없다. 알려진 취약점이 실제로 악용됐다는 정황도 없다.
+                 ⚠️ 새 자동 업데이트 모듈은 이 버전의 **다음** 업데이트부터 설치를 맡는다
+                 (SLS-1-283). 그때 업데이트가 안 된다는 신호가 오면 공지 팝업으로 수동
+                 재설치를 안내한다 — 여기 미리 적지 않는다. 없는 사고를 알리게 된다. -->
+            <div class="version-entry">
+                <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.17</span>
+                                <span class="version-date">2026-09-29</span>
+                            </div>
+                            <div class="version-title">🔒 보안 업데이트 — 프로그램 구성요소의 알려진 취약점을 막았습니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>자동 업데이트 모듈을 새 버전으로 바꿨습니다.</strong>
+                            내려받은 업데이트 파일이 정해진 저장 폴더 밖에 놓이지 못하게 막는 등
+                            보안 보완이 들어 있습니다.</li>
+                        <li><strong>화면에 글을 표시할 때 위험한 코드를 걸러 내는 부품을 새 버전으로 바꿨습니다.</strong></li>
+                        <li><strong>클라우드 동기화에 딸린 통신 부품 두 가지를 새 버전으로 바꿨습니다.</strong></li>
+                        <li>화면과 사용 방법은 <strong>그대로입니다.</strong> 저장된 자료에도 영향이 없습니다.</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- v1.14.16 -->
             <!-- data-popup: 붙이지 않는다. v1.14.15와 같은 이유다 — 화면이 보이는 방식만
                  좋아지고 사용자가 확인하거나 손볼 것이 없다. 게다가 이 증상은 **아주 넓은
                  화면(4K 등)에서만** 보였다. 해당하지 않는 대다수에게 팝업을 띄우면
                  "나와 상관없는 알림"이 되어, 정작 중요할 때 읽지 않는 습관만 만든다. -->
             <div class="version-entry">
-                <div class="version-dot latest"></div>
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -629,9 +661,6 @@
                                 <span class="version-date">2026-08-28</span>
                             </div>
                             <div class="version-title">🧪 퇴·액비 목록도 전체 보기에서 열이 흔들리지 않습니다</div>
-                        </div>
-                        <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

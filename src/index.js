@@ -7,6 +7,7 @@ const { app, BrowserWindow, Menu, ipcMain, dialog, session, shell } = require('e
 const path = require('node:path');
 const fs = require('node:fs');
 const { autoUpdater } = require('electron-updater');
+const { isDevServerReachable, isDevNavigationAllowed } = require('./dev-server-probe');
 
 /**
  * 최소 .env 로더 (dotenv 의존성 없이 동작)
@@ -75,15 +76,12 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
-/** @type {Electron.BrowserWindow | null} */
-// Vite dev server URL (개발 모드 전용). 환경변수 미지정 시 기본 포트로 폴백.
-//   dev 판정은 process.env.DEV_MODE / process.argv('--dev')로 별도 수행하며,
-//   packaged 앱에서는 dev server 연결 실패 후 docs/ 빌드 파일로 폴백된다.
+// Vite dev server URL — 패키징 전(electron-forge start)에서만 탐색한다.
+// 설치본은 탐색하지 않고 docs/ 만 로드한다(dev-server-probe.js, SLS-1-289).
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:3000';
 
+/** @type {Electron.BrowserWindow | null} */
 let mainWindow = null;
-
-/** Vite 개발 서버 URL (전체 IPC 핸들러 공통) */
 
 /**
  * M-3: 앱의 실제 docs 디렉토리 절대 경로 (will-navigate 검증용)
@@ -346,31 +344,18 @@ const createWindow = () => {
     return { action: 'deny' };
   });
 
-  // 앱 로드 전략:
-  // 1. VITE_DEV_SERVER_URL 환경변수가 있으면 Vite dev server 사용
-  // 2. 없으면 Vite dev server(localhost:3000)에 연결 시도
-  // 3. 둘 다 안 되면 빌드된 docs/index.html 로드
+  // 앱 로드: 개발 모드에서 dev server 가 떠 있으면 거기서, 아니면 빌드된 docs/index.html
   const docsPath = path.join(__dirname, '..', 'docs', 'index.html');
 
   /** @type {string|null} 현재 로드 원본 (dev server URL 또는 null) */
   let activeDevServerUrl = null;
 
   async function loadApp() {
-    // Vite dev server 연결 시도
-    try {
-      const http = require('node:http');
-      await new Promise((resolve, reject) => {
-        const req = http.get(VITE_DEV_SERVER_URL, { timeout: 1000 }, (res) => {
-          res.destroy();
-          resolve();
-        });
-        req.on('error', reject);
-        req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
-      });
+    if (await isDevServerReachable({ isPackaged: app.isPackaged, url: VITE_DEV_SERVER_URL, httpGet: require('node:http').get })) {
       activeDevServerUrl = VITE_DEV_SERVER_URL;
       mainWindow.loadURL(VITE_DEV_SERVER_URL);
       console.log(`[App] Vite dev server에서 로드: ${VITE_DEV_SERVER_URL}`);
-    } catch {
+    } else {
       // Vite dev server 없음 → 빌드된 파일에서 로드
       if (fs.existsSync(docsPath)) {
         mainWindow.loadFile(docsPath);
@@ -391,7 +376,7 @@ const createWindow = () => {
 
   // 내부 링크 네비게이션 허용 (soil/, water/ 등 하위 폴더)
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (activeDevServerUrl && url.startsWith(activeDevServerUrl)) {
+    if (isDevNavigationAllowed({ isPackaged: app.isPackaged, url, devServerUrl: activeDevServerUrl })) {
       return; // 개발 모드: 같은 dev server 내 URL 허용
     }
     // M-3: file:// 프로토콜이고 실제 docs 디렉토리 내의 파일이면 허용
@@ -595,6 +580,9 @@ function makePopupWindowHandler({ getRef, setRef, title, route, dirName, notFoun
             return { action: 'deny' };
         });
 
+        /** @type {string|null} 이 팝업이 dev server 에서 떴을 때만 채운다 (메인 창의 activeDevServerUrl 과 같은 규칙) */
+        let popupDevServerUrl = null;
+
         // M-3: 외부 URL 네비게이션 차단 (메인 윈도우와 동일)
         win.webContents.on('will-navigate', (event, url) => {
             if (url.startsWith('file://')) {
@@ -617,22 +605,14 @@ function makePopupWindowHandler({ getRef, setRef, title, route, dirName, notFoun
                 event.preventDefault();
                 return;
             }
-            if (url.startsWith('http://localhost:')) return;
+            if (isDevNavigationAllowed({ isPackaged: app.isPackaged, url, devServerUrl: popupDevServerUrl })) return;
             event.preventDefault();
         });
 
-        try {
-            const http = require('node:http');
-            await new Promise((resolve, reject) => {
-                const req = http.get(VITE_DEV_SERVER_URL, { timeout: 1000 }, (res) => {
-                    res.destroy();
-                    resolve();
-                });
-                req.on('error', reject);
-                req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
-            });
+        if (await isDevServerReachable({ isPackaged: app.isPackaged, url: VITE_DEV_SERVER_URL, httpGet: require('node:http').get })) {
+            popupDevServerUrl = VITE_DEV_SERVER_URL;
             win.loadURL(`${VITE_DEV_SERVER_URL}${route}`);
-        } catch {
+        } else {
             // H-3: 파일 없을 때 에러 안내 표시
             const pagePath = path.join(__dirname, '..', 'docs', dirName, 'index.html');
             if (fs.existsSync(pagePath)) {

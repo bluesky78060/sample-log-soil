@@ -43,7 +43,7 @@ const PROJECT_GLOBALS = {
 };
 
 // Electron 메인/preload(CommonJS) 파일
-const NODE_FILES = ['src/index.js', 'src/preload.js'];
+const NODE_FILES = ['src/index.js', 'src/preload.js', 'src/dev-server-probe.js'];
 
 const RULES = {
     // ── 버그성 룰 (error) ──────────────────────────────

@@ -614,6 +614,34 @@
 
                  ⚠️ "자료를 확인하십시오" 같은 문구는 넣지 않는다 — 그 조합으로 접수한 건이
                  없다고 사용자가 확인했다(2026-08-20). 없는 사고를 알리면 불필요한 점검만 하게 된다. -->
+            <!-- v1.14.19 -->
+            <!-- data-popup: 붙이지 않는다. 화면·기능이 바뀌지 않고 사용자가 확인하거나 손볼 것이
+                 없다. 이 결함이 실제로 악용됐다는 정황도 없다 — 알리면 없는 사고를 점검하게 된다.
+                 (내용: 설치본이 창을 열 때 PC 안 3000번 포트의 화면을 앱 화면으로 불러올 수 있던
+                 것을 막았다. SLS-1-289) -->
+            <div class="version-entry">
+                <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.19</span>
+                                <span class="version-date">2026-09-30</span>
+                            </div>
+                            <div class="version-title">🔒 보안 업데이트 — 앱 창이 엉뚱한 화면을 불러오지 않도록 막았습니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>설치된 프로그램이 같은 PC에서 돌고 있는 다른 프로그램의 화면을 앱 화면으로 불러올 수 있던 것을 막았습니다.</strong>
+                            이제 설치된 프로그램은 자기 안에 들어 있는 화면만 엽니다.</li>
+                        <li>프로그램 안에 함께 들어가던 개발용 파일들을 뺐습니다. 화면과 사용 방법은 <strong>그대로입니다.</strong> 저장된 자료에도 영향이 없습니다.</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- v1.14.18 -->
             <!-- data-popup: 붙이지 않는다. 화면·기능이 바뀌지 않고 사용자가 확인하거나
                  손볼 것이 없다(v1.14.17과 같은 이유).
@@ -621,7 +649,7 @@
                  첫 실행은 새 실행 엔진(electron 39.8.10)이 한다(SLS-1-285). 업데이트가 안
                  된다는 신호가 오면 공지 팝업으로 수동 재설치를 안내한다 — 미리 적지 않는다. -->
             <div class="version-entry">
-                <div class="version-dot latest"></div>
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -630,9 +658,6 @@
                                 <span class="version-date">2026-09-29</span>
                             </div>
                             <div class="version-title">🔒 보안 업데이트 — 프로그램 실행 엔진을 새 버전으로 바꿨습니다</div>
-                        </div>
-                        <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

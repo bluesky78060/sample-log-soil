@@ -1,0 +1,5 @@
+[env] .env 로드 완료: /Users/leechanhee/orca/workspaces/sample-log-soil/soil/out/soil-sample-log-darwin-arm64/soil-sample-log.app/Contents/Resources/.env
+업데이트 확인 중...
+[App] 빌드된 파일에서 로드: /Users/leechanhee/orca/workspaces/sample-log-soil/soil/out/soil-sample-log-darwin-arm64/soil-sample-log.app/Contents/Resources/app.asar/docs/index.html
+업데이트 파일 없음 (정상): Cannot find latest-mac.yml in the latest release artifacts (https://github.com/bluesky78060/sample-log-soil/releases/download/v1.14.18/latest-mac.yml): HttpError: 404 
+UnhandledPromise: 0

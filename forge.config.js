@@ -2,9 +2,21 @@ const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 const path = require('path');
 
+// asar 에는 실행에 필요한 최상위만 싣는다 (SLS-1-290). 차단 목록이 아니라 허용 목록이라
+// 저장소에 새 도구 폴더가 생겨도 저절로 빠진다. src/ 는 통째로 둔다 — 새 메인 프로세스 파일이
+// 빠지면 설치본이 뜨지 않고 자동 업데이트로도 복구되지 않는다.
+// 함수를 주면 packager 의 기본 제외가 사라지므로 락파일·.git·.bin·네이티브 빌드 잔재를 여기서 되살린다.
+const ASAR_KEEP = new Set(['package.json', 'src', 'docs', 'node_modules']);
+function asarIgnore(p) {
+  if (!p) return false; // 앱 루트 자신
+  if (!ASAR_KEEP.has(p.split('/')[1])) return true;
+  return /(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|node_gyp_bins|\.git)($|\/)|node_modules\/\.bin($|\/)|\.o(bj)?$/.test(p);
+}
+
 module.exports = {
   packagerConfig: {
     asar: true,
+    ignore: asarIgnore,
     name: 'soil-sample-log',
     executableName: 'soil-sample-log',
     appBundleId: 'com.soilsamplelog.app',

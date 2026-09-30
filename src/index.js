@@ -467,7 +467,9 @@ app.whenReady().then(() => {
 
   // 패키징된 앱에서만 자동 업데이트 체크
   if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify();
+    // 확인 실패는 'error' 이벤트 핸들러가 이미 기록한다 — 거부까지 새면 같은 실패가 두 번 찍힌다.
+    // ⚠️ 다운로드 실패의 거부는 라이브러리 안쪽 파생 Promise 라 이 catch 로 닿지 않는다.
+    autoUpdater.checkForUpdatesAndNotify().catch(() => {});
   }
 
   // macOS에서 dock 아이콘 클릭 시 창이 없으면 새로 생성

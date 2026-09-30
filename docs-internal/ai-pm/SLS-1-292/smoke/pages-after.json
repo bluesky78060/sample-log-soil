@@ -1,0 +1,142 @@
+[
+ {
+  "p": "index.html",
+  "title": "토양·퇴비 시료 접수 대장",
+  "textLen": 277,
+  "api": "object",
+  "XLSX": "undefined",
+  "DOMPurify": "undefined",
+  "csp": [],
+  "errors": []
+ },
+ {
+  "p": "soil/index.html",
+  "title": "토양 시료 접수 대장",
+  "textLen": 625,
+  "api": "object",
+  "XLSX": "object",
+  "DOMPurify": "function",
+  "csp": [],
+  "errors": []
+ },
+ {
+  "p": "compost/index.html",
+  "title": "퇴·액비 부숙도 검사 위탁서",
+  "textLen": 451,
+  "api": "object",
+  "XLSX": "object",
+  "DOMPurify": "function",
+  "csp": [],
+  "errors": []
+ },
+ {
+  "p": "settings/index.html",
+  "title": "설정 - 시료 접수 대장",
+  "textLen": 1459,
+  "api": "object",
+  "XLSX": "object",
+  "DOMPurify": "function",
+  "csp": [],
+  "errors": []
+ },
+ {
+  "p": "manual/index.html",
+  "title": "토양·퇴비 시료 접수 대장 - 사용 설명서",
+  "textLen": 21274,
+  "api": "object",
+  "XLSX": "undefined",
+  "DOMPurify": "undefined",
+  "csp": [],
+  "errors": []
+ },
+ {
+  "p": "release/index.html",
+  "title": "릴리즈 노트 - 토양·퇴비 시료 접수 대장",
+  "textLen": 24916,
+  "api": "object",
+  "XLSX": "undefined",
+  "DOMPurify": "undefined",
+  "csp": [
+   "script-src-elem"
+  ],
+  "errors": [
+   "Executing inline script violates the following Content Security Policy directive 'script-src 'self' file:'. Either the 'unsafe-inline' keyword, a hash ('sha256-"
+  ]
+ },
+ {
+  "p": "label-print/index.html",
+  "title": "라벨지 인쇄",
+  "textLen": 195,
+  "api": "object",
+  "XLSX": "object",
+  "DOMPurify": "function",
+  "csp": [],
+  "errors": []
+ },
+ {
+  "p": "heuktoram/index.html",
+  "title": "흙토람 토양검정 내보내기",
+  "textLen": 445,
+  "api": "object",
+  "XLSX": "object",
+  "DOMPurify": "undefined",
+  "csp": [],
+  "errors": []
+ },
+ {
+  "p": "compost-analysis/index.html",
+  "title": "퇴·액비 검정결과",
+  "textLen": 253,
+  "api": "object",
+  "XLSX": "object",
+  "DOMPurify": "undefined",
+  "csp": [],
+  "errors": []
+ },
+ {
+  "p": "feedback/index.html",
+  "title": "문의/건의 - 시료 접수 대장",
+  "textLen": 304,
+  "api": "object",
+  "XLSX": "undefined",
+  "DOMPurify": "function",
+  "csp": [],
+  "errors": []
+ },
+ {
+  "p": "feedback-admin/index.html",
+  "title": "관리자 - 문의/공지 관리",
+  "textLen": 57,
+  "api": "object",
+  "XLSX": "undefined",
+  "DOMPurify": "function",
+  "csp": [],
+  "errors": []
+ },
+ {
+  "p": "landing/index.html",
+  "title": "토양·퇴비 시료 접수 대장 — 토양 및 가축분뇨 퇴비 시료 접수·관리",
+  "textLen": 1614,
+  "api": "object",
+  "XLSX": "undefined",
+  "DOMPurify": "undefined",
+  "csp": [],
+  "errors": [
+   "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element."
+  ]
+ },
+ {
+  "p": "manual/firebase-setup.html",
+  "title": "Firebase 설정 가이드 - 시료 접수 대장",
+  "textLen": 7456,
+  "api": "object",
+  "XLSX": "undefined",
+  "DOMPurify": "undefined",
+  "csp": [
+   "script-src-elem"
+  ],
+  "errors": [
+   "Executing inline script violates the following Content Security Policy directive 'script-src 'self' file:'. Either the 'unsafe-inline' keyword, a hash ('sha256-"
+  ]
+ }
+]

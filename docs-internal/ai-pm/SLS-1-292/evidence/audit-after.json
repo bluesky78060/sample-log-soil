@@ -1,0 +1,28 @@
+{
+ "total": {
+  "info": 0,
+  "low": 1,
+  "moderate": 0,
+  "high": 27,
+  "critical": 0,
+  "total": 28
+ },
+ "viteEsbuild": {
+  "vite": "항목 없음(소멸)",
+  "esbuild": "항목 없음(소멸)"
+ },
+ "omitDev": {
+  "total": 5,
+  "high": 4,
+  "low": 1,
+  "packages": [
+   "@firebase/firestore",
+   "@firebase/firestore-compat",
+   "@grpc/grpc-js",
+   "dompurify",
+   "firebase"
+  ],
+  "note": "이번 변경(프로덕션 lock 변경 0)과 무관 — 권고가 2026-09-30T15:35~15:37Z 에 새로 공개됨(GHSA-m9gg-hp2v-232j, GHSA-f596-whhp-79r4 @grpc/grpc-js / GHSA-p98j-92pf-mc4p dompurify). 후속 SLS-1-296"
+ },
+ "설명": "전체(dev 포함) 합계와 vite·esbuild 항목 소멸, 그리고 --omit=dev 수치(omitDev)"
+}

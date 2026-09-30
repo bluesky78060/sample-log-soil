@@ -1,0 +1,4 @@
+E2E 전체 재실행(조용한 상태): 496 passed (8.2m), exit=0
+E2E 서버: playwright.config.js webServer = npx http-server docs -p 8888, reuseExistingServer — 실행 시 이 워크트리 docs/ 를 서빙(리뷰어가 pid cwd 확인)
+첫 실행: 489 passed / 7 failed(타임아웃 6 + drift 측정 전제 1) → 실패 5파일 56건 2회 재실행 모두 통과
+첫 실행 실패 7건(원자료 test-results/ 는 gitignore): accessibility.spec.js:124 랜드마크 · accessibility.spec.js:147 포커스 표시 · form-submission.spec.js:51 폼 초기화 · list-sticky-columns-drift.spec.js:139 고정 열(측정 전제 「가로로 110px밖에 안 넘쳐」, tests/e2e/list-sticky-columns-drift.spec.js:77-78 max<120) · soil-crop-search.spec.js:147·174 · soil-form.spec.js:66 뷰 전환. 오류는 Test timeout 30000ms(goto·click) 6건 + 측정 전제 1건.

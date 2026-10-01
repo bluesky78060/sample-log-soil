@@ -616,13 +616,42 @@
 
                  ⚠️ "자료를 확인하십시오" 같은 문구는 넣지 않는다 — 그 조합으로 접수한 건이
                  없다고 사용자가 확인했다(2026-08-20). 없는 사고를 알리면 불필요한 점검만 하게 된다. -->
+            <!-- v1.14.20 -->
+            <!-- data-popup: 붙이지 않는다. 눌러도 반응하지 않던 버튼을 고친 것이라 사용자가
+                 확인하거나 손볼 것이 없고, 데이터에는 영향이 없다.
+                 (내용: 설치본 CSP 가 막던 인라인 스크립트 2곳을 모듈로 옮김 SLS-1-295 + 내부 부품 보안 갱신
+                 SLS-1-292·296·298. 연동 설정 안내 화면(탭·복사 버튼)도 고쳤지만 설명서에서 숨겨진 화면이라 항목에서 뺐다
+                 — 숨긴 화면을 릴리스 노트가 다시 알리면 사용자가 찾는다(SLS-1-201). 릴리스 노트에는 연동 서비스의 제품명을 쓰지 않는다 — privacy 테스트가 주석까지 검사한다) -->
+            <div class="version-entry">
+                <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.20</span>
+                                <span class="version-date">2026-10-01</span>
+                            </div>
+                            <div class="version-title">🛠️ 설치된 프로그램에서 눌러도 반응하지 않던 버튼을 고쳤습니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>이 릴리스 노트 화면의 다크 모드 버튼이 설치된 프로그램에서 동작하지 않던 것을 고쳤습니다.</strong>
+                            이제 누르면 화면이 바뀌고, 다시 열어도 선택한 모양이 유지됩니다. 메인 화면의 다크 모드 설정과 같은 값을 씁니다.</li>
+                        <li>프로그램 내부 부품의 보안 업데이트를 반영했습니다. 접수 화면과 사용 방법은 <strong>그대로입니다.</strong> 저장된 자료에도 영향이 없습니다.</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- v1.14.19 -->
             <!-- data-popup: 붙이지 않는다. 화면·기능이 바뀌지 않고 사용자가 확인하거나 손볼 것이
                  없다. 이 결함이 실제로 악용됐다는 정황도 없다 — 알리면 없는 사고를 점검하게 된다.
                  (내용: 설치본이 창을 열 때 PC 안 3000번 포트의 화면을 앱 화면으로 불러올 수 있던
                  것을 막았다. SLS-1-289) -->
             <div class="version-entry">
-                <div class="version-dot latest"></div>
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -631,9 +660,6 @@
                                 <span class="version-date">2026-09-30</span>
                             </div>
                             <div class="version-title">🔒 보안 업데이트 — 앱 창이 엉뚱한 화면을 불러오지 않도록 막았습니다</div>
-                        </div>
-                        <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

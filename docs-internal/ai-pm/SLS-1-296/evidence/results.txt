@@ -1,0 +1,4 @@
+설치본(패키징 앱, 임시 user-data-dir)에서 앱의 실제 래퍼 `window.sanitizeHTML` 호출(smoke/installed-sanitizeHTML-probe.cjs, 출력 smoke/installed-sanitizeHTML-output.txt): DOMPurify 3.4.16, `rel="noopener noreferrer"` 훅 적용, onerror·script 제거. (첫 판은 raw DOMPurify.sanitize 만 호출해 훅을 검증하지 못했다 — codex 지적으로 래퍼 호출로 고침)
+진입점 13개: SLS-1-292 와 동일(11개 깨끗, release·manual/firebase-setup 인라인 스크립트 CSP 위반 + landing meta 경고는 기존 항목, 신규 0). 실사용 폴더 전후 무변경, UnhandledPromise 0.
+E2E 전체 496 passed (4.5m), 8888 비어 있는 상태에서 이 워크트리 docs/ 를 서빙.
+audit --omit=dev: 4건(전부 grpc 계열, 도달 불가 판단 — decisions.md), dompurify 항목 소멸.

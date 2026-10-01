@@ -21,3 +21,16 @@
   알림 채널 하나로 국한되도록 하는 것이 핵심.
 - **재검토 시점**: 문의게시판 알림 채널이 늘어나거나(예: Slack/카카오 등 추가), 자격증명이 실제로
   악용된 정황이 있으면 서버 이전을 재검토한다.
+
+## `@grpc/grpc-js` 알림은 도달 불가로 판단해 코드를 바꾸지 않았다 (SLS-1-296, 2026-10-01)
+
+Dependabot·`npm audit --omit=dev` 가 `@grpc/grpc-js` 1.9.16(firebase 12.7.0 → `@firebase/firestore` 4.9.3 전이)에 high 권고(GHSA-m9gg-hp2v-232j, GHSA-f596-whhp-79r4, 범위 <1.13.6)를 낸다. **프로덕션 경로에서 이 패키지가 로드되지 않아** 고치지 않는다 — 근거와 증거는 `docs-internal/ai-pm/SLS-1-296/`.
+
+- 로드하는 파일은 `@firebase/firestore` 의 Node 진입점(`index.node.cjs.js`·`index.node.mjs`)뿐이다.
+- 렌더러는 `firebase/compat/*` 의 브라우저 빌드를 번들한다(`docs/assets` 에 `grpc-js`·`@grpc`·`proto-loader`·`http2` 0건, `WebChannel` 존재). 메인 프로세스는 firebase 를 require 하지 않는다.
+- override 도 하지 않는다: `@firebase/firestore` 최신(4.17.2)도 `~1.9.0` 으로 고정이고, npm audit 이 제안하는 「firebase 9.14.0」은 다운그레이드다.
+
+**재검토 조건 — 하나라도 해당하면 판단을 다시 한다**
+1. `@grpc/grpc-js` 1.9.x 백포트(1.9.17 등)가 나오면 `~1.9.0` 범위 안이라 override 없이 lock 갱신만으로 해소된다 — 올린다.
+2. `@firebase/firestore` 가 grpc 고정을 풀면 올린다.
+3. 「도달 불가」가 기대는 **불변식이 깨지면**: (a) 모든 BrowserWindow 가 `sandbox:true`·`nodeIntegration:false`(`src/index.js`), (b) vite 클라이언트 조건에 `node` 가 없다(`vite.config.js` 에 `resolve.conditions`·`ssr` 오버라이드 없음), (c) 메인 프로세스가 firebase 를 쓰지 않는다.

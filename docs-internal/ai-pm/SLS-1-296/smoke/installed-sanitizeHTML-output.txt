@@ -1,0 +1,2 @@
+{"version":"3.4.16","wrapper":"function","out":"<a href=\"https://x.test\" target=\"_blank\" rel=\"noopener noreferrer\">l</a><img src=\"x\">"}
+PROBE_OK

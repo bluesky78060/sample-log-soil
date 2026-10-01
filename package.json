@@ -34,7 +34,7 @@
   "license": "MIT",
   "dependencies": {
     "dexie": "^4.4.3",
-    "dompurify": "^3.4.15",
+    "dompurify": "^3.4.16",
     "electron-squirrel-startup": "^1.0.1",
     "electron-updater": "6.8.9",
     "firebase": "^12.7.0",

@@ -1,0 +1,2 @@
+{"release":{"themeBefore":"light","themeAfter":"dark","stored":"dark","csp":[]},"firebaseSetup":{"tabWebActive":true,"faqOpen":true,"checked":true,"copyText":"복사됨!","csp":[]}}
+CLICKS_OK

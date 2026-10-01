@@ -1,0 +1,173 @@
+[WebServer] (node:69754) [DEP0066] DeprecationWarning: OutgoingMessage.prototype._headers is deprecated
+[WebServer] (Use `node --trace-deprecation ...` to show where the warning was created)
+
+Running 5 tests using 5 workers
+
+  ✘  2 [chromium] › tests/e2e/inline-script-pages.spec.js:61:5 › Firebase 설정 안내 페이지 (SLS-1-295) › FAQ 질문을 누르면 열리고 다시 누르면 닫힌다 (5.6s)
+  ✘  3 [chromium] › tests/e2e/inline-script-pages.spec.js:85:5 › Firebase 설정 안내 페이지 (SLS-1-295) › 복사 버튼은 「복사됨!」으로 바뀌었다 돌아오고 클립보드에 내용이 들어간다 (5.6s)
+  ✘  4 [chromium] › tests/e2e/inline-script-pages.spec.js:51:5 › Firebase 설정 안내 페이지 (SLS-1-295) › 탭을 누르면 해당 탭 내용만 보인다 (5.7s)
+  ✘  1 [chromium] › tests/e2e/inline-script-pages.spec.js:71:5 › Firebase 설정 안내 페이지 (SLS-1-295) › 체크리스트를 모두 누르면 완료 메시지가 뜬다 (5.9s)
+  ✘  5 [chromium] › tests/e2e/inline-script-pages.spec.js:118:5 › 릴리스 노트 페이지 (SLS-1-295) › 다크 모드 토글이 동작하고 새로고침해도 유지된다 (7.9s)
+
+
+  1) [chromium] › tests/e2e/inline-script-pages.spec.js:51:5 › Firebase 설정 안내 페이지 (SLS-1-295) › 탭을 누르면 해당 탭 내용만 보인다 
+
+    Error: expect(locator).toHaveClass(expected) failed
+
+    Locator: locator('#tab-web')
+    Expected pattern: /active/
+    Received string:  "tab-content"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveClass" with timeout 5000ms
+      - waiting for locator('#tab-web')
+        9 × locator resolved to <div id="tab-web" class="tab-content">…</div>
+          - unexpected value "tab-content"
+
+
+      52 |         await expect(page.locator('#tab-electron')).toHaveClass(/active/);
+      53 |         await page.locator('.tab', { hasText: '웹 버전 사용자' }).click();
+    > 54 |         await expect(page.locator('#tab-web')).toHaveClass(/active/);
+         |                                                ^
+      55 |         await expect(page.locator('#tab-electron')).not.toHaveClass(/active/);
+      56 |         await expect(page.locator('.tab', { hasText: '웹 버전 사용자' })).toHaveClass(/active/);
+      57 |         await expect(page.locator('.tab', { hasText: 'Electron 앱 사용자' })).not.toHaveClass(/active/);
+        at /Users/leechanhee/orca/workspaces/sample-log-soil/soil/tests/e2e/inline-script-pages.spec.js:54:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/inline-script-pages-Fireba-8e06a-S-1-295-탭을-누르면-해당-탭-내용만-보인다-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/inline-script-pages-Fireba-8e06a-S-1-295-탭을-누르면-해당-탭-내용만-보인다-chromium/error-context.md
+
+  2) [chromium] › tests/e2e/inline-script-pages.spec.js:61:5 › Firebase 설정 안내 페이지 (SLS-1-295) › FAQ 질문을 누르면 열리고 다시 누르면 닫힌다 
+
+    Error: expect(locator).toHaveClass(expected) failed
+
+    Locator: locator('.faq-item').first()
+    Expected pattern: /open/
+    Received string:  "faq-item"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveClass" with timeout 5000ms
+      - waiting for locator('.faq-item').first()
+        9 × locator resolved to <div class="faq-item">…</div>
+          - unexpected value "faq-item"
+
+
+      63 |         await expect(item).not.toHaveClass(/open/);
+      64 |         await item.locator('.faq-question').click();
+    > 65 |         await expect(item).toHaveClass(/open/);
+         |                            ^
+      66 |         await item.locator('.faq-question').click();
+      67 |         await expect(item).not.toHaveClass(/open/);
+      68 |         expect(await cspViolations(page)).toEqual([]);
+        at /Users/leechanhee/orca/workspaces/sample-log-soil/soil/tests/e2e/inline-script-pages.spec.js:65:28
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/inline-script-pages-Fireba-5f01b--FAQ-질문을-누르면-열리고-다시-누르면-닫힌다-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/inline-script-pages-Fireba-5f01b--FAQ-질문을-누르면-열리고-다시-누르면-닫힌다-chromium/error-context.md
+
+  3) [chromium] › tests/e2e/inline-script-pages.spec.js:71:5 › Firebase 설정 안내 페이지 (SLS-1-295) › 체크리스트를 모두 누르면 완료 메시지가 뜬다 
+
+    Error: expect(locator).toHaveClass(expected) failed
+
+    Locator: locator('#section-checklist .checklist').first().locator('li').first()
+    Expected pattern: /checked/
+    Received string:  ""
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveClass" with timeout 5000ms
+      - waiting for locator('#section-checklist .checklist').first().locator('li').first()
+        9 × locator resolved to <li onclick="toggleCheck(this)">…</li>
+          - unexpected value ""
+
+
+      76 |         await expect(done).toBeHidden();
+      77 |         for (let i = 0; i < total; i++) await items.nth(i).click();
+    > 78 |         await expect(items.first()).toHaveClass(/checked/);
+         |                                     ^
+      79 |         await expect(done).toBeVisible();
+      80 |         await items.first().click();                       // 하나 풀면 다시 숨는다
+      81 |         await expect(done).toBeHidden();
+        at /Users/leechanhee/orca/workspaces/sample-log-soil/soil/tests/e2e/inline-script-pages.spec.js:78:37
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/inline-script-pages-Fireba-9313e-95-체크리스트를-모두-누르면-완료-메시지가-뜬다-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/inline-script-pages-Fireba-9313e-95-체크리스트를-모두-누르면-완료-메시지가-뜬다-chromium/error-context.md
+
+  4) [chromium] › tests/e2e/inline-script-pages.spec.js:85:5 › Firebase 설정 안내 페이지 (SLS-1-295) › 복사 버튼은 「복사됨!」으로 바뀌었다 돌아오고 클립보드에 내용이 들어간다 
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator:  locator('.copy-btn').first()
+    Expected: "복사됨!"
+    Received: "복사"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.copy-btn').first()
+        9 × locator resolved to <button class="copy-btn" onclick="copyText(this, 'https://console.firebase.google.com')">복사</button>
+          - unexpected value "복사"
+
+
+      89 |         await buttons.nth(0).scrollIntoViewIfNeeded();
+      90 |         await buttons.nth(0).click();
+    > 91 |         await expect(buttons.nth(0)).toHaveText('복사됨!');
+         |                                      ^
+      92 |         expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('https://console.firebase.google.com');
+      93 |
+      94 |         await buttons.nth(1).scrollIntoViewIfNeeded();
+        at /Users/leechanhee/orca/workspaces/sample-log-soil/soil/tests/e2e/inline-script-pages.spec.js:91:38
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/inline-script-pages-Fireba-16c74-으로-바뀌었다-돌아오고-클립보드에-내용이-들어간다-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/inline-script-pages-Fireba-16c74-으로-바뀌었다-돌아오고-클립보드에-내용이-들어간다-chromium/error-context.md
+
+  5) [chromium] › tests/e2e/inline-script-pages.spec.js:118:5 › 릴리스 노트 페이지 (SLS-1-295) › 다크 모드 토글이 동작하고 새로고침해도 유지된다 
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator:  locator('html')
+    Expected: "dark"
+    Received: "light"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveAttribute" with timeout 5000ms
+      - waiting for locator('html')
+        9 × locator resolved to <html lang="ko" data-theme="light">…</html>
+          - unexpected value "light"
+
+
+      121 |         await expect(html).toHaveAttribute('data-theme', 'light');
+      122 |         await btn.click();
+    > 123 |         await expect(html).toHaveAttribute('data-theme', 'dark');
+          |                            ^
+      124 |         await expect(btn).toHaveClass(/dark/);
+      125 |         expect(await page.evaluate(() => localStorage.getItem('theme-preference'))).toBe('dark');
+      126 |
+        at /Users/leechanhee/orca/workspaces/sample-log-soil/soil/tests/e2e/inline-script-pages.spec.js:123:28
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/inline-script-pages-릴리스-노트-b0496--다크-모드-토글이-동작하고-새로고침해도-유지된다-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/inline-script-pages-릴리스-노트-b0496--다크-모드-토글이-동작하고-새로고침해도-유지된다-chromium/error-context.md
+
+  5 failed
+    [chromium] › tests/e2e/inline-script-pages.spec.js:51:5 › Firebase 설정 안내 페이지 (SLS-1-295) › 탭을 누르면 해당 탭 내용만 보인다 
+    [chromium] › tests/e2e/inline-script-pages.spec.js:61:5 › Firebase 설정 안내 페이지 (SLS-1-295) › FAQ 질문을 누르면 열리고 다시 누르면 닫힌다 
+    [chromium] › tests/e2e/inline-script-pages.spec.js:71:5 › Firebase 설정 안내 페이지 (SLS-1-295) › 체크리스트를 모두 누르면 완료 메시지가 뜬다 
+    [chromium] › tests/e2e/inline-script-pages.spec.js:85:5 › Firebase 설정 안내 페이지 (SLS-1-295) › 복사 버튼은 「복사됨!」으로 바뀌었다 돌아오고 클립보드에 내용이 들어간다 
+    [chromium] › tests/e2e/inline-script-pages.spec.js:118:5 › 릴리스 노트 페이지 (SLS-1-295) › 다크 모드 토글이 동작하고 새로고침해도 유지된다 

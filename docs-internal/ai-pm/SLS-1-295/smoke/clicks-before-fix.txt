@@ -1,0 +1,2 @@
+{"release":{"themeBefore":"light","themeAfter":"light","stored":null,"csp":["script-src-elem"]},"firebaseSetup":{"tabWebActive":false,"faqOpen":false,"checked":false,"copyText":"복사","csp":["script-src-elem","script-src-attr","script-src-attr","script-src-attr","script-src-attr"]}}
+CLICKS_FAIL

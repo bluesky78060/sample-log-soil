@@ -2353,40 +2353,7 @@
         <a href="../index.html" class="close-btn">닫기</a>
     </div>
 
-    <script>
-        // 다크 모드 토글
-        const html = document.documentElement;
-        const toggleBtn = document.getElementById('themeToggleBtn');
-
-        // 저장된 테마 로드
-        const savedTheme = localStorage.getItem('theme-preference') || 'light';
-        html.setAttribute('data-theme', savedTheme);
-        if (savedTheme === 'dark') {
-            toggleBtn.classList.add('dark');
-        }
-
-        toggleBtn.addEventListener('click', function() {
-            var isDark = html.getAttribute('data-theme') === 'dark';
-            var newTheme = isDark ? 'light' : 'dark';
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme-preference', newTheme);
-            toggleBtn.classList.toggle('dark', !isDark);
-        });
-
-        // 접기/펼치기 토글
-        document.querySelectorAll('.toggle-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var card = btn.closest('.version-card');
-                if (card.classList.contains('collapsed')) {
-                    card.classList.remove('collapsed');
-                    btn.textContent = '▲ 접기';
-                } else {
-                    card.classList.add('collapsed');
-                    btn.textContent = '▼ 펼치기';
-                }
-            });
-        });
-    </script>
+    <script type="module" src="./release-script.js"></script>
 </body>
 
 </html>

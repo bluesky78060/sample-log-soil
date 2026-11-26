@@ -1376,7 +1376,9 @@ class HeuktoramManager {
             // 사용자가 엑셀에서 용도구분(G열) 셀을 클릭 시 드롭다운이 나타나도록 함
             const arrayBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
             const validations = this.buildDataValidations(targetRows.length);
-            const patchedBuffer = await this.injectDataValidations(arrayBuffer, validations);
+            // 검증 주입이 early-return 해도 포장 보정은 항상 거친다 (SLS-1-300)
+            const patchedBuffer = await window.finalizeXlsxPackage(
+                await this.injectDataValidations(arrayBuffer, validations));
 
             const fileName = `흙토람_토양검정_${this.selectedYear}_${new Date().toISOString().slice(0, 10)}.xlsx`;
             this.downloadBuffer(patchedBuffer, fileName);
@@ -1822,7 +1824,9 @@ class HeuktoramManager {
 
             const arrayBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
             const validations = this.buildGongikDataValidations(targetRows.length);
-            const patchedBuffer = await this.injectDataValidations(arrayBuffer, validations);
+            // 검증 주입이 early-return 해도 포장 보정은 항상 거친다 (SLS-1-300)
+            const patchedBuffer = await window.finalizeXlsxPackage(
+                await this.injectDataValidations(arrayBuffer, validations));
 
             const fileName = `공익직불제_이행점검_${this.selectedYear}_${new Date().toISOString().slice(0, 10)}.xlsx`;
             this.downloadBuffer(patchedBuffer, fileName);

@@ -24,6 +24,7 @@ import '../shared/lot-address-parser.js';   // SLS-1-200: 지번 파서 공유 (
 import '../shared/theme.js';
 import '../shared/tooltip.js';
 import '../shared/logger.js';
+import '../shared/xlsx-package.js';      // SLS-1-300: 흙토람 업로드 거부 방지 포장 보정
 
 // 분석결과 영속 저장소(Dexie/IndexedDB) — window.AnalysisDB 노출
 import '../shared/analysis-db.js';

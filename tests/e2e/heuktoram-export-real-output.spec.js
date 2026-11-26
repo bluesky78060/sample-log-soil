@@ -97,7 +97,7 @@ const styleIndexOf = (sheetXml, ref) =>
 test.describe.configure({ mode: 'serial' });
 
 test.describe('흙토람 내보내기 실제 산출물 (SLS-1-214)', () => {
-    let sheetXml, stylesXml, workbookXml, resolve;
+    let sheetXml, stylesXml, workbookXml, resolve, entryNames, contentTypes;
 
     test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage();
@@ -111,6 +111,8 @@ test.describe('흙토람 내보내기 실제 산출물 (SLS-1-214)', () => {
     stylesXml = await zip.file('xl/styles.xml').async('string');
     workbookXml = await zip.file('xl/workbook.xml').async('string');
     resolve = makeStyleResolver(stylesXml);
+    entryNames = Object.keys(zip.files);
+    contentTypes = await zip.file('[Content_Types].xml').async('string');
     await page.close();
     });
 
@@ -166,5 +168,11 @@ test.describe('흙토람 내보내기 실제 산출물 (SLS-1-214)', () => {
         expect(dv, `실제 sqref: ${dv.join(',')}`).toEqual(['F', 'G', 'U']);
         expect(dv, 'H는 시료번호다').not.toContain('H');
         expect(dv, 'AH는 암모니아태질소다').not.toContain('AH');
+    });
+
+    // SLS-1-300: 빌드된 번들에서도 포장 보정이 실제로 걸리는지 (단위 테스트는 소스 텍스트로만 본다)
+    test('8. [Content_Types].xml 이 ZIP 첫 엔트리이고 xlsb bin 선언이 없다', () => {
+        expect(entryNames[0]).toBe('[Content_Types].xml');
+        expect(contentTypes).not.toContain('binary.macroEnabled.main');
     });
 });

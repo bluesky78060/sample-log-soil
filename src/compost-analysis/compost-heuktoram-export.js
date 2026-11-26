@@ -323,11 +323,13 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
-    /** 워크북 생성 → 유효성 주입 → 다운로드 */
+    /** 워크북 생성 → 유효성 주입 → 포장 보정 → 다운로드 */
     async function exportFile(rows, results, fileName) {
         const wb = buildWorkbook(rows, results);
         const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
-        const patched = await injectDataValidations(buf, buildDataValidations());
+        // 검증 주입이 early-return 해도 포장 보정은 항상 거친다 (SLS-1-300)
+        const patched = await window.finalizeXlsxPackage(
+            await injectDataValidations(buf, buildDataValidations()));
         downloadBuffer(patched, fileName);
     }
 

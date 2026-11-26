@@ -616,6 +616,35 @@
 
                  ⚠️ "자료를 확인하십시오" 같은 문구는 넣지 않는다 — 그 조합으로 접수한 건이
                  없다고 사용자가 확인했다(2026-08-20). 없는 사고를 알리면 불필요한 점검만 하게 된다. -->
+            <!-- v1.14.21 -->
+            <!-- data-popup: 붙이지 않는다. 이 앱 산출물의 흙토람 업로드 통과는 아직 확인 전이라
+                 「이제 올라간다」고 알릴 수 없고, 사용자가 손볼 것도 없다.
+                 (내용: SheetJS 출력의 ZIP 포장을 엑셀 저장본처럼 보정 — 내용 목록 파일을 맨 앞으로,
+                 쓰이지 않는 바이너리 선언 한 줄 삭제. 토양·퇴비 흙토람·공익직불제 세 내보내기 SLS-1-300) -->
+            <div class="version-entry">
+                <div class="version-dot latest"></div>
+                <div class="version-card">
+                    <div class="version-card-header">
+                        <div>
+                            <div class="version-meta">
+                                <span class="version-number">v1.14.21</span>
+                                <span class="version-date">2026-11-26</span>
+                            </div>
+                            <div class="version-title">📤 흙토람 내보내기 파일이 업로드 거부될 수 있던 문제를 막도록 파일 구조를 보정했습니다</div>
+                        </div>
+                        <div class="badge-row">
+                            <span class="badge badge-latest">★ 최신</span>
+                        </div>
+                    </div>
+                    <ul class="change-list">
+                        <li><strong>흙토람에 올리는 엑셀 파일이 「변조된 확장자」로 거부될 수 있던 문제를 방지하도록 내보내기 파일의 내부 구조를 보정했습니다.</strong>
+                            토양 흙토람 내보내기와 퇴비 흙토람 내보내기에 적용했고, 같은 방식으로 만드는 공익직불제 내보내기 파일에도 적용했습니다.
+                            파일 안의 칸·값·서식은 <strong>그대로입니다.</strong></li>
+                        <li>보정을 마치지 못하면 파일을 만들지 않고 「내보내기에 실패했습니다」로 알립니다. 거부될 수 있는 파일이 그대로 저장되지 않게 하기 위해서입니다.</li>
+                    </ul>
+                </div>
+            </div>
+
             <!-- v1.14.20 -->
             <!-- data-popup: 붙이지 않는다. 눌러도 반응하지 않던 버튼을 고친 것이라 사용자가
                  확인하거나 손볼 것이 없고, 데이터에는 영향이 없다.
@@ -623,7 +652,7 @@
                  SLS-1-292·296·298. 연동 설정 안내 화면(탭·복사 버튼)도 고쳤지만 설명서에서 숨겨진 화면이라 항목에서 뺐다
                  — 숨긴 화면을 릴리스 노트가 다시 알리면 사용자가 찾는다(SLS-1-201). 릴리스 노트에는 연동 서비스의 제품명을 쓰지 않는다 — privacy 테스트가 주석까지 검사한다) -->
             <div class="version-entry">
-                <div class="version-dot latest"></div>
+                <div class="version-dot"></div>
                 <div class="version-card">
                     <div class="version-card-header">
                         <div>
@@ -632,9 +661,6 @@
                                 <span class="version-date">2026-10-01</span>
                             </div>
                             <div class="version-title">🛠️ 설치된 프로그램에서 눌러도 반응하지 않던 버튼을 고쳤습니다</div>
-                        </div>
-                        <div class="badge-row">
-                            <span class="badge badge-latest">★ 최신</span>
                         </div>
                     </div>
                     <ul class="change-list">

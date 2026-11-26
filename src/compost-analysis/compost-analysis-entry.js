@@ -26,6 +26,7 @@ import '../shared/toast.js';         // showToast — result importer가 요구
 import '../shared/theme.js';
 import '../shared/tooltip.js';
 import '../shared/logger.js';
+import '../shared/xlsx-package.js';      // SLS-1-300: 흙토람 업로드 거부 방지 포장 보정
 
 // 퇴비 도메인 단일 진실원
 import '../shared/compost-results-store.js';   // SLS-1-204: 검정결과 저장소
